@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <qcommon/common.h>
 #include <stdarg.h>
+#include <setjmp.h>
 #include <qcommon/threads.h>
 #include <qcommon/cm_trace.h>
 #include <gfx_d3d/r_model.h>
@@ -23,7 +24,7 @@ struct va_info_t
 
 va_info_t va_info[15];
 TraceThreadInfo g_traceThreadInfo[15];
-int g_com_error[15][16];
+jmp_buf g_com_error[15]; // sized by the compiler's jmp_buf (was int[15][16], only valid for MSVC x86's 64-byte jmp_buf)
 int valueindex;
 
 // *WARNING* One or more selections were skipped as they could not be interpreted as c data
@@ -239,20 +240,11 @@ void __cdecl I_strncpyz(char *dest, const char *src, int destsize)
     int n; // [esp+4h] [ebp-8h]
     const unsigned __int8 *p; // [esp+8h] [ebp-4h]
 
-    if ( !src && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\universal\\q_shared.cpp", 586, 0, "%s", "src") )
-        __debugbreak();
-    if ( !dest && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\universal\\q_shared.cpp", 587, 0, "%s", "dest") )
-        __debugbreak();
-    if ( destsize < 1
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\q_shared.cpp",
-                    588,
-                    0,
-                    "%s\n\t(destsize) = %i",
-                    "(destsize >= 1)",
-                    destsize) )
+    if ( !src || !dest || destsize < 1 )
     {
-        __debugbreak();
+        if ( dest && destsize > 0 )
+            dest[0] = 0;
+        return;
     }
     if ( dest )
     {

@@ -1,4 +1,5 @@
 #include <qcommon/common.h>
+#include <database/db_registry.h>
 #include "screen_placement.h"
 #include "cl_console.h"
 
@@ -4108,6 +4109,20 @@ void __cdecl Con_Restricted_InitLists()
     const StringTable *table; // [esp+4h] [ebp-4h] BYREF
 
     Con_Restricted_ShutDown();
+    if (zombiemode && zombiemode->current.enabled)
+    {
+        // Ranked MP's dedicated-server list is not an SP/Zombies asset.
+        Sys_EnterCriticalSection(CRITSECT_DBHASH);
+        const XAssetEntryPoolEntry *entry = DB_FindXAssetEntry(ASSET_TYPE_STRINGTABLE, "devconsole_restrict_access.csv");
+        table = entry ? entry->entry.asset.header.stringTable : nullptr;
+        Sys_LeaveCriticalSection(CRITSECT_DBHASH);
+        if (table)
+        {
+            Con_Restricted_LoadTable(table);
+            Con_Restricted_SetState(RESTRICTED_PROTECTED);
+        }
+        return;
+    }
     LicenseType = SV_GetLicenseType();
     if ( SV_IsServerRanked(LicenseType) )
         StringTable_GetAsset("mp/devconsole_restrict_access_dedicated_ranked_mp.csv", (XAssetHeader *)&table);

@@ -113,6 +113,19 @@ void *__cdecl R_LockIndexBuffer(
                 unsigned int bytes,
                 unsigned int lockFlags);
 void __cdecl R_UnlockIndexBuffer(IDirect3DIndexBuffer9 *handle);
+#ifdef KISAK_WEB
+// One GPU upload from an engine-owned pointer. No second CPU shadow.
+void __cdecl R_StageDynamicVertexUpload(
+                IDirect3DVertexBuffer9 *vb,
+                const void *src,
+                unsigned int offset,
+                unsigned int bytes);
+void __cdecl R_StageDynamicIndexUpload(
+                IDirect3DIndexBuffer9 *ib,
+                const void *src,
+                unsigned int offset,
+                unsigned int bytes);
+#endif
 void *__cdecl R_AllocDynamicVertexBuffer(IDirect3DVertexBuffer9 **vb, int sizeInBytes);
 void *__cdecl R_AllocStaticVertexBuffer(IDirect3DVertexBuffer9 **vb, int sizeInBytes);
 void __cdecl R_FinishStaticVertexBuffer(IDirect3DVertexBuffer9 *vb);

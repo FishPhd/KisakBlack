@@ -129,7 +129,7 @@ int __cdecl LiveStats_GetDDLHeaderVersion(unsigned __int8 *statsBuffer)
 
 int __cdecl LiveStats_ValidateGlobalWithDDL(int controllerIndex)
 {
-    char backupBuffer[40172]; // [esp+0h] [ebp-9CF8h] BYREF
+    char backupBuffer[40552]; // [esp+0h] [ebp-9CF8h] BYREF
     char *buffer; // [esp+9CF0h] [ebp-8h]
     int bufferSize; // [esp+9CF4h] [ebp-4h]
 
@@ -145,8 +145,8 @@ int __cdecl LiveStats_ValidateGlobalWithDDL(int controllerIndex)
         LiveStorage_SetStatsDDLValidated(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return 1;
     }
-    else if ( DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats.ddl", backupBuffer, 40168)
-                 || DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats_archive.ddl", backupBuffer, 40168) )
+    else if ( DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats.ddl", backupBuffer, 40548)
+                 || DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats_archive.ddl", backupBuffer, 40548) )
     {
         DDL_NoCheckPrintWarning(
             "DDL: Stats buffer updated to version %d for controller index %d.\n",
@@ -289,7 +289,10 @@ unsigned int __cdecl LiveStats_GetDIntStatFromBase(
     v4 = xblive_basictraining && xblive_basictraining->current.enabled
         || LiveStats_GetBasicTrainingState(buffer->statsBuffer);
     if ( !v4 && searchState->member->permission == 2 )
-        buffer = LiveStorage_GetStatsBuffer(0, STATS_LOCATION_GLOBAL, 1);
+    {
+        const bool stable = buffer == LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_STABLE, 0);
+        buffer = LiveStorage_GetStatsBuffer(controllerIndex, stable ? STATS_LOCATION_GLOBALSTABLE : STATS_LOCATION_GLOBAL, 1);
+    }
     return DDL_GetInt(searchState, (char *)buffer);
 }
 
@@ -810,7 +813,7 @@ void __cdecl LiveStats_SetStatChanged(int controllerIndex, const char *hexMsg)
             statChangeCommand[runCount] = hexMsg[i];
             if ( sizeFound && runCount == 2 * size - 1 )
             {
-                LiveStats_ProcessStatChangedData(controllerIndex, (char *)buffer, 40168, startOffset, size, statChangeCommand);
+                LiveStats_ProcessStatChangedData(controllerIndex, (char *)buffer, 40548, startOffset, size, statChangeCommand);
                 runCount = 0;
                 offsetFound = 0;
                 sizeFound = 0;
@@ -4079,6 +4082,9 @@ unsigned int __cdecl LiveStats_GetXp(int controllerIndex)
 {
     persistentStats *buffer; // [esp+0h] [ebp-8h]
 
+    // Frontend expressions can query rank before the profile and DDL are ready.
+    if (controllerIndex != 0 || !g_statsDDL || !g_statsRankXPState.member || !s_statsBufferInitialised[controllerIndex])
+        return 0;
     buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_GLOBAL, 1);
     return DDL_GetInt(&g_statsRankXPState, (char *)buffer);
 }
@@ -4195,8 +4201,7 @@ unsigned __int64 __cdecl LiveStats_ReadXUIDFromStats()
     if ( DDL_MoveTo(&g_statsRootState, &searchState, 1, "PlayerXUID") )
     {
         buff = LiveStorage_GetStatsBuffer(0, STATS_LOCATION_NORMAL, 1);
-        LODWORD(v0) = DDL_GetInt64(&searchState, (char *)buff);
-        return v0;
+        return DDL_GetInt64(&searchState, (char *)buff);
     }
     else if ( !Assert_MyHandler(
                              "C:\\projects_pc\\cod\\codsrc\\src\\live\\live_stats.cpp",
@@ -4788,6 +4793,12 @@ bool s_initCalledOnce = false;
 void __cdecl LiveStats_Init()
 {
     g_statsDDL = DDL_LoadAsset("ddl_mp/stats.ddl");
+    if (g_statsDDL)
+    {
+        const int ddlBytes = (g_statsDDL->size + 320 + 7) / 8;
+        Com_Printf(16, "LiveStats_Init: stats ddl version %i, %i bytes required (LiveStorage_GetStatsBufferSize = %i, stat_version = %i)\n",
+            g_statsDDL->version, ddlBytes, LiveStorage_GetStatsBufferSize(), stat_version ? stat_version->current.integer : -1);
+    }
     DDL_Reset(&g_statsCacState, g_statsDDL);
     DDL_MoveToName(&g_statsCacState, &g_statsCacState, "CacLoadouts");
     DDL_Reset(&g_statsActiveContractsState, g_statsDDL);

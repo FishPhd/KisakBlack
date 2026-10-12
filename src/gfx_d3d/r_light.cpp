@@ -1,3 +1,6 @@
+#ifdef KISAK_WEB
+#include <web/web_graphics.h>
+#endif
 #include "r_light.h"
 #include <qcommon/common.h>
 #include "r_light_load_obj.h"
@@ -157,6 +160,10 @@ int __cdecl R_GetPointLightPartitions(GfxLight *visibleLights)
         }
     }
     visibleLimit = r_dlightLimit->current.integer;
+#ifdef KISAK_WEB
+    if (web_reduceDynamicLights->current.enabled && visibleLimit > 1)
+        visibleLimit = 1;
+#endif
     if ( visibleLimit > 4
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\gfx_d3d\\r_light.cpp",

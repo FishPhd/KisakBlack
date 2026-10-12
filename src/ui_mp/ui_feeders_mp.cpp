@@ -266,7 +266,7 @@ int __cdecl UI_GetBasicTrainingGameTypeCount()
     count = 0;
     for ( index = 0; index < sharedUiInfo.numCustomMatchGameTypes; ++index )
     {
-        if ( sharedUiInfo.gameTypeMapCount[29 * index - 901] )
+        if ( sharedUiInfo.customMatchGameTypes[index].basictraining )
             ++count;
     }
     return count;
@@ -360,7 +360,7 @@ char *__cdecl UI_FeederItemText_CustomGametypes(int index)
     if ( index < 0 || index >= sharedUiInfo.numCustomMatchGameTypes )
         return (char *)"";
     else
-        return UI_SafeTranslateString((const char *)&sharedUiInfo.gameTypeMapCount[29 * index - 926]);
+        return UI_SafeTranslateString(sharedUiInfo.customMatchGameTypes[index].gameTypeName);
 }
 
 const char *__cdecl UI_FeederItemText_GametypesBase(
@@ -390,7 +390,7 @@ const char *__cdecl UI_FeederItemText_GametypesBase(
             {
                 indexa = UI_GetBasicTrainingGametypeIdForNum(index);
                 if ( indexa >= 0 && indexa < sharedUiInfo.numCustomMatchGameTypes )
-                    result = UI_SafeTranslateString((const char *)&sharedUiInfo.gameTypeMapCount[29 * indexa - 926]);
+                    result = UI_SafeTranslateString(sharedUiInfo.customMatchGameTypes[indexa].gameTypeName);
                 else
                     result = "";
             }
@@ -408,7 +408,7 @@ const char *__cdecl UI_FeederItemText_GametypesBase(
                         return UI_SafeTranslateString("CUSTOM_CUSTOM_GAME_MODE_CAPS");
                     realIndex = index - 1;
                 }
-                result = UI_SafeTranslateString((const char *)&sharedUiInfo.gameTypeMapCount[29 * realIndex - 926]);
+                result = UI_SafeTranslateString(sharedUiInfo.customMatchGameTypes[realIndex].gameTypeName);
             }
             break;
         case 2:
@@ -421,7 +421,7 @@ const char *__cdecl UI_FeederItemText_GametypesBase(
         case 3:
             if ( Com_GameMode_IsGameMode(GAMEMODE_FIRST_PRIVATE_ONLINE_GAMEMODE) )
                 realIndex = index - 1;
-            if ( !I_strcmp(&sharedUiInfo.customGameTypes[32].gameType[116 * realIndex], ui_gametype->current.string)
+            if ( !I_strcmp(sharedUiInfo.customMatchGameTypes[realIndex].gameType, ui_gametype->current.string)
                 && customGameMode->current.integer )
             {
                 *handle = Material_RegisterHandle("ui_host", 3);
@@ -443,7 +443,7 @@ int __cdecl UI_GetBasicTrainingGametypeIdForNum(int num)
     count = 0;
     for ( index = 0; index < sharedUiInfo.numCustomMatchGameTypes; ++index )
     {
-        if ( sharedUiInfo.gameTypeMapCount[29 * index - 901] )
+        if ( sharedUiInfo.customMatchGameTypes[index].basictraining )
         {
             if ( count == num )
                 return index;
@@ -472,7 +472,7 @@ char *__cdecl UI_FeederItemText_GametypesInGame(
         if ( column )
         {
             if ( column == 1 )
-                return UI_SafeTranslateString((const char *)&sharedUiInfo.gameTypeMapCount[29 * index - 926]);
+                return UI_SafeTranslateString(sharedUiInfo.customMatchGameTypes[index].gameTypeName);
             else
                 return (char *)"";
         }
@@ -487,7 +487,7 @@ char *__cdecl UI_FeederItemText_GametypesInGame(
     if ( column )
     {
         if ( column == 1 )
-            return UI_SafeTranslateString((const char *)&sharedUiInfo.gameTypeMapCount[29 * index - 926]);
+            return UI_SafeTranslateString(sharedUiInfo.customMatchGameTypes[index].gameTypeName);
     }
     else
     {
@@ -1387,7 +1387,7 @@ char *__cdecl UI_FeederItemText_ItemInSlot(
         cost = 0;
         itemName = "MENU_CLASSIFIED";
     }
-    if ( column == 7 && BG_UnlockablesIsItemNew(controllerIndex, itemIndex) )
+    if ( column == 7 && !itemLocked && BG_UnlockablesIsItemNew(controllerIndex, itemIndex) )
         *handle = Material_RegisterHandle("menu_mp_lobby_new", 3);
     return UI_Feeder_HandleItemList(
                      controllerIndex,
@@ -2569,7 +2569,7 @@ char __cdecl UI_FeederItemColor_ItemList(
                 color[2] = newUIGrey[2];
                 color[3] = newUIGrey[3];
             }
-            else if (itemPurchased)
+            else if (itemPurchased || cost <= 0)
             {
                 if (isRowHighlighted)
                 {
@@ -3384,9 +3384,10 @@ void __cdecl UI_OverrideCursorPos_CustomGametypes(int contextIndex, listBoxDef_s
     int typeCount; // [esp+4h] [ebp-8h]
     int typeCursorPos; // [esp+8h] [ebp-4h]
 
-    typeCount = sharedUiInfo.gameTypes[31].basictraining + sharedUiInfo.numCustomMatchGameTypes;
+    const int customRow = Com_GameMode_IsGameMode(GAMEMODE_FIRST_PRIVATE_ONLINE_GAMEMODE) ? 1 : 0;
+    typeCount = customRow + sharedUiInfo.numCustomMatchGameTypes;
     typeCursorPos = listPtr->cursorPos[contextIndex];
-    if ( typeCursorPos >= sharedUiInfo.gameTypes[31].basictraining + sharedUiInfo.numCustomMatchGameTypes )
+    if ( typeCursorPos >= typeCount )
     {
         if ( xblive_basictraining->current.enabled )
             listPtr->cursorPos[contextIndex] = typeCursorPos;
@@ -3401,7 +3402,7 @@ void __cdecl UI_OverrideCursorPos_CustomGametypes(int contextIndex, listBoxDef_s
             if ( xblive_basictraining->current.enabled )
                 listPtr->cursorPos[contextIndex] = UI_GetBasicTrainingGametypeNumFromId(index);
             else
-                listPtr->cursorPos[contextIndex] = index;
+                listPtr->cursorPos[contextIndex] = index + customRow;
         }
     }
     else
@@ -3421,7 +3422,7 @@ int __cdecl UI_GetBasicTrainingGametypeNumFromId(int id)
     count = 0;
     for ( index = 0; index < sharedUiInfo.numCustomMatchGameTypes; ++index )
     {
-        if ( sharedUiInfo.gameTypeMapCount[29 * index - 901] )
+        if ( sharedUiInfo.customMatchGameTypes[index].basictraining )
         {
             if ( index == id )
                 return count;
@@ -3445,9 +3446,14 @@ int __cdecl UI_CustomGametypes_GetSelectedGameTypeIndex()
 
 bool __cdecl UI_CustomGametypes_IsInvalidCursorPos(int cursorPos)
 {
+    if (Com_GameMode_IsGameMode(GAMEMODE_FIRST_PRIVATE_ONLINE_GAMEMODE))
+    {
+        if (!cursorPos && customGameMode->current.integer) return false;
+        --cursorPos;
+    }
     return cursorPos < 0
             || cursorPos >= sharedUiInfo.numCustomMatchGameTypes
-            || I_strcmp(ui_gametype->current.string, &sharedUiInfo.customGameTypes[32].gameType[116 * cursorPos]) != 0;
+            || I_strcmp(ui_gametype->current.string, sharedUiInfo.customMatchGameTypes[cursorPos].gameType) != 0;
 }
 
 void __cdecl UI_OverrideCursorPos_Gametypes(
@@ -3648,7 +3654,7 @@ void __cdecl UI_FeederSelection_Maps(int contextIndex, float feederID, int index
 void __cdecl UI_FeederSelection_CustomGametypes(int contextIndex, float feederID, int index)
 {
     if ( index >= 0 && index < sharedUiInfo.numCustomMatchGameTypes )
-        Dvar_SetStringByName("ui_gametype", &sharedUiInfo.customGameTypes[32].gameType[116 * index]);
+        Dvar_SetStringByName("ui_gametype", sharedUiInfo.customMatchGameTypes[index].gameType);
 }
 
 void __cdecl UI_FeederSelection_GametypesBase(int localClientNum, int contextIndex, float feederID, int index)
@@ -3664,7 +3670,7 @@ void __cdecl UI_FeederSelection_GametypesBase(int localClientNum, int contextInd
         else
             v4 = index;
         if ( v4 >= 0 )
-            Dvar_SetStringByName("ui_preview", &sharedUiInfo.customGameTypes[32].gameType[116 * v4]);
+            Dvar_SetStringByName("ui_preview", sharedUiInfo.customMatchGameTypes[v4].gameType);
     }
 }
 
@@ -3675,7 +3681,7 @@ void __cdecl UI_FeederSelection_GametypesInGame(int localClientNum, int contextI
         if ( xblive_basictraining->current.enabled )
             index = UI_GetBasicTrainingGametypeIdForNum(index) + 1;
         Dvar_SetIntByName("ui_preview_gt_idx", 1);
-        Dvar_SetStringByName("ui_preview_gt", &sharedUiInfo.customGameTypes[32].gameType[116 * index]);
+        Dvar_SetStringByName("ui_preview_gt", sharedUiInfo.customMatchGameTypes[index].gameType);
     }
 }
 

@@ -1,107 +1,92 @@
 cmake_minimum_required(VERSION 3.16)
+
+# Desktop: 32-bit via the environment (vcvarsamd64_x86.bat + Ninja). Do not set
+# CMAKE_GENERATOR_PLATFORM: Ninja rejects a platform specification.
+# Web: configure with the Emscripten toolchain (cmake --preset web).
 project(KisakBlack)
 
 set(BIN_NAME "KisakBlack")
-
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_GENERATOR_PLATFORM "WIN32")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
-set(TL_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/tl")
-set(DW_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/DemonWare")
-
-include(cmake_files.cmake)
-
-# phys_gjk.cpp specific flag (experimental)
-set_source_files_properties(
-    "${SRC_DIR}/physics/phys_gjk.cpp"
-    PROPERTIES
-    COMPILE_OPTIONS "/arch:IA32"
-)
-
-# ----- Preprocessor Defines -----
-# Common to both Debug and Release
-target_compile_definitions(KisakBlack PUBLIC
-    WIN32
-    _CONSOLE
-    KISAK_MP
-    _CRT_SECURE_NO_WARNINGS
-    _WINSOCK_NO_DEPRECATED_NO_WARNINGS
-)
-# Debug-only
-target_compile_definitions(KisakBlack PUBLIC
-    $<$<CONFIG:Debug>:_DEBUG>
-    $<$<CONFIG:Debug>:TRACY_ENABLE>
-    $<$<CONFIG:Debug>:TRACY_ON_DEMAND>
-)
-# Release-only
-target_compile_definitions(KisakBlack PUBLIC
-    $<$<CONFIG:Release>:NDEBUG>
-)
-
-# ----- Include directories -----
-target_include_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_include_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs")
-target_include_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libtomcrypt-1.17/src/headers")
-target_include_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libtommath-1.0")
-target_include_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libvpx-1.5.0/include")
-target_include_directories(KisakBlack PUBLIC "C:\\Program Files (x86)\\Microsoft DirectX SDK (June 2010)\\Include")
-
-# ----- Library directories -----
-target_link_directories(KisakBlack PUBLIC "C:\\Program Files (x86)\\Microsoft DirectX SDK (June 2010)\\Lib\\x86")
-target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libvpx-1.5.0")
-target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/steam/redistributable_bin")
-target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib")
-target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi")
-
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT  /O2 /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
-set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MTd /Od /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
-
-if (MSVC AND WIN32 AND NOT MSVC_VERSION VERSION_LESS 142)
-    target_link_options(KisakBlack PRIVATE $<$<CONFIG:Debug>:/INCREMENTAL>)
-    target_compile_options(KisakBlack PRIVATE $<$<CONFIG:Debug>:/ZI>)
-
-    set(CMAKE_CXX_FLAGS_DEBUG           "${CMAKE_CXX_FLAGS_DEBUG} /SAFESEH:NO")
-    set(CMAKE_EXE_LINKER_FLAGS_DEBUG    "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /SAFESEH:NO")
-    set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} /SAFESEH:NO")
-    set(CMAKE_MODULE_LINKER_FLAGS_DEBUG "${CMAKE_MODULE_LINKER_FLAGS_DEBUG} /SAFESEH:NO")
+# ----- Platform -----
+# Desktop = MSVC x86 + Direct3D 9 (default, unchanged).
+# Web     = Emscripten wasm32. The whole engine is compiled; the renderer, audio,
+#           video, input and remote networking are stubbed and the executable boots
+#           as a headless dedicated server in the browser (see src/web/).
+set(KISAK_PLATFORM "Desktop" CACHE STRING
+    "Desktop (MSVC x86, D3D9) or Web (Emscripten wasm32)")
+set_property(CACHE KISAK_PLATFORM PROPERTY STRINGS Desktop Web)
+if(NOT KISAK_PLATFORM STREQUAL "Desktop" AND NOT KISAK_PLATFORM STREQUAL "Web")
+  message(FATAL_ERROR
+          "KISAK_PLATFORM must be Desktop or Web (got '${KISAK_PLATFORM}')")
 endif()
 
-# ----- Links -----
-target_link_libraries(KisakBlack PUBLIC
-    steam_api.lib
-    binkw32.lib
-    nvapi.lib
-    d3d9.lib
-    ws2_32.lib
-    dxguid.lib
-    dsound.lib
-    winmm.lib
-    xinput.lib
-    xapobase.lib
-    dxerr.lib
-    libvpx.lib
-    # June-2010 DirectX SDK libs (xapobase, dxerr) reference pre-VS2015 CRT
-    # symbols (_vsnprintf, etc.) that the modern UCRT no longer exports.
-    # legacy_stdio_definitions.lib provides shims so those static libs link.
-    legacy_stdio_definitions.lib
-)
-# ----- Debug Links -----
-target_link_libraries(KisakBlack PUBLIC $<$<CONFIG:Debug>:d3dx9d.lib>)
-# ----- Release Links -----
-target_link_libraries(KisakBlack PUBLIC $<$<CONFIG:Release>:d3dx9.lib>)
-target_link_options(KisakBlack PRIVATE /machine:x86)
+# DLL-free: stub Bink so cinematics finish immediately. No binkw32.dll. Turn OFF
+# to link the real Bink path. Desktop only.
+option(KISAK_NO_BINK
+       "Build without binkw32 (stub Bink API, cinematics disabled)" ON)
 
-# ----- Linker Options -----
-# /DYNAMICBASE:NO - Turning this off causes directx to crash "directx has encountered an unrecoverable error". 
-# /LARGEADDRESSAWARE - for convenience (4gb)
-# /DEBUG - PDB for both configs 
-target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
+# DLL-free: replace D3DX9 with src/gfx_d3d/r_d3dx_compat.cpp. Turn OFF to link
+# the real d3dx9/d3dx9d. Desktop only.
+option(KISAK_NO_D3DX "Build without d3dx9 (local D3DX replacements)" ON)
 
-set_target_properties(KisakBlack PROPERTIES WIN32_EXECUTABLE TRUE)
+# Tracy (on demand) in Release builds. Debug always has it. Desktop only.
+option(KISAK_PROFILE "Enable the Tracy profiler in non-Debug builds" OFF)
 
-# Set the VS debugger's working directory to the build-output dir for whichever config is active 
-set_target_properties(KisakBlack PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
-)
+# Whole-program optimization for Release (/GL + /LTCG). Slower link. Desktop only.
+option(KISAK_LTO "Enable link-time code generation in Release" OFF)
+
+# Copy the built exe here as KisakBlack_<Config>.exe after each build, e.g. the
+# folder holding main/ and zone/. The game resolves its data relative to the exe.
+# Desktop only.
+set(KISAK_DEPLOY_DIR "" CACHE PATH "Copy the exe here after building")
+
+set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(TL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tl")
+set(DW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DemonWare")
+
+# KISAK_SOURCES: every translation unit. The platform file filters it and then
+# creates the KisakBlack target.
+include(cmake_files.cmake)
+
+if(KISAK_PLATFORM STREQUAL "Web")
+  if(NOT EMSCRIPTEN)
+    message(FATAL_ERROR
+            "KISAK_PLATFORM=Web needs the Emscripten toolchain: cmake --preset web "
+            "(install it with tools/web/setup_emsdk.ps1 or .sh, then set EMSDK).")
+  endif()
+  include(cmake/platform_web.cmake)
+else()
+  if(EMSCRIPTEN)
+    message(FATAL_ERROR "The Emscripten toolchain needs -DKISAK_PLATFORM=Web")
+  endif()
+  include(cmake/platform_desktop.cmake)
+endif()
+
+# ----- Settings shared by both platforms -----
+target_compile_definitions(
+  KisakBlack
+  PUBLIC KISAK_MP
+         $<$<BOOL:${KISAK_NO_D3DX}>:KISAK_NO_D3DX>
+         $<$<BOOL:${KISAK_NO_BINK}>:KISAK_NO_BINK>
+         # bink.h declares the Bink API without dllimport so bink_stub.cpp can
+         # define it.
+         $<$<BOOL:${KISAK_NO_BINK}>:__RADINEXE__>
+         $<$<CONFIG:Debug>:_DEBUG>
+         $<$<CONFIG:Release>:NDEBUG>)
+
+target_include_directories(
+  KisakBlack
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+         "${CMAKE_CURRENT_SOURCE_DIR}/src/libs"
+         "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libtomcrypt-1.17/src/headers"
+         "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libtommath-1.0"
+         "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libvpx-1.5.0/include")
+
+# Platform include paths, libraries and link options that must come after the
+# shared ones above (defined by cmake/platform_*.cmake).
+kisak_platform_finalize()
+
+message(STATUS "KisakBlack platform: ${KISAK_PLATFORM}")

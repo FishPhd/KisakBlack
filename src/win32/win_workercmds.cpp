@@ -3,6 +3,9 @@
 #include <universal/com_workercmds.h>
 #include <universal/q_shared.h>
 #include <qcommon/threads.h>
+#include <qcommon/common.h>
+#include <gfx_d3d/r_dvars.h>
+#include <algorithm>
 
 int __cdecl SetupWorkerThread(jqBatch *batch)
 {
@@ -57,8 +60,12 @@ void __cdecl IW_task_manager_flush()
 
 void __cdecl R_InitWorkerCmds()
 {
+    unsigned int workerCount = r_smp_worker_threads ? r_smp_worker_threads->current.integer : Sys_GetDefaultWorkerThreadsCount();
+    workerCount = std::clamp(workerCount, 1u, (unsigned int)(THREAD_CONTEXT_WORKER7 - THREAD_CONTEXT_WORKER0 + 1));
+
     jqInit();
-    jqEnableWorkers(12);
+    // Processor bit 0 is the main thread; worker threads take bits 1..workerCount.
+    jqEnableWorkers(((1u << workerCount) - 1) << 1);
     jqSetBatchDataHeapSize(0x4000u, 0x10u);
     jqStart();
 
@@ -66,15 +73,17 @@ void __cdecl R_InitWorkerCmds()
     jqBatch batch; // [esp+0h] [ebp-80h] BYREF
     batch.Module = &setup_worker_threadsModule;// `anonymous namespace'::setup_worker_threadsModule;
 
-    batch.ParamData[0] = 0;
-    jqAddBatch(&batch, jqGetWorkerQueue(4));
-
-    batch.ParamData[0] = 1;
-    jqAddBatch(&batch, jqGetWorkerQueue(8));
+    for (unsigned int workerIndex = 0; workerIndex < workerCount; ++workerIndex)
+    {
+        batch.ParamData[0] = workerIndex;
+        jqAddBatch(&batch, jqGetWorkerQueue(2 << workerIndex));
+    }
 
     jqFlush(0, 0);
-    Sys_InitWorkerThreadContext();
+    Sys_InitWorkerThreadContext(workerCount);
     Sys_WorkerCmdInit();
+
+    Com_Printf(16, "Started %u job worker threads\n", workerCount);
 }
 
 void __cdecl R_InitWorkerThreads()

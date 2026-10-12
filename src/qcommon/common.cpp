@@ -1,4 +1,8 @@
 #include "common.h"
+#ifdef KISAK_WEB
+#include <emscripten.h>
+#include <web/web_assets.h>
+#endif
 
 #include <string.h>
 #include <universal/mem_userhunk.h>
@@ -7,6 +11,7 @@
 #include <win32/win_common.h>
 #include <client/cl_console.h>
 #include <win32/win_net.h>
+#include "sys_futex.h"
 #include <win32/win_main.h>
 #include <monkey/monkey.h>
 #include <universal/com_files.h>
@@ -739,7 +744,7 @@ void Com_Error(errorParm_t code, const char *fmt, ...)
             TaskManager2_ComErrorCleanup();
             GlassCl_WaitUpdate();
             Value = (int *)Sys_GetValue(2);
-            longjmp(Value, -1);
+            longjmp(*(jmp_buf *)Value, -1);
         }
         if ( !com_fixedConsolePosition )
         {
@@ -767,7 +772,7 @@ void __cdecl Com_CheckError()
     if ( errorEntered )
     {
         Value = (int *)Sys_GetValue(2);
-        longjmp(Value, -1);
+        longjmp(*(jmp_buf *)Value, -1);
     }
 }
 
@@ -1546,7 +1551,7 @@ unsigned int __cdecl Com_CalculateStreamBuffer()
 
 void __cdecl Com_Init(char *commandLine)
 {
-    if ( _setjmp((int *)Sys_GetValue(2)) )
+    if ( _setjmp(*(jmp_buf *)Sys_GetValue(2)) )
     {
         Sys_Error(va("Error during initialization:\n%s\n", com_errorMessage));
     }
@@ -1555,7 +1560,7 @@ void __cdecl Com_Init(char *commandLine)
 
     Monkey_Start();
 
-    if ( !_setjmp((int*)Sys_GetValue(2)) )
+    if ( !_setjmp(*(jmp_buf *)Sys_GetValue(2)) )
         Com_AddStartupCommands();
 
     if ( !I_strcmp(sv_mapname->current.string, "") )
@@ -1567,7 +1572,7 @@ void __cdecl Com_Init(char *commandLine)
 #ifndef KISAK_DEDICATED
     if (!com_sv_running->current.enabled && !IsDedicatedServer())
     {
-        if (_setjmp((int *)Sys_GetValue(2)))
+        if (_setjmp(*(jmp_buf *)Sys_GetValue(2)))
         {
             Sys_Error(va("Error during initialization:\n%s\n", com_errorMessage));
         }
@@ -1775,6 +1780,7 @@ void __cdecl Com_Init_Try_Block_Function(char *commandLine)
     if ( useFastFile->current.enabled )
     {
         PMem_Init();
+        // LiveSteam_Init only registers the sv_vac dvar (read by sv_main_mp) as 0.
         LiveSteam_Init();
         DB_SetInitializing(1);
         Com_Printf(7, "begin $init\n");
@@ -2076,7 +2082,11 @@ void Com_InitDvars()
 #endif
     com_maxfps = _Dvar_RegisterInt("com_maxfps", 85, 0, 1000, 1u, "Cap frames per second");
     arcademode = _Dvar_RegisterBool("arcademode", 0, 0x100u, "Current game is an arcade mode game");
+#ifdef KISAK_WEB
+    zombiemode = _Dvar_RegisterBool("zombiemode", Web_IsZombieBoot(), 0x40u, "Current game is an zombie game");
+#else
     zombiemode = _Dvar_RegisterBool("zombiemode", 0, 0x40u, "Current game is an zombie game");
+#endif
     legacy_zombiemode = _Dvar_RegisterBool("legacy_zombiemode", 0, 0x40u, "Current game is a legacy zombie game");
     zombieStopSplitScreen = _Dvar_RegisterBool(
                                                         "zombieStopSplitScreen",
@@ -2342,6 +2352,7 @@ void __cdecl Com_WriteConfigToFile(int localClientNum, char *filename)
     else
     {
         Com_Printf(16, "Couldn't write %s.\n", filename);
+        dvar_modifiedFlags |= 1u; // Retry the config save after a transient storage failure.
     }
 }
 
@@ -2558,6 +2569,11 @@ void __cdecl Com_LoadLevelFastFiles(char *mapName)
     zoneInfo[zoneCount].name = 0;
     zoneInfo[zoneCount].allocFlags = 0;
     zoneInfo[zoneCount++].freeFlags = 0x4000000;
+    // Normal BO1 Zombies maps must select their common assets too, not only
+    // Dead Ops and the legacy World at War maps.
+    const bool isZombieMap = !I_strncmp(mapName, "zombie_", 7) || !I_strcmp(mapName, "zombietron");
+    Dvar_SetBool((dvar_s *)zombiemode, isZombieMap);
+    Dvar_SetBool((dvar_s *)zombietron, !I_strcmp(mapName, "zombietron"));
     if ( I_stristr(mapName, "zombietron") )
     {
         Dvar_SetBool((dvar_s *)zombiemode, 1);
@@ -2651,7 +2667,7 @@ char *__cdecl Com_GetLevelSharedFastFile(char *mapName)
 
 void Com_LoadCommonFastFile()
 {
-    XZoneInfo zoneInfo[1]; // [esp+4h] [ebp-10h] BYREF
+    XZoneInfo zoneInfo[3];
     int zoneCount; // [esp+10h] [ebp-4h]
 
     zoneCount = 0;
@@ -2666,6 +2682,10 @@ void Com_LoadCommonFastFile()
     }
     else if ( zombiemode->current.enabled )
     {
+        if (!DB_IsZoneLoaded("code_post_gfx"))
+            zoneInfo[zoneCount++] = {"code_post_gfx", 256, 0};
+        if (!DB_IsZoneLoaded("common"))
+            zoneInfo[zoneCount++] = {"common", 256, 0};
         if ( legacy_zombiemode->current.enabled )
         {
             if ( !DB_IsZoneLoaded("waw_zombie") )
@@ -2771,7 +2791,7 @@ void __cdecl Com_Frame()
     cl_flame_proftimer.reset();
     Value = Sys_GetValue(2);
     //if ( !_setjmp3(Value, 0) )
-    if ( !_setjmp((int*)Value) )
+    if ( !_setjmp(*(jmp_buf *)Value) )
     {
         Com_CheckSyncFrame();
         Com_Frame_Try_Block_Function();
@@ -2796,6 +2816,7 @@ void __cdecl Com_Frame()
 
     FrameMark;
 }
+
 
 unsigned int Com_Frame_Try_Block_Function()
 {
@@ -2862,34 +2883,47 @@ unsigned int Com_Frame_Try_Block_Function()
     }
     else
     {
-        // adapted from kcod4
-        for (int i = 0; i < 50; ++i)
+#ifdef KISAK_WEB
+        // Keep the limiter in the same monotonic, fractional clock domain between frames.
+        static double lastWebFrame = 0.0;
+        const double interval = maxFPS > 0 ? 1000.0 / maxFPS : 1.0;
+        double now = emscripten_get_now();
+        const double deadline = lastWebFrame > 0.0 ? lastWebFrame + interval : now;
+        if (deadline - now >= 1.0)
+            NET_Sleep((unsigned int)(deadline - now));
+        while ((now = emscripten_get_now()) < deadline)
+            Sys_YieldThread();
+        lastWebFrame = now;
+        Com_EventLoop();
+        com_frameTime = Sys_Milliseconds();
+        if (com_frameTime < com_lastFrameTime[lastFrameIndex])
+            com_lastFrameTime[lastFrameIndex] = com_frameTime;
+        msec = com_frameTime - com_lastFrameTime[lastFrameIndex];
+#else
+        // msec must be real elapsed time: reporting minMsec for a shorter frame runs the
+        // simulation ahead of the server clock and causes snapshot time corrections.
+        while (1)
         {
             Com_EventLoop();
             com_frameTime = Sys_Milliseconds();
             if (com_frameTime - com_lastFrameTime[lastFrameIndex] < 0)
                 com_lastFrameTime[lastFrameIndex] = com_frameTime;
-
-            if (com_frameTime - com_lastFrameTime[lastFrameIndex] > 0)
-            {
+            msec = com_frameTime - com_lastFrameTime[lastFrameIndex];
+            if (msec >= minMsec)
                 break;
-            }
-            NET_Sleep(1u);
+            // Sleep(1) can overshoot by a millisecond, so finish the last one by yielding.
+            if (minMsec - msec > 1)
+                NET_Sleep(1u);
+            else
+                Sys_YieldThread();
         }
-
-        int v4;
-        if (com_frameTime - com_lastFrameTime[lastFrameIndex] < minMsec)
-            v4 = minMsec;
-        else
-            v4 = com_frameTime - com_lastFrameTime[lastFrameIndex];
-        com_lastFrameTime[lastFrameIndex] += v4;
-        msec = lastFrameIndex + v4;
-        if (!(lastFrameIndex + v4))
-            msec = 1;
+#endif
+        com_lastFrameTime[lastFrameIndex] = com_frameTime;
     }
 
     for ( localControllerIndex = 0; localControllerIndex < 1; ++localControllerIndex )
         TaskManager2_ProcessTasks(localControllerIndex);
+
 
     Cbuf_Execute(0, Com_LocalClient_GetControllerIndex(0));
     ProcessStringEdCmds();
@@ -2901,7 +2935,6 @@ unsigned int Com_Frame_Try_Block_Function()
     cls.inputRealMsec = msec;
     Demo_Frame(msec);
     mseca = Com_ModifyMsec(msec);
-    LiveSteam_Frame();
 
     {
         PROF_SCOPED("SV frame");
@@ -3098,7 +3131,7 @@ void Com_StartHunkUsers()
 
     Value = Sys_GetValue(2);
     //if ( _setjmp3(Value, 0) )
-    if (_setjmp((int *)Value))
+    if (_setjmp(*(jmp_buf *)Value))
     {
         Sys_Error((char*)"Error during initialization:\n%s\n", com_errorMessage);
 

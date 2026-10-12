@@ -2505,20 +2505,20 @@ const dvar_s *__cdecl _Dvar_RegisterColor(
 
 const dvar_s *__cdecl _Dvar_RegisterLinearRGB(
                 char *dvarName,
-                unsigned int x,
-                unsigned int y,
-                unsigned int z,
+                float x,
+                float y,
+                float z,
                 float min,
                 float max,
                 unsigned __int16 flags,
                 const char *description)
 {
-    DvarValue dvarValue; // [esp-24h] [ebp-4Ch]
+    DvarValue dvarValue{};
     DvarLimits dvarDomain; // [esp-14h] [ebp-3Ch]
 
-    dvarValue.color[0] = x;
-    dvarValue.color[1] = y;
-    dvarValue.color[2] = z;
+    dvarValue.vector[0] = x;
+    dvarValue.vector[1] = y;
+    dvarValue.vector[2] = z;
 
     dvarDomain.value.min = min;
     dvarDomain.value.max = max;
@@ -2528,20 +2528,20 @@ const dvar_s *__cdecl _Dvar_RegisterLinearRGB(
 
 const dvar_s *__cdecl _Dvar_RegisterColorXYZ(
                 const char *dvarName,
-                unsigned int x,
-                unsigned int y,
-                unsigned int z,
+                float x,
+                float y,
+                float z,
                 float min,
                 float max,
                 unsigned __int16 flags,
                 const char *description)
 {
-    DvarValue dvarValue; // [esp-24h] [ebp-4Ch]
+    DvarValue dvarValue{}; // XYZ colors are floating-point values, not packed bytes.
     DvarLimits dvarDomain; // [esp-14h] [ebp-3Ch]
 
-    dvarValue.color[0] = x;
-    dvarValue.color[1] = y;
-    dvarValue.color[2] = z;
+    dvarValue.vector[0] = x;
+    dvarValue.vector[1] = y;
+    dvarValue.vector[2] = z;
 
     dvarDomain.value.min = min;
     dvarDomain.value.max = max;

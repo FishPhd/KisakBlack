@@ -5,6 +5,9 @@
 #include "rb_shade.h"
 #include "rb_stats.h"
 #include <physics/phys_render.h>
+#ifdef KISAK_WEB
+#include <qcommon/cm_trace.h>
+#endif
 
 IDirect3DQuery9 *SuperFlareQuery[5][2][4][4];
 bool SuperFlareQueryIssued[5][4][4];
@@ -112,6 +115,20 @@ void __cdecl RB_DrawSuperFlareOccluders(const GfxViewInfo *viewInfo)
                     {
                         QueryInitialized = 0;
                     }
+#ifdef KISAK_WEB
+                    if (FilterInfo->passEnabled[iFilter][iPass] && FilterInfo->passMaterial[iFilter][iPass]
+                        && FilterInfo->passQuads[iFilter][iPass] > 0)
+                    {
+                        const float *position = FilterInfo->passParam[iFilter][iPass];
+                        if (position[0] == 0 && position[1] == 0 && position[2] == 0)
+                            position = FilterInfo->sunPosition;
+                        const int hit = CM_BoxSightTrace(0, viewInfo->viewParms.origin,
+                            position, vec3_origin, vec3_origin, 0, 8195);
+                        FilterInfo->passFlareOcclusion[iFilter][iPass] = hit ? 0.0f : 1.0f;
+                    }
+                    else FilterInfo->passFlareOcclusion[iFilter][iPass] = 0.0f;
+                    continue;
+#endif
                     if ( QueryInitialized
                         && FilterInfo->passEnabled[iFilter][iPass]
                         && FilterInfo->passMaterial[iFilter][iPass]

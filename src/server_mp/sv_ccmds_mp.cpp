@@ -1,3 +1,4 @@
+#include <live/live_offline_stats.h>
 #include "sv_ccmds_mp.h"
 #include <qcommon/files.h>
 #include <server/server.h>
@@ -21,6 +22,10 @@
 #include <live/live_storage_pub.h>
 #include <universal/q_parse.h>
 #include <game_mp/g_main_mp.h>
+#include <live/live_offline.h> // LiveOffline_SaveStats (offline match end)
+#include <qcommon/com_gamemodes.h>
+#include <ui/ui_shared.h> // sharedUiInfo (installed map list for the default map rotation)
+#include "sv_bot_mp.h"
 
 int sv_migrate;
 
@@ -68,6 +73,7 @@ void __cdecl SV_MapRestart(int fast_restart)
     PROF_SCOPED("SV_MapRestart");
 
     Com_SyncThreads();
+    LiveOffline_SaveServerStats();
     track_hunk_ClearToStart();
     if ( com_sv_running->current.enabled )
     {
@@ -181,6 +187,8 @@ cmd_function_s SV_RegisterRconKey_f_VAR;
 cmd_function_s SV_RegisterRconKey_f_VAR_SERVER;
 cmd_function_s SV_RankUp_f_VAR;
 cmd_function_s SV_RankUp_f_VAR_SERVER;
+cmd_function_s SV_AddBots_f_VAR;
+cmd_function_s SV_AddBots_f_VAR_SERVER;
 
 static bool initialized_0 = 0;
 void __cdecl SV_AddOperatorCommands()
@@ -249,6 +257,8 @@ void __cdecl SV_AddOperatorCommands()
         Cmd_AddServerCommandInternal("setrconkey", SV_RegisterRconKey_f, &SV_RegisterRconKey_f_VAR_SERVER);
         Cmd_AddCommandInternal("rankup", Cbuf_AddServerText_f, &SV_RankUp_f_VAR);
         Cmd_AddServerCommandInternal("rankup", SV_RankUp_f, &SV_RankUp_f_VAR_SERVER);
+        Cmd_AddCommandInternal("addbots", Cbuf_AddServerText_f, &SV_AddBots_f_VAR);
+        Cmd_AddServerCommandInternal("addbots", SV_AddBots_f, &SV_AddBots_f_VAR_SERVER);
     }
 }
 
@@ -406,6 +416,187 @@ void __cdecl SV_FastRestart_f()
     SV_MapRestart(1);
 }
 
+// Offline match end: on a local (listen) server running a private match or combat training, we never
+// rotate maps. Save the local stats, drop back to the main menu and reopen the matching lobby.
+bool __cdecl SV_ReturnToLobbyAfterMatch()
+{
+    LiveOffline_SaveServerStats();
+    if ( IsDedicatedServer() )
+        return false;
+
+    const bool basicTraining = xblive_basictraining && xblive_basictraining->current.enabled;
+    const bool privateMatch = xblive_privatematch && xblive_privatematch->current.enabled;
+    const bool wagerMatch = xblive_wagermatch && xblive_wagermatch->current.enabled;
+    if ( !basicTraining && !privateMatch && !wagerMatch )
+        return false;
+
+    Com_Printf(0, "Match finished - saving stats and returning to the %s lobby.\n", basicTraining ? "combat training" : "private match");
+
+    LiveOffline_SaveStats(0);
+
+    // disconnect unwinds through Com_Error(ERR_DISCONNECT) and leaves the command buffer intact; give the UI a
+    // couple of frames to come back up before opening the lobby menu.
+    Cbuf_AddText(0, "disconnect\n");
+    Cbuf_AddText(0, "wait 3\n");
+    if (wagerMatch)
+        Cbuf_AddText(0, "set xblive_wagermatch 0\nset xblive_privatematch 1\n");
+    Cbuf_AddText(0, basicTraining ? "openmenu menu_xboxlive_basictraining\n" : "openmenu menu_xboxlive_privatelobby\n");
+    return true;
+}
+
+// When sv_mapRotation is empty (no config, no playlist) build a sensible public-style rotation out of the
+// installed maps, starting after the current one, using the current gametype.
+static void SV_EnsureDefaultMapRotation()
+{
+    static const char *baseMaps[] =
+    {
+        "mp_array", "mp_cracked", "mp_crisis", "mp_firingrange", "mp_duga", "mp_hanoi", "mp_cairo",
+        "mp_havoc", "mp_cosmodrome", "mp_nuked", "mp_radiation", "mp_mountain", "mp_villa", "mp_russianbase"
+    };
+    const char *maps[160];
+    int mapCount;
+    int i;
+    int start;
+    char rotation[4096];
+    const char *current;
+
+    if ( !sv_mapRotation || sv_mapRotation->current.string[0] )
+        return;
+
+    mapCount = 0;
+    for ( i = 0; i < sharedUiInfo.mapCount && mapCount < 128; ++i )
+    {
+        if ( sharedUiInfo.mapList[i].mapLoadName[0] )
+            maps[mapCount++] = sharedUiInfo.mapList[i].mapLoadName;
+    }
+    if ( !mapCount )
+    {
+        for ( i = 0; i < (int)(sizeof(baseMaps) / sizeof(baseMaps[0])); ++i )
+            maps[mapCount++] = baseMaps[i];
+    }
+
+    start = 0;
+    current = sv_mapname ? sv_mapname->current.string : "";
+    for ( i = 0; i < mapCount; ++i )
+    {
+        if ( !I_stricmp(maps[i], current) )
+        {
+            start = i + 1;
+            break;
+        }
+    }
+
+    Com_sprintf(rotation, sizeof(rotation), "gametype %s", sv_gametype->current.string);
+    for ( i = 0; i < mapCount; ++i )
+    {
+        const char *name = maps[(start + i) % mapCount];
+        if ( strlen(rotation) + strlen(name) + 6 >= sizeof(rotation) )
+            break;
+        I_strncat(rotation, sizeof(rotation), " map ");
+        I_strncat(rotation, sizeof(rotation), name);
+    }
+
+    Com_Printf(0, "sv_mapRotation is empty - using default rotation:\n%s\n", rotation);
+    Dvar_SetString((dvar_s *)sv_mapRotation, rotation);
+}
+
+// addbots <count> [axis|allies|auto]
+// Bots are teamed/classed/loadout'd by the game scripts (maps/mp/gametypes/_bot.gsc), so when the script bot
+// manager is running (scr_bots_managed_* dvars exist) we only adjust the managed bot counts. Otherwise we fall
+// back to connecting raw test clients.
+void __cdecl SV_AddBots_f()
+{
+    // From the console of a listen server (client + server in one process) the command arrives on the client
+    // tokenizer, from a dedicated server's console on the server tokenizer.
+    const bool fromServerTokens = SV_Cmd_Argc() >= 2;
+    const int argc = fromServerTokens ? SV_Cmd_Argc() : Cmd_Argc();
+    auto argvOf = [fromServerTokens](int i) -> const char * { return fromServerTokens ? SV_Cmd_Argv(i) : Cmd_Argv(i); };
+    int count;
+    int team; // 0 = auto, 1 = axis, 2 = allies
+
+    if ( !com_sv_running || !com_sv_running->current.enabled )
+    {
+        Com_Printf(0, "addbots: server is not running.\n");
+        return;
+    }
+    if ( argc < 2 )
+    {
+        Com_Printf(0, "usage: addbots <count> [axis|allies|auto]\n");
+        return;
+    }
+    count = atoi(argvOf(1));
+    if ( count <= 0 )
+    {
+        Com_Printf(0, "addbots: count must be positive.\n");
+        return;
+    }
+    team = 0;
+    if ( argc > 2 )
+    {
+        const char *teamName = argvOf(2);
+        if ( !I_stricmp(teamName, "axis") )
+            team = 1;
+        else if ( !I_stricmp(teamName, "allies") )
+            team = 2;
+        else if ( I_stricmp(teamName, "auto") && I_stricmp(teamName, "autoassign") )
+        {
+            Com_Printf(0, "addbots: unknown team '%s' (use axis, allies or auto).\n", teamName);
+            return;
+        }
+    }
+
+    // testclients are inert unless these are enabled
+    SV_BotEnableAI();
+
+    // Raw test clients stay spectators: the script bot manager (private match only) is what teams them.
+    const bool privateMatch = xblive_privatematch && xblive_privatematch->current.enabled;
+    if ( !privateMatch )
+    {
+        Com_Printf(0, "addbots: this is not a private match. Use the BOTS row in the private-match lobby.\n");
+        return;
+    }
+    if ( !Dvar_FindVar("scr_bots_managed_all") )
+        _Dvar_RegisterInt("scr_bots_managed_all", 0, 0, 32, 0, "Private match: bots split across both teams");
+    if ( !Dvar_FindVar("scr_bots_managed_axis") )
+        _Dvar_RegisterInt("scr_bots_managed_axis", 0, 0, 32, 0, "Private match: axis bots");
+    if ( !Dvar_FindVar("scr_bots_managed_allies") )
+        _Dvar_RegisterInt("scr_bots_managed_allies", 0, 0, 32, 0, "Private match: allies bots");
+    if ( Dvar_FindVar("scr_bots_managed_all") && Dvar_FindVar("scr_bots_managed_axis") && Dvar_FindVar("scr_bots_managed_allies") )
+    {
+        int all = Dvar_GetInt("scr_bots_managed_all");
+        int axis = Dvar_GetInt("scr_bots_managed_axis");
+        int allies = Dvar_GetInt("scr_bots_managed_allies");
+
+        if ( team == 0 )
+        {
+            all = (all > 0 ? all : axis + allies) + count;
+            axis = 0;
+            allies = 0;
+        }
+        else
+        {
+            if ( all > 0 ) // switch from the combined count back to per-team counts
+            {
+                axis = (all + 1) / 2;
+                allies = all / 2;
+                all = 0;
+            }
+            if ( team == 1 )
+                axis += count;
+            else
+                allies += count;
+        }
+        Dvar_SetIntByName("scr_bots_managed_all", all);
+        Dvar_SetIntByName("scr_bots_managed_axis", axis);
+        Dvar_SetIntByName("scr_bots_managed_allies", allies);
+        Dvar_SetIntByName("scr_bots_managed_spawn", 1);
+        Com_Printf(0, "addbots: requested %d bot(s); managed bots will join within ~10 seconds (all=%d axis=%d allies=%d).\n", count, all, axis, allies);
+        return;
+    }
+
+    Com_Printf(0, "addbots: the script bot manager is not available, so no spectator test clients were added.\n");
+}
+
 void __cdecl SV_MapRotate_f()
 {
     int LicenseType; // eax
@@ -422,6 +613,9 @@ void __cdecl SV_MapRotate_f()
     parseInfo_t *tokenc; // [esp+0h] [ebp-4h]
 
     Com_Printf(0, "\n\nmap_rotate...\n\n");
+    // Offline private match / combat training on a local listen server: the match is over, go back to the lobby.
+    if ( SV_ReturnToLobbyAfterMatch() )
+        return;
     LicenseType = SV_GetLicenseType();
     if ( SV_IsServerRanked(LicenseType) )
         Dvar_SetBoolByName("playlist_enabled", 1);
@@ -448,6 +642,7 @@ void __cdecl SV_MapRotate_f()
         Playlist_SetSVMapRotation();
         Playlist_SVMapRotate();
     }
+    SV_EnsureDefaultMapRotation();
     Com_Printf(0, "\"sv_mapRotation\" is:\"%s\"\n\n", sv_mapRotation->current.string);
     if ( !*(_BYTE *)sv_mapRotationCurrent->current.integer )
         Dvar_SetString((dvar_s *)sv_mapRotationCurrent, sv_mapRotation->current.string);

@@ -401,7 +401,7 @@ int __cdecl PS_ReadName(script_s *script, token_s *token)
     return 1;
 }
 
-void __cdecl NumberValue(char *string, __int16 subtype, unsigned int *intvalue, long double *floatvalue)
+void __cdecl NumberValue(char *string, __int16 subtype, unsigned int *intvalue, double *floatvalue)
 {
     unsigned int dotfound; // [esp+3Ch] [ebp-4h]
     char *stringa; // [esp+48h] [ebp+8h]

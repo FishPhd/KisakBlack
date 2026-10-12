@@ -49,6 +49,60 @@ playlistGametype gametypes[64];
 
 playlistEntry nullPlaylistEntry = { "", "", 0, 0, 0};
 
+void Playlist_InitOfflineWagerDefaults()
+{
+    if (Playlist_GetPlaylistCount()) return; // Prefer an installed playlist file.
+    static const char *modes[] = {"oic", "hlnd", "gun", "shrp"};
+    static const char *names[] = {"One in the Chamber", "Sticks and Stones", "Gun Game", "Sharpshooter"};
+    static const char *tiers[] = {"wager_low", "wager_medium", "wager_high"};
+    static const char *tierNames[] = {"Ante Up", "Weekend Gambler", "High Roller"};
+    static const char *modeIcons[] = {"playlist_one_chamber", "playlist_sticks_and_stones", "playlist_gungame", "playlist_sharpshooter"};
+    static const char *tierIcons[] = {"playlist_wager_ante", "playlist_wager_weekend", "playlist_wager_highroller"};
+    static const char *tierRules[] = {"set scr_wagerTier 1;", "set scr_wagerTier 2;", "set scr_wagerTier 3;"};
+    const int bets[] = {10, 1000, 10000};
+    memset(playlists, 0, sizeof(playlists));
+    memset(categories, 0, sizeof(categories));
+    memset(gametypes, 0, sizeof(gametypes));
+    totalEntries = 0;
+    categoryCount = 2;
+    numGametypes = 4;
+    for (int mode = 0; mode < 4; ++mode)
+        gametypes[mode] = {modes[mode], modes[mode], UI_GetGameTypeDisplayName(modes[mode]), "", false};
+    for (int tier = 0; tier < 3; ++tier)
+    {
+        categoryInfo &category = categories[tier];
+        category.internalName = tiers[tier];
+        category.filter = "wager";
+        category.localizedName = tierNames[tier];
+        category.description = tierNames[tier];
+        category.lockdescription = "";
+        category.iconName = tierIcons[tier];
+        category.rules = tierRules[tier];
+        category.playlistCount = 4;
+        categoryFilter[tier] = true;
+        for (int mode = 0; mode < 4; ++mode)
+        {
+            playlistInfo &p = playlists[1 + tier * 4 + mode];
+            p.name = gametypes[mode].localizedName;
+            p.description = p.name;
+            p.iconName = modeIcons[mode];
+            p.lockdescription = p.rules = "";
+            p.category[0] = tiers[tier];
+            p.categoryCount = 1;
+            p.maxPartySize = 32;
+            p.maxLocalPlayers = 1;
+            p.wagerBet = bets[tier];
+            p.baseEntry = totalEntries;
+            // Use the existing installed-map list. Shipped gametype scripts own all game rules.
+            p.numEntries = sharedUiInfo.mapCount > 0 ? sharedUiInfo.mapCount : 1;
+            for (int map = 0; map < p.numEntries; ++map)
+                playlistEntries[totalEntries++] = {sharedUiInfo.mapCount > 0
+                    ? sharedUiInfo.mapList[map].mapLoadName : "mp_nuked", modes[mode], 1, 1, 0};
+        }
+    }
+    Com_Printf(16, "Offline: installed local playlists for the four shipped wager modes\n");
+}
+
 
 
 int __cdecl Playlist_GetCategoryIdByName(const char *name)

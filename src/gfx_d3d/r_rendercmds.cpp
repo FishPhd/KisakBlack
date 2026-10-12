@@ -1,3 +1,6 @@
+#ifdef KISAK_WEB
+#include <web/web_graphics.h>
+#endif
 #include "r_rendercmds.h"
 #include "r_pointlights.h"
 #include "r_dpvs.h"
@@ -536,8 +539,7 @@ void __cdecl R_ToggleSmpFrameCmd(char type)
 
     {
         PROF_SCOPED("wait frontend workercmds");
-        while (!R_FinishedFrontendWorkerCmds())
-            NET_Sleep(1u);
+        R_AssistFrontendWorkerCmds();
     }
 
     R_UpdateSkinCacheUsage();
@@ -826,12 +828,15 @@ void R_ToggleSmpFrame()
         {
             __debugbreak();
         }
+#ifdef _DEBUG
+        // Poison last frame's data so stale reads show up; every count is reset below.
         Com_Memset((unsigned int *)frontEndDataOut->drawSurfs, 176, 8 * frontEndDataOut->drawSurfCount);
         Com_Memset((unsigned int *)frontEndDataOut->surfsBuffer, 176, frontEndDataOut->surfPos);
         Com_Memset((unsigned int *)frontEndDataOut->clouds, 176, frontEndDataOut->cloudCount << 6);
         Com_Memset(&frontEndDataOut->codeMeshes[0].triCount, 176, 0x8000);
         Com_Memset(frontEndDataOut->primDrawSurfsBuf, 176, 4 * frontEndDataOut->primDrawSurfPos);
         Com_Memset((unsigned int *)&frontEndDataOut->fogSettings, 176, 80);
+#endif
     }
     
     frontEndDataOut->drawSurfCount = 0;
@@ -954,28 +959,46 @@ void __cdecl R_AddCmdDrawStretchPicW(
         defaultMaterial = (Material *)Material_FromHandle(material);
     else
         defaultMaterial = rgp.defaultMaterial;
+    if ( !defaultMaterial )
+        return;
     actualMaterial = defaultMaterial;
     if ( !Material_HasAnyFogableTechnique(defaultMaterial) || Material_IsDefault(defaultMaterial) )
     {
         if ( (defaultMaterial->stateFlags & 0x10) != 0 )
         {
-            Name = Material_GetName(material);
-            Com_PrintWarning(
-                8,
-                "R_AddCmdDrawStretchPic: NOT DRAWING WITH MATERIAL \"%s\", because it uses the depth buffer. Set materialType to 2d.\n",
-                Name);
+            if ( material )
+            {
+                Name = Material_GetName(material);
+                Com_PrintWarning(
+                    8,
+                    "R_AddCmdDrawStretchPic: NOT DRAWING WITH MATERIAL \"%s\", because it uses the depth buffer. Set materialType to 2d.\n",
+                    Name);
+            }
             actualMaterial = rgp.defaultMaterial;
         }
     }
-    else
+    else if ( material )
     {
+#ifdef KISAK_WEB
+        // A menu panel can report a fog technique and still have a real 2D technique. Substituting the
+        // white default material is what paints the options page solid white and doubles header text.
+        if ( Material_GetTechnique(defaultMaterial, 4) )
+            actualMaterial = defaultMaterial;
+        else
+#endif
+        {
         v11 = Material_GetName(material);
         Com_PrintWarning(
             8,
             "R_AddCmdDrawStretchPic: NOT DRAWING WITH MATERIAL \"%s\", because it has a fogable technique.\n",
             v11);
         actualMaterial = rgp.defaultMaterial;
+        }
     }
+    else
+        actualMaterial = rgp.defaultMaterial;
+    if ( !actualMaterial )
+        return;
     if ( (actualMaterial->stateFlags & 0x10) != 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\gfx_d3d\\r_rendercmds.cpp",
@@ -1926,7 +1949,11 @@ void __cdecl R_BeginFrame()
             dx.d3d9->GetAdapterIdentifier(dx.adapterIndex, 0, &id);
             v0 = strstr(id.Description, "NVIDIA");
             if ( v0 )
+#ifndef KISAK_WEB
                 Dvar_SetBool((dvar_s *)r_warm_dpvs, 1);
+#else
+                (void)v0; // Browser warming is an explicit option and never disables culling.
+#endif
         }
         v2 = r_skinCache->current.enabled && useFastFile->current.enabled;
         gfxBuf.skinCache = v2;
@@ -1986,6 +2013,9 @@ void R_UpdateFrontEndDvarOptions()
         R_EnvMapOverrideConstants();
     }
     v2 = r_distortion->current.enabled && CL_LocalClient_GetActiveCount() == 1;
+#ifdef KISAK_WEB
+    v2 = v2 && !web_disableDistortion->current.enabled;
+#endif
     if (rg.distortion != v2)
         R_SyncRenderThread();
     rg.distortion = v2;

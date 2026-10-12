@@ -512,34 +512,14 @@ void __cdecl check_terrain_query_params(broad_phase_base *bpb)
     ntranslation_sq = bpb->m_trace_translation.y * bpb->m_trace_translation.y
                                     + bpb->m_trace_translation.x * bpb->m_trace_translation.x
                                     + bpb->m_trace_translation.z * bpb->m_trace_translation.z;
-    if ( ntranslation_sq > 260100.0 )
+    if ( ntranslation_sq > 260100.0f )
     {
-        if ( (pai_check_terrain_query_params.m_hits_total_count < pai_check_terrain_query_params.m_max_hits_total
-             || !pai_check_terrain_query_params.m_max_hits_total)
-            && pai_check_terrain_query_params.m_hits_frame_count < pai_check_terrain_query_params.m_max_hits_per_frame )
-        {
-            if ( pai_check_terrain_query_params.m_use_warnings_only )
-            {
-                PHYS_WARNING(
-                    "source/phys_broad_phase.cpp",
-                    636,
-                    "ntranslation_sq <= MAX_TRANSLATION_SQ",
-                    "terrain query translation too large.");
-            }
-            else if ( ntranslation_sq > 260100.0 )
-            {
-                if ( _tlAssert(
-                             "source/phys_broad_phase.cpp",
-                             636,
-                             "ntranslation_sq <= MAX_TRANSLATION_SQ",
-                             "terrain query translation too large.") )
-                {
-                    __debugbreak();
-                }
-            }
-        }
-        _InterlockedExchangeAdd(&pai_check_terrain_query_params.m_hits_total_count, 1u);
-        _InterlockedExchangeAdd(&pai_check_terrain_query_params.m_hits_frame_count, 1u);
+        // 510 units is the engine sweep cap (260100 = 510^2). A longer
+        // translation makes the terrain callback walk a map-sized volume.
+        float inv = 510.0f / sqrtf(ntranslation_sq);
+        bpb->m_trace_translation.x *= inv;
+        bpb->m_trace_translation.y *= inv;
+        bpb->m_trace_translation.z *= inv;
     }
 }
 
@@ -1886,10 +1866,15 @@ void __cdecl destroy_broad_phase_info_list(broad_phase_info *list_bpi)
     int v6; // ecx
 
     v1 = list_bpi;
+    unsigned hops = 0;
     if ( list_bpi )
     {
         do
         {
+            // Ragdoll teardown trapped here: the next link was outside the wasm heap
+            // (destroy_broad_phase_info_list <- Ragdoll_DestroyPhysObjs).
+            if (!phys_walk_ptr_ok(v1, sizeof(*v1)) || ++hops > PHYS_PTR_WALK_LIMIT)
+                break;
             if ( (v1->m_flags & 0x20) != 0
                 && _tlAssert(
                          "source/phys_broad_phase.cpp",
@@ -1903,6 +1888,8 @@ void __cdecl destroy_broad_phase_info_list(broad_phase_info *list_bpi)
                 __debugbreak();
             m_list_bpb_next = (broad_phase_info *)v1->m_list_bpb_next;
             p_m_gjk_geom = (char *)&v1[-1].m_gjk_geom;
+            if (!phys_walk_ptr_ok(p_m_gjk_geom, 0x90u))
+                break;
             p_g_list_broad_phase_info = &G_BPM->g_list_broad_phase_info;
             PMM_VALIDATE(p_m_gjk_geom, 0x90u, 0x10u);
             if ( !p_m_gjk_geom )
@@ -1911,16 +1898,17 @@ void __cdecl destroy_broad_phase_info_list(broad_phase_info *list_bpi)
                     __debugbreak();
             }
             --p_g_list_broad_phase_info->m_list_count;
-            //phys_free_list<broad_phase_info>::debug_remove(p_g_list_broad_phase_info, (phys_free_list<broad_phase_info>::T_internal *)p_m_gjk_geom);
             p_g_list_broad_phase_info->debug_remove((phys_free_list<broad_phase_info>::T_internal *)p_m_gjk_geom);
             v5 = (unsigned int *)*((unsigned int *)p_m_gjk_geom + 1);
             v6 = *(unsigned int *)p_m_gjk_geom;
+            if (!phys_walk_ptr_ok((void *)(uintptr_t)v6, 8u) || !phys_walk_ptr_ok(v5, 4u))
+                break;
             *(unsigned int *)(v6 + 4) = (unsigned int)v5;
             *v5 = v6;
             PMM_FREE((unsigned __int8 *)p_m_gjk_geom, 0x90u, 0x10u);
             v1 = m_list_bpb_next;
         }
-        while ( m_list_bpb_next );
+        while ( m_list_bpb_next && phys_walk_ptr_ok(m_list_bpb_next, sizeof(*m_list_bpb_next)) );
     }
 }
 
@@ -2044,18 +2032,33 @@ broad_phase_group *__cdecl create_broad_phase_group()
 
 void __cdecl destroy_broad_phase_group(broad_phase_group *bpg)
 {
-    phys_free_list<broad_phase_group> *p_g_list_broad_phase_group; // edi
+    // create_broad_phase_group stores the free-list header at the PMM_ALLOC
+    // pointer and returns &header->m_data. &bpg[-1].m_list_bpi_head is four
+    // bytes before that header and unlinks through the slot magic 0xFEDCBA98.
+    using TI = phys_free_list<broad_phase_group>::T_internal;
+    static_assert(offsetof(TI, m_data) == 16, "broad_phase_group header padding");
+    static_assert(sizeof(broad_phase_group) == 0x60, "broad_phase_group size");
+    static_assert(sizeof(TI) == 0x80, "slot size matches PMM_ALLOC(0x80)");
+    if (!bpg || !phys_walk_ptr_ok(bpg, sizeof(*bpg)) || !g_axis_aligned_sweep_and_prune || !G_BPM)
+        return;
+    TI *ti = (TI *)((char *)bpg - offsetof(TI, m_data));
 
     environment_collision_list_remove(bpg);
-    //axis_aligned_sweep_and_prune::destroy_sap_node(g_axis_aligned_sweep_and_prune, bpg);
     g_axis_aligned_sweep_and_prune->destroy_sap_node(bpg);
-    p_g_list_broad_phase_group = &G_BPM->g_list_broad_phase_group;
-    if ( bpg )
-    {
-        PMM_VALIDATE((char *)&bpg[-1].m_list_bpi_head, 0x80u, 0x10u);
-        //phys_free_list<broad_phase_group>::remove(p_g_list_broad_phase_group, (phys_free_list<broad_phase_group>::T_internal *)&bpg[-1].m_list_bpi_head);
-        p_g_list_broad_phase_group->remove((phys_free_list<broad_phase_group>::T_internal *) &bpg[-1].m_list_bpi_head);
-    }
+
+    if (!phys_walk_ptr_ok(ti, 0x80u))
+        return;
+    phys_free_list<broad_phase_group>::T_internal_base *prev = ti->m_prev_T_internal;
+    phys_free_list<broad_phase_group>::T_internal_base *next = ti->m_next_T_internal;
+    if (!phys_walk_ptr_ok(prev, 8u) || !phys_walk_ptr_ok(next, 8u))
+        return;
+    PMM_VALIDATE((char *)ti, 0x80u, 0x10u);
+    --G_BPM->g_list_broad_phase_group.m_list_count;
+    G_BPM->g_list_broad_phase_group.debug_remove(ti);
+    prev->m_next_T_internal = next;
+    next->m_prev_T_internal = prev;
+    // Same size and alignment as create_broad_phase_group's PMM_ALLOC(0x80, 0x10).
+    PMM_FREE((unsigned __int8 *)ti, 0x80u, 0x10u);
 }
 
 char    bpi_do_gjk_intersect(
@@ -3282,12 +3285,18 @@ void    broad_phase_process_collision_pairs()
     //v8 = vars0;
     hit_time = 0.0;
     m_next_T_internal = G_BPM->g_list_broad_phase_collision_pair.m_dummy_head.m_next_T_internal;
+    unsigned hops = 0;
     for (i = &G_BPM->g_list_broad_phase_collision_pair;
         i != (phys_free_list<broad_phase_collision_pair> *)m_next_T_internal;
         m_next_T_internal = m_next_T_internal->m_next_T_internal)
     {
+        if (!phys_walk_ptr_ok(m_next_T_internal, sizeof(*m_next_T_internal)) || ++hops > PHYS_PTR_WALK_LIMIT)
+            break;
         m_prev_T_internal = (const phys_vec3 *)m_next_T_internal[1].m_prev_T_internal;
         v4 = (const phys_vec3 *)m_next_T_internal[1].m_next_T_internal;
+        // [2] is three vec3s in. A bad link here is the match-start trap.
+        if (!phys_walk_ptr_ok(m_prev_T_internal, sizeof(phys_vec3) * 3) || !phys_walk_ptr_ok(v4, sizeof(phys_vec3) * 3))
+            break;
         v5.x = m_prev_T_internal[2].x - v4[2].x;
         v5.y = m_prev_T_internal[2].y - v4[2].y;
         v5.z = m_prev_T_internal[2].z - v4[2].z;

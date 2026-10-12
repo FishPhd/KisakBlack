@@ -376,8 +376,17 @@ void __thiscall phys_heap_gjk_cache_system_avl_tree::update_cache()
     phys_heap_gjk_cache_system_avl_tree::phys_gjk_cache_info_internal *gjk_ci; // [esp+15Ch] [ebp-4h]
 
     gjk_ci_i = &this->m_list_head;
+    unsigned hops = 0;
     for ( gjk_ci = this->m_list_head; gjk_ci; gjk_ci = *gjk_ci_i )
     {
+        if ( !phys_walk_ptr_ok(gjk_ci, sizeof(*gjk_ci)) )
+        {
+            *gjk_ci_i = 0;
+            break;
+        }
+        if ( ++hops > PHYS_PTR_WALK_LIMIT )
+            break;
+
         if ( (gjk_ci->m_flags & 1) != 0 )
         {
             gjk_ci_i = &gjk_ci->m_next_gjk_ci;
@@ -610,8 +619,15 @@ void    gjk_trace(const gjk_trace_input_t &gti, list_gjk_trace_output *list)
         gi_list = (gjk_geom_info_t **)gti.m_allocator->allocate(sizeof(gjk_geom_info_t *) * gti.m_query_output->m_list_geom_info.m_alloc_count, 4, 0, "phys_transient_allocator out of memory.");
 
         int gi_i = 0;
-        for (gjk_geom_info_t *i = gti.m_query_output->m_list_geom_info.m_first; i; i = i->m_next_link)
+        unsigned hops = 0;
+        int gi_count = (int)gti.m_query_output->m_list_geom_info.m_alloc_count;
+        for (gjk_geom_info_t *i = gti.m_query_output->m_list_geom_info.m_first; i; )
+        {
+            if (!phys_walk_ptr_ok(i, sizeof(*i)) || ++hops > PHYS_PTR_WALK_LIMIT || gi_i >= gi_count)
+                break;
             gi_list[gi_i++] = i;
+            i = i->m_next_link;
+        }
         sort_gi_list(gi_list, gi_i);
 
         PROF_SCOPED("gjk_trace_collide");

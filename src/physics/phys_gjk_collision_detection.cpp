@@ -204,8 +204,17 @@ void bpei_database_t::update_database()
     broad_phase_environment_info **prev_next; // [esp+158h] [ebp-4h]
 
     prev_next = &this->m_bpei_list;
+    unsigned hops = 0;
     for ( bpei = this->m_bpei_list; bpei; bpei = *prev_next )
     {
+        if ( !phys_walk_ptr_ok(bpei, sizeof(*bpei)) )
+        {
+            *prev_next = 0;
+            break;
+        }
+        if ( ++hops > PHYS_PTR_WALK_LIMIT )
+            break;
+
         if ( bpei->m_data )
         {
             prev_next = &bpei->m_next_bpei;

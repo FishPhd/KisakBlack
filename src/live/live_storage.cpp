@@ -10,6 +10,7 @@
 #include <time.h>
 #include "live_meetplayer.h"
 #include "live_win.h"
+#include "live_offline.h"
 #include "live_combatrecord.h"
 #include <client_mp/cl_main_pc_mp.h>
 #include "live_storage_win.h"
@@ -58,7 +59,7 @@ playerFileOperations controllerFileOps[1];
 unsigned __int64 s_tempXuid;
 unsigned __int64 s_XuidOfOtherPlayer;
 int s_lastStatsUpdateTimeForOtherPlayer;
-unsigned __int8 s_tempStatsBuffer[40168];
+unsigned __int8 s_tempStatsBuffer[40548];
 char s_matchRecordBinaryData[66560];
 
 const TaskDefinition task_LiveDeleteUserFile[1] =
@@ -439,7 +440,7 @@ persistentStats *__cdecl LiveStorage_GetPersStatsBuffer(
             break;
     }
     if ( (playerStatsLocation == STATS_LOCATION_NORMAL || playerStatsLocation == STATS_LOCATION_GLOBAL)
-        && xblive_basictraining->current.enabled )
+        && xblive_basictraining && xblive_basictraining->current.enabled )
     {
         stats = (persistentStats *)controllerNetworkData[controllerIndex].basicTrainingStats;
     }
@@ -501,7 +502,7 @@ void __cdecl LiveStorage_CorrectStatsError(char *msg)
 
 int __cdecl LiveStorage_GetStatsBufferSize()
 {
-    return 40168;
+    return 40548;
 }
 
 unsigned __int8 __cdecl LiveStorage_GetStatsChecksumValid(int controllerIndex, statsLocation playerStatsLocation)
@@ -532,7 +533,7 @@ void __cdecl LiveStorage_SetStatsWriteNeeded(int controllerIndex, bool isWriteNe
 
 int __cdecl LiveStorage_ValidateWithDDL(int controllerIndex, statsLocation location)
 {
-    char backupBuffer[40172]; // [esp+0h] [ebp-9CF8h] BYREF
+    char backupBuffer[40552]; // [esp+0h] [ebp-9CF8h] BYREF
     char *buffer; // [esp+9CF0h] [ebp-8h]
     int bufferSize; // [esp+9CF4h] [ebp-4h]
 
@@ -548,8 +549,8 @@ int __cdecl LiveStorage_ValidateWithDDL(int controllerIndex, statsLocation locat
         LiveStorage_SetStatsDDLValidated(controllerIndex, location, 1);
         return 1;
     }
-    else if ( DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats.ddl", backupBuffer, 40168)
-                 || DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats_archive.ddl", backupBuffer, 40168) )
+    else if ( DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats.ddl", backupBuffer, 40548)
+                 || DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats_archive.ddl", backupBuffer, 40548) )
     {
         DDL_NoCheckPrintWarning(
             "DDL: Stats buffer updated to version %d for controller index %d.\n",
@@ -1244,7 +1245,7 @@ TaskRecord *__cdecl LiveStorage_ReadStatsBackup(int controllerIndex)
                                                                                                                                     controllerIndex,
                                                                                                                                     STATS_LOCATION_BACKUP,
                                                                                                                                     1);
-    fileInfo->statsBackupFileInfo.bufferSize = 40172;
+    fileInfo->statsBackupFileInfo.bufferSize = 40552;
     fileInfo->statsBackupFileInfo.fileOperationSucessFunction = (void (__cdecl *)(const int, void *))LiveStorage_StatsBackupReadSuccessful;
     fileInfo->statsBackupFileInfo.fileNotFoundFunction = (taskCompleteResults (__cdecl *)(const int, void *))LiveStorage_StatsBackupFileNotFound;
     fileInfo->statsBackupFileInfo.fileTask.m_optional = 1;
@@ -1520,7 +1521,7 @@ TaskRecord *__cdecl LiveStorage_ReadOtherPlayerStats(int controllerIndex, unsign
     fileInfo->isCompressedFile = 1;
     fileInfo->fileTask.m_filename = (char*)"globalstatsCompressed";
     fileInfo->fileBuffer = (unsigned __int8 *)LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_OTHERPLAYER, 1);
-    fileInfo->bufferSize = 40172;
+    fileInfo->bufferSize = 40552;
     fileInfo->fileOperationSucessFunction = (void (__cdecl *)(const int, void *))LiveStorage_ReadOtherPlayerStatsSuccessful;
     fileInfo->fileNotFoundFunction = (taskCompleteResults (__cdecl *)(const int, void *))LiveStorage_OtherPlayerStatsFileNotFound;
     fileInfo->menuDef = "popup_fetchstats";
@@ -1645,7 +1646,7 @@ void __cdecl LiveStorage_ReadPlayerStatsSuccessful(int controllerIndex)
     wasBasicTraining = xblive_basictraining->current.enabled;
     Dvar_SetBool((dvar_s *)xblive_basictraining, 0);
     StatsBuffer = LiveStorage_GetStatsBuffer(0, STATS_LOCATION_NORMAL, 1);
-    memcpy(StatsBuffer->statsBuffer, s_tempStatsBuffer, 0x9CE8u);
+    memcpy(StatsBuffer->statsBuffer, s_tempStatsBuffer, 0x9E64u);
     LiveStorage_SetFirstTimeRunning(0);
     LiveStorage_SetStatsFetched(controllerIndex, STATS_LOCATION_FORCE_NORMAL, 1);
     controllerNetworkData[controllerIndex].firstTimeRunning = 0;
@@ -1732,7 +1733,7 @@ TaskRecord *__cdecl LiveStorage_ReadCommonStats(
     {
         memset(s_tempStatsBuffer, 0, sizeof(s_tempStatsBuffer));
         fileInfo->fileBuffer = s_tempStatsBuffer;
-        fileInfo->bufferSize = 40168;
+        fileInfo->bufferSize = 40548;
     }
     nestedTask = LiveStorage_ReadDWFile(controllerIndex, fileInfo);
     return LiveStorage_SetupNestedTask(taskDef, controllerIndex, nestedTask, fileInfo);
@@ -1913,6 +1914,12 @@ TaskRecord *__cdecl LiveStorage_WriteBasicTrainingStats(int controllerIndex)
 {
     dwFileOperationInfo *fileInfo; // [esp+0h] [ebp-4h]
 
+#ifndef KISAK_LIVE
+    // Offline: no DemonWare file operations, the basic training stats live in a local file.
+    LiveOffline_SaveStats(controllerIndex);
+    return 0;
+#endif
+
     if ( !controllerNetworkData[controllerIndex].fileOps
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\live\\live_storage.cpp",
@@ -1925,7 +1932,7 @@ TaskRecord *__cdecl LiveStorage_WriteBasicTrainingStats(int controllerIndex)
     }
     if ( !LiveStorage_DoWeHaveStats(controllerIndex, STATS_LOCATION_BASICTRAINING) )
         return 0;
-    if ( !controllerNetworkData[controllerIndex].basicTrainingStats[40168] )
+    if ( !controllerNetworkData[controllerIndex].basicTrainingStats[40548] )
         return 0;
     if ( !controllerNetworkData[controllerIndex].basicTrainingStats[40170] )
         return 0;

@@ -229,11 +229,15 @@ int __cdecl DObjSetRotTransIndex(const DObj *obj, const int *partBits, int boneI
 
     if ( !obj && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp", 394, 0, "%s", "obj") )
         __debugbreak();
+    if ( !obj )
+        return 0;
     if ( !obj->skel.mat
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp", 395, 0, "%s", "obj->skel.mat") )
     {
         __debugbreak();
     }
+    if ( !obj->skel.mat )
+        return 0;
     if ( boneIndex < 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp",
@@ -245,16 +249,23 @@ int __cdecl DObjSetRotTransIndex(const DObj *obj, const int *partBits, int boneI
     {
         __debugbreak();
     }
-    if ( boneIndex >= obj->numBones
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp",
-                    397,
-                    0,
-                    "%s\n\t(boneIndex) = %i",
-                    "(boneIndex < obj->numBones)",
-                    boneIndex) )
+    // 254 and 255 are the engine's "no bone" markers (a missing tag is stored as
+    // -1 or -2 in an unsigned char). The supply-drop helicopter has no wheels, so
+    // the pose loop passes these every frame. Asserting here flooded the log and
+    // never posed the model; DObjSetLocalTag already treats them as absent.
+    if ( boneIndex < 0 || boneIndex >= obj->numBones )
     {
-        __debugbreak();
+        if ( boneIndex != 254 && boneIndex != 255 )
+        {
+            Assert_MyHandler(
+                        "C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp",
+                        397,
+                        0,
+                        "%s\n\t(boneIndex) = %i",
+                        "(boneIndex < obj->numBones)",
+                        boneIndex);
+        }
+        return 0;
     }
     boneIndexHigh = boneIndex >> 5;
     boneIndexLow = 0x80000000 >> (boneIndex & 0x1F);
@@ -285,6 +296,8 @@ char __cdecl DObjSetSkelRotTransIndex(const DObj *obj, const int *partBits, int 
 
     if ( !obj && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp", 437, 0, "%s", "obj") )
         __debugbreak();
+    if ( !obj )
+        return 0;
     if ( boneIndex < 0 || boneIndex >= obj->numBones )
         return 0;
     boneIndexHigh = boneIndex >> 5;
@@ -398,7 +411,7 @@ void __cdecl DObjSetLocalTagInternal(const DObj *obj, const float *trans, const 
     DObjAnimMat *rotTransa; // [esp+0h] [ebp-4h]
 
     rotTrans = DObjGetRotTransArray(obj);
-    if ( rotTrans )
+    if ( rotTrans && boneIndex >= 0 && boneIndex < obj->numBones )
     {
         rotTransa = &rotTrans[boneIndex];
         if ( angles )
@@ -591,25 +604,29 @@ int __cdecl DObjSetControlRotTransIndex(const DObj *obj, const int *partBits, in
 
     if ( !obj && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp", 930, 0, "%s", "obj") )
         __debugbreak();
+    if ( !obj )
+        return 0;
     if ( !obj->skel.mat
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp", 931, 0, "%s", "obj->skel.mat") )
     {
         __debugbreak();
     }
+    if ( !obj->skel.mat )
+        return 0;
     if ( boneIndex < 0
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp", 932, 0, "%s", "boneIndex >= 0") )
     {
         __debugbreak();
     }
-    if ( boneIndex >= obj->numBones
-        && !Assert_MyHandler(
+    if ( boneIndex < 0 || boneIndex >= obj->numBones )
+    {
+        Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\xanim\\dobj_utils.cpp",
                     933,
                     0,
                     "%s",
-                    "boneIndex < obj->numBones") )
-    {
-        __debugbreak();
+                    "boneIndex < obj->numBones");
+        return 0;
     }
     boneIndexHigh = boneIndex >> 5;
     boneIndexLow = 0x80000000 >> (boneIndex & 0x1F);

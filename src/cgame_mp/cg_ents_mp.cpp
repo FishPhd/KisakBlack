@@ -2715,7 +2715,7 @@ void __cdecl CG_CreateRagdollObject(int localClientNum, centity_s *cent)
         cent->pose.ragdollHandle = (int)RagdollForDObj;
     else
         cent->pose.killcamRagdollHandle = (int)RagdollForDObj;
-    cent->pose.isRagdoll = 1;
+    cent->pose.isRagdoll = RagdollForDObj != NULL;
 }
 
 void __cdecl CG_CalcEntityLerpPositions(int localClientNum, centity_s *cent)
@@ -3215,7 +3215,7 @@ void __cdecl CG_CalcEntityRagdollPositions(int localClientNum, centity_s *cent)
     {
         __debugbreak();
     }
-    if ( ((*((unsigned int *)cent + 201) >> 21) & 1) != 0 )
+    if ( cent->bIgnoreRagdoll )
     {
         if ( cent->pose.ragdollHandle )
         {
@@ -3227,15 +3227,15 @@ void __cdecl CG_CalcEntityRagdollPositions(int localClientNum, centity_s *cent)
     {
         if ( !cent->pose.ragdollHandle && !cent->pose.killcamRagdollHandle )
             CG_CreateRagdollObject(localClientNum, cent);
-        if ( cent->pose.ragdollHandle > 0 || cent->pose.killcamRagdollHandle > 0 )
+        if ( cent->pose.ragdollHandle != 0 || cent->pose.killcamRagdollHandle != 0 )
             CG_UpdateRagdollPose(cent);
     }
 }
 
 void __cdecl CG_UpdateRagdollPose(centity_s *cent)
 {
-    if ( cent->pose.ragdollHandle <= 0
-        && cent->pose.killcamRagdollHandle <= 0
+    if ( cent->pose.ragdollHandle == 0
+        && cent->pose.killcamRagdollHandle == 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\cgame_mp\\cg_ents_mp.cpp",
                     2971,
@@ -3245,7 +3245,7 @@ void __cdecl CG_UpdateRagdollPose(centity_s *cent)
     {
         __debugbreak();
     }
-    if (cent->pose.killcamRagdollHandle <= 0)
+    if (cent->pose.killcamRagdollHandle == 0)
     {
         Ragdoll_GetRootOrigin(cent->pose.ragdollHandle, cent->pose.origin);
     }
@@ -3263,9 +3263,9 @@ void __cdecl CG_UpdateTags(centity_s *ent)
 
     if ( ent->pose.isRagdoll )
     {
-        if ( ent->pose.killcamRagdollHandle > 0 )
+        if ( ent->pose.killcamRagdollHandle != 0 )
             Ragdoll_RebindBody(ent->pose.killcamRagdollHandle);
-        if ( ent->pose.ragdollHandle > 0 )
+        if ( ent->pose.ragdollHandle != 0 )
             Ragdoll_RebindBody(ent->pose.ragdollHandle);
     }
     if ( ent->nextState.eType == 14 || ent->nextState.eType == 16 )

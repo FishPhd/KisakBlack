@@ -653,7 +653,7 @@ char string_1[4096];
 void PC_SourceError(int handle, const char *format, ...)
 {
     char filename[132]; // [esp+0h] [ebp-90h] BYREF
-    char *argptr; // [esp+88h] [ebp-8h]
+    va_list argptr; // [esp+88h] [ebp-8h]
     int line; // [esp+8Ch] [ebp-4h] BYREF
     va_list va; // [esp+A0h] [ebp+10h] BYREF
 

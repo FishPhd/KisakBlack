@@ -5,6 +5,9 @@
 #include "rb_logfile.h"
 #include "r_dvars.h"
 #include "r_stream.h"
+#ifdef KISAK_WEB
+#include <qcommon/cm_trace.h>
+#endif
 
 CoronaState coronaState[4];
 int coronaTimeLastUpdated;
@@ -437,6 +440,18 @@ GfxVertex *__cdecl RB_SetTessQuad(GfxColor color)
 
 void __cdecl RB_DrawCoronaQuerySprite(Corona *corona)
 {
+#ifdef KISAK_WEB
+    // The browser query shim cannot synchronously return GPU occlusion. Use
+    // the engine's sight trace, as the sun's original no-query path does.
+    if (corona && corona->inUse && gfxCmdBufSourceState.viewParms3D)
+    {
+        corona->hitNum = CM_BoxSightTrace(corona->hitNum,
+            gfxCmdBufSourceState.viewParms3D->origin, corona->info->origin,
+            vec3_origin, vec3_origin, 0, 8195);
+        corona->targetVisibility = corona->hitNum ? 0.0f : 1.0f;
+    }
+    return;
+#endif
     float v1; // [esp+10h] [ebp-50h]
     float v2; // [esp+30h] [ebp-30h]
     float v3; // [esp+34h] [ebp-2Ch]

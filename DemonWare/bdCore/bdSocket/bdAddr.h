@@ -4,6 +4,10 @@
 #include <cstdint>
 #include <DemonWare/bdCore/bdUtilities/bdBytePacker.h>
 //#include <winsock2.h>   // inet_addr, inet_ntoa
+#ifdef KISAK_WEB
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#endif
 #include <DW/dwUtils.h>
 #include <DW/dwNet.h>
 #include <DemonWare/bdCore/bdCrypto/bdHashTiger192.h>

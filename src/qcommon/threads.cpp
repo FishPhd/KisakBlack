@@ -8,6 +8,117 @@
 #include <gfx_d3d/r_cinematic.h>
 #include <gfx_d3d/rb_resource.h>
 #include <win32/win_common.h>
+#include "sys_futex.h"
+
+#include <atomic>
+#include <chrono>
+
+// Events are a 32-bit futex word instead of a kernel event handle: a Set/Wait pair that does not
+// have to sleep never enters the kernel, and the same code runs on the web build (Atomics.wait).
+// Semantics follow Win32 CreateEvent: a manual-reset event stays signaled until reset, an
+// auto-reset event releases exactly one waiter and clears itself (and stays signaled while
+// nobody waits).
+//
+// Manual-reset state is (setCount << 1) | signaled. Win32 releases every thread that is already
+// waiting when SetEvent runs, even if the event is reset again before they get scheduled (the
+// database thread relies on this for its "resume, yield, suspend" step). The set count lets a
+// waiter notice that a Set happened while it slept, so a quick Set+Reset cannot be lost.
+// Auto-reset state is just 0 or 1.
+struct SysEvent
+{
+    std::atomic<uint32_t> state;
+    bool manualReset;
+};
+
+#ifdef __EMSCRIPTEN__
+// Which event each engine thread is parked on (see Kisak_ThreadWaits at the end of this file).
+#include "sys_futex.h"
+#include <emscripten.h>
+ extern thread_local unsigned int g_currentThreadId;
+ static std::atomic<const SysEvent *> s_waitOn[32];
+ static std::atomic<uint32_t> s_waitSinceMs[32];
+#endif
+
+// startState is the state observed when the wait began.
+static bool Sys_EventTryConsume(SysEvent *e, uint32_t startState)
+{
+    if (e->manualReset)
+    {
+        const uint32_t cur = e->state.load(std::memory_order_acquire);
+        return (cur & 1) || (cur >> 1) != (startState >> 1);
+    }
+
+    uint32_t expected = 1;
+    return e->state.compare_exchange_strong(expected, 0, std::memory_order_acq_rel);
+}
+
+static bool Sys_EventWait(SysEvent *e, unsigned int msec)
+{
+    if (!e)
+        return false;
+
+    const uint32_t startState = e->state.load(std::memory_order_acquire);
+    if (Sys_EventTryConsume(e, startState))
+        return true;
+    if (msec == 0)
+        return false;
+
+    // Short waits are common (Set follows within microseconds); parking costs a syscall round trip.
+    for (unsigned int spins = 0; spins < 48; ++spins)
+    {
+        Sys_CpuRelax();
+        if (Sys_EventTryConsume(e, startState))
+            return true;
+    }
+
+    // Park while the word still holds the value we last saw as unsignaled.
+    const uint32_t parkValue = e->manualReset ? startState : 0u;
+
+#ifdef __EMSCRIPTEN__
+    struct WaitScope
+    {
+        unsigned int slot;
+        explicit WaitScope(SysEvent *ev) : slot(g_currentThreadId)
+        {
+            if (slot < 32)
+            {
+                s_waitSinceMs[slot].store((uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+                s_waitOn[slot].store(ev);
+            }
+        }
+        ~WaitScope()
+        {
+            if (slot < 32)
+                s_waitOn[slot].store(nullptr);
+        }
+    } waitScope(e);
+#endif
+
+    using Clock = std::chrono::steady_clock;
+    const bool infinite = (msec == SYS_FUTEX_INFINITE);
+    const Clock::time_point deadline = infinite ? Clock::time_point() : Clock::now() + std::chrono::milliseconds(msec);
+
+    for (;;)
+    {
+        unsigned int waitMsec = SYS_FUTEX_INFINITE;
+        if (!infinite)
+        {
+            const Clock::time_point now = Clock::now();
+            if (now >= deadline)
+                return Sys_EventTryConsume(e, startState);
+
+            // Round up so a sub-millisecond remainder cannot degrade into a busy loop.
+            waitMsec = (unsigned int)std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+        }
+
+        // A Set between the check and the wait changes the word, so the wake cannot be lost.
+        // Spurious returns just re-check.
+        Sys_FutexWait(&e->state, parkValue, waitMsec);
+
+        if (Sys_EventTryConsume(e, startState))
+            return true;
+    }
+}
 
 const char *s_threadNames[15] =
 {
@@ -226,7 +337,10 @@ char __cdecl Sys_SpawnRenderThread(void (__cdecl *function)(unsigned int))
 
 void __cdecl Sys_CreateEvent(bool manualReset, bool initialState, void **event)
 {
-    *event = CreateEventA(0, manualReset, initialState, 0);
+    SysEvent *e = new SysEvent;
+    e->state.store(initialState ? 1 : 0, std::memory_order_relaxed);
+    e->manualReset = manualReset;
+    *event = e;
 }
 
 void __cdecl Sys_CreateThread(void (__cdecl *function)(unsigned int), unsigned int threadContext)
@@ -270,12 +384,15 @@ void __cdecl SetThreadName(unsigned int dwThreadID, const char *szThreadName)
     if ( dwThreadID == 0xFFFFFFFF || dwThreadID == GetCurrentThreadId() )
         PROF_THREADNAME(szThreadName);
 
+#ifdef _MSC_VER
     // LWSS: this try/except needs to be here, otherwise it wont run without a debugger :D
+    // (MSVC debugger thread-name protocol; structured exceptions only exist on MSVC.)
     __try {
         RaiseException(0x406D1388, 0, sizeof(info) / sizeof(DWORD), (ULONG_PTR *)&info);
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
     }
+#endif
 }
 
 DWORD WINAPI Sys_ThreadMain(LPVOID parameter)
@@ -305,20 +422,9 @@ void __cdecl Sys_WaitForDemoStreamingEvent()
 
 void __cdecl Sys_WaitForSingleObject(void **event)
 {
-    unsigned int result; // [esp+0h] [ebp-4h]
-
-    result = WaitForSingleObject(*event, 0xFFFFFFFF);
-    if ( result )
-    {
-        if ( !Assert_MyHandler(
-                        "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\threads.cpp",
-                        297,
-                        0,
-                        "%s\n\t(result) = %i",
-                        "(result == ((((unsigned int)0x00000000L) ) + 0 ))",
-                        result) )
-            __debugbreak();
-    }
+    // An infinite wait only fails on an event that was never created.
+    const bool signaled = Sys_EventWait((SysEvent *)*event, SYS_FUTEX_INFINITE);
+    iassert(signaled);
 }
 
 void __cdecl Sys_SetDemoStreamingEvent()
@@ -328,7 +434,22 @@ void __cdecl Sys_SetDemoStreamingEvent()
 
 void __cdecl Sys_SetEvent(void **event)
 {
-    SetEvent(*event);
+    SysEvent *e = (SysEvent *)*event;
+    if (!e)
+        return;
+
+    if (e->manualReset)
+    {
+        uint32_t old = e->state.load(std::memory_order_relaxed);
+        while (!e->state.compare_exchange_weak(old, (((old >> 1) + 1) << 1) | 1, std::memory_order_acq_rel))
+            ;
+        Sys_FutexWakeAll(&e->state);
+    }
+    else
+    {
+        e->state.store(1, std::memory_order_release);
+        Sys_FutexWakeOne(&e->state);
+    }
 }
 
 void __cdecl Sys_InitServerEvents()
@@ -342,7 +463,14 @@ void __cdecl Sys_InitServerEvents()
 
 void __cdecl Sys_ResetEvent(void **event)
 {
-    ResetEvent(*event);
+    SysEvent *e = (SysEvent *)*event;
+    if (!e)
+        return;
+
+    if (e->manualReset)
+        e->state.fetch_and(~1u, std::memory_order_acq_rel); // keep the set count
+    else
+        e->state.store(0, std::memory_order_release);
 }
 
 char __cdecl Sys_SpawnServerThread(void (__cdecl *function)(unsigned int))
@@ -436,10 +564,21 @@ void __cdecl Sys_WaitDiscReads()
     Sys_WaitForSingleObject(&resumedDatabaseEvent);
 }
 
-void __cdecl Sys_InitWorkerThreadContext()
+static unsigned int s_workerThreadCount;
+
+void __cdecl Sys_InitWorkerThreadContext(unsigned int workerCount)
 {
-    threadId[2] = jqWorkers[1].ThreadId;
-    threadId[3] = jqWorkers[2].ThreadId;
+    iassert(workerCount <= THREAD_CONTEXT_WORKER7 - THREAD_CONTEXT_WORKER0 + 1);
+
+    // jqWorkers[0] is the main thread.
+    for (unsigned int workerIndex = 0; workerIndex < workerCount; ++workerIndex)
+        threadId[THREAD_CONTEXT_WORKER0 + workerIndex] = jqWorkers[workerIndex + 1].ThreadId;
+    s_workerThreadCount = workerCount;
+}
+
+unsigned int __cdecl Sys_GetWorkerThreadCount()
+{
+    return s_workerThreadCount;
 }
 
 void __cdecl Sys_ResumeThread(unsigned int threadContext)
@@ -503,7 +642,7 @@ bool __cdecl Sys_WaitForSingleObjectTimeout(void **event, unsigned int msec)
     {
         __debugbreak();
     }
-    return WaitForSingleObject(*event, msec) == 0;
+    return Sys_EventWait((SysEvent *)*event, msec);
 }
 
 void __cdecl Sys_WakeRenderer(void *data)
@@ -1065,3 +1204,110 @@ void __cdecl Win_UnlockThreadAffinity()
     }
 }
 
+
+#ifdef __EMSCRIPTEN__
+// Diagnostics for the browser build: "Main: renderCompletedEvent 5230 ms; Backend: backendEvent[1] 12 ms; ..." for every thread currently parked
+// on an event. Callable from the page (Module._Kisak_ThreadWaits) while the engine threads are stuck.
+extern "C" EMSCRIPTEN_KEEPALIVE const char *Kisak_ThreadWaits()
+{
+    static char buf[4096];
+    struct Named { const char *name; void **ev; };
+    const Named names[] = {
+        { "wakeServerEvent", &wakeServerEvent }, { "serverCompletedEvent", &serverCompletedEvent },
+        { "allowServerNetworkEvent", &allowServerNetworkEvent }, { "serverNetworkCompletedEvent", &serverNetworkCompletedEvent },
+        { "sndInitializedEvent", &sndInitializedEvent }, { "streamCompletedEvent", &streamCompletedEvent },
+        { "streamEvent", &streamEvent }, { "occlusionEvent", &occlusionEvent }, { "wakeDatabaseEvent", &wakeDatabaseEvent },
+        { "databaseCompletedEvent", &databaseCompletedEvent }, { "databaseCompletedEvent2", &databaseCompletedEvent2 },
+        { "resumedDatabaseEvent", &resumedDatabaseEvent }, { "renderPausedEvent", &renderPausedEvent },
+        { "renderCompletedEvent", &renderCompletedEvent }, { "resourcesFlushedEvent", &resourcesFlushedEvent },
+        { "resourcesQueuedEvent", &resourcesQueuedEvent }, { "rendererRunningEvent", &rendererRunningEvent },
+        { "backendEvent[0]", &backendEvent[0] }, { "backendEvent[1]", &backendEvent[1] },
+        { "updateSpotLightEffectEvent", &updateSpotLightEffectEvent }, { "updateEffectsEvent", &updateEffectsEvent },
+        { "d3dDeviceOKEvent", &d3dDeviceOKEvent }, { "d3dDeviceHardStartEvent", &d3dDeviceHardStartEvent },
+        { "d3dShutdownEvent", &d3dShutdownEvent }, { "d3dDeviceWinMessageEvent", &d3dDeviceWinMessageEvent },
+        { "win32QuitEvent", &win32QuitEvent }, { "rgRegisteredEvent", &rgRegisteredEvent }, { "renderEvent", &renderEvent },
+        { "demoStreamingReady", &demoStreamingReady },
+    };
+    const uint32_t now = (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    size_t n = 0;
+    buf[0] = 0;
+    for (unsigned int t = 0; t < 15; ++t)
+    {
+        const SysEvent *ev = s_waitOn[t].load();
+        if (!ev)
+            continue;
+        const char *name = "(unnamed event)";
+        for (const Named &nm : names)
+            if (*nm.ev == (void *)ev)
+            {
+                name = nm.name;
+                break;
+            }
+        n += (size_t)snprintf(buf + n, sizeof(buf) - n, "%s: %s %u ms\n", s_threadNames[t], name, now - s_waitSinceMs[t].load());
+        if (n >= sizeof(buf) - 80)
+            break;
+    }
+    return buf;
+}
+// Futex-level view: every thread's most recent park address, so a stall can be tied to a lock or event word.
+struct FutexRec
+{
+    std::atomic<const void *> addr;
+    std::atomic<uint32_t> sinceMs;
+    std::atomic<uint32_t> waits;
+    std::atomic<unsigned int> tid;
+    std::atomic<const char *> op;
+};
+static FutexRec s_fx[32];
+static std::atomic<int> s_fxNext;
+static thread_local int tl_fxSlot = -1;
+
+extern "C" const char *Kisak_SetOp(const char *op)
+{
+    if (tl_fxSlot < 0)
+        tl_fxSlot = s_fxNext.fetch_add(1);
+    if (tl_fxSlot >= 32)
+        return nullptr;
+    return s_fx[tl_fxSlot].op.exchange(op);
+}
+
+extern "C" void Kisak_NoteWait(const void *addr, int enter)
+{
+    if (tl_fxSlot < 0)
+        tl_fxSlot = s_fxNext.fetch_add(1);
+    if (tl_fxSlot >= 32)
+        return;
+    FutexRec &r = s_fx[tl_fxSlot];
+    if (enter)
+    {
+        r.tid.store(g_currentThreadId);
+        r.sinceMs.store((uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+        r.addr.store(addr);
+    }
+    else
+    {
+        r.addr.store(nullptr);
+        r.waits.fetch_add(1);
+    }
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE const char *Kisak_FutexWaits()
+{
+    static char buf[4096];
+    const uint32_t now = (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    size_t n = 0;
+    buf[0] = 0;
+    for (int i = 0; i < 32 && i < s_fxNext.load(); ++i)
+    {
+        const void *a = s_fx[i].addr.load();
+        const unsigned int tid = s_fx[i].tid.load();
+        n += (size_t)snprintf(buf + n, sizeof(buf) - n, "slot%d tid=%u(%s) %s waits=%u", i, tid, tid < 15 ? s_threadNames[tid] : "?", a ? "PARKED" : "running", s_fx[i].waits.load());
+        if (a)
+            n += (size_t)snprintf(buf + n, sizeof(buf) - n, " addr=%p for %u ms", a, now - s_fx[i].sinceMs.load());
+        if (const char *op = s_fx[i].op.load())
+            n += (size_t)snprintf(buf + n, sizeof(buf) - n, " IN:%s", op);
+        n += (size_t)snprintf(buf + n, sizeof(buf) - n, "\n");
+    }
+    return buf;
+}
+#endif

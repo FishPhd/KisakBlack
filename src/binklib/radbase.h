@@ -305,6 +305,13 @@
       #endif
     #endif
 
+    #if defined(KISAK_WEB) && !defined(__RADWIN__)
+      // Web build: Bink is a link-time stub, the headers only need a 32-bit platform.
+      #define __RADNT__
+      #define __RADWIN__
+      #define __RAD32__
+    #endif
+
     #if (!defined(__RADDOS__) && !defined(__RADWIN__) && !defined(__RADMAC__) &&      \
          !defined(__RADNGC__) && !defined(__RADNDS__) && !defined(__RADXBOX__) &&     \
          !defined(__RADXENON__) && !defined(__RADLINUX__) && !defined(__RADPS2__) &&  \

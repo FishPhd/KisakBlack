@@ -9,6 +9,7 @@
 #include <bgame/bg_misc.h>
 #include <client/splitscreen.h>
 #include <live/live_win.h>
+#include <live/live_offline.h>
 #include <cgame/cg_compass.h>
 #include <client/client.h>
 #include <bgame/bg_unlockable_items.h>
@@ -43,6 +44,44 @@
 #include <stringed/stringed_hooks.h>
 
 int s_indexToFunctionMap[1024];
+using ExtraExpressionFn = void (__cdecl *)(int, itemDef_s *, OperandStack *);
+static ExtraExpressionFn s_extraExpressionFunctions[1024]{};
+
+static void Expr_IsLocalPlayerXUID(int localClientNum, itemDef_s *, OperandStack *stack)
+{
+    Operand source{}, result{};
+    GetOperand(stack, &source);
+    unsigned __int64 xuid = 0;
+    StringToXUID(GetSourceString(source), &xuid);
+    result.dataType = VAL_INT;
+    result.internals.intVal = xuid && xuid == Live_GetXuid(Com_LocalClient_GetControllerIndex(localClientNum));
+    AddOperandToStack(stack, &result);
+}
+
+static void Expr_WagerWinnings(int localClientNum, itemDef_s *, OperandStack *stack)
+{
+    Operand source{}, result{};
+    GetOperand(stack, &source);
+    const int index = GetSourceInt(&source).intVal;
+    result.dataType = VAL_INT;
+    ddlState_t state = *LiveStats_GetRootDDLState();
+    if (index >= 0 && index < 32 && state.ddl
+        && DDL_MoveTo(&state, &state, 2, "AfterActionReportStats", "payouts")
+        && DDL_MoveToIndex(&state, &state, index, 1))
+        result.internals.intVal = LiveStats_GetDIntStat(Com_LocalClient_GetControllerIndex(localClientNum), &state);
+    AddOperandToStack(stack, &result);
+}
+
+static void Expr_PlaylistCategoryName(int, itemDef_s *, OperandStack *stack)
+{
+    Operand source{}, result{};
+    GetOperand(stack, &source);
+    const int category = GetSourceInt(&source).intVal;
+    result.dataType = VAL_STRING;
+    result.internals.string = category >= 0 && category < 32 ? Playlist_GetCategoryLocalizedName(0, category) : "";
+    if (!result.internals.string) result.internals.string = "";
+    AddOperandToStack(stack, &result);
+}
 
 void __cdecl GetToastPopupTitle(int localClientNum, itemDef_s *item, OperandStack *dataStack)
 {
@@ -1616,6 +1655,37 @@ char __cdecl GetTwoOperands(OperandStack *dataStack, Operand *data1, Operand *da
     return 1;
 }
 
+#ifdef KISAK_WEB
+#include <cstdint>
+#include <emscripten/heap.h>
+// Menu expressions are asset data. A string or RPN block that was not fixed up is an address
+// outside the wasm heap, and reading it aborts the page (the private-match and combat-training lobbies).
+static bool Kisak_ExprMem(const void *p, unsigned bytes)
+{
+    uintptr_t a = (uintptr_t)p;
+    uintptr_t heap = (uintptr_t)emscripten_get_heap_size();
+    return bytes && bytes < heap && a >= 0x1000 && a <= heap - bytes;
+}
+static bool Kisak_ExprStr(const char *s)
+{
+    if ( !Kisak_ExprMem(s, 1) )
+        return false;
+    uintptr_t heap = (uintptr_t)emscripten_get_heap_size();
+    uintptr_t a = (uintptr_t)s;
+    for ( unsigned n = 0; n < 512 && a + n < heap; ++n )
+    {
+        if ( !s[n] )
+            return true;
+    }
+    return false;
+}
+static void Kisak_ExprFixString(Operand *data)
+{
+    if ( data && data->dataType == VAL_STRING && !Kisak_ExprStr(data->internals.string) )
+        data->internals.string = "";
+}
+#endif
+
 char __cdecl GetOperand(OperandStack *dataStack, Operand *data)
 {
     operandInternalDataUnion v2; // edx
@@ -1631,6 +1701,9 @@ char __cdecl GetOperand(OperandStack *dataStack, Operand *data)
             data->dataType = list->operands[0].dataType;
             data->internals = v4;
             --dataStack->numOperandLists;
+#ifdef KISAK_WEB
+            Kisak_ExprFixString(data);
+#endif
             if ( data->dataType == VAL_STRING
                 && !data->internals.intVal
                 && !Assert_MyHandler(
@@ -1673,6 +1746,15 @@ char __cdecl GetOperandList(OperandStack *dataStack, OperandList *list)
     if ( dataStack->numOperandLists >= 1 )
     {
         memcpy(list, &dataStack->stack[--dataStack->numOperandLists], sizeof(OperandList));
+#ifdef KISAK_WEB
+        int n = list->operandCount;
+        if ( n < 0 )
+            n = 0;
+        if ( n > 10 )
+            n = 10;
+        for ( int i = 0; i < n; ++i )
+            Kisak_ExprFixString(&list->operands[i]);
+#endif
         return 1;
     }
     else
@@ -1692,7 +1774,13 @@ char *__cdecl GetSourceString(Operand operand)
     char *result; // [esp+8h] [ebp-4h]
 
     if ( operand.dataType == VAL_STRING )
+    {
+#ifdef KISAK_WEB
+        if ( !Kisak_ExprStr(operand.internals.string) )
+            return (char *)"";
+#endif
         return (char *)operand.internals.intVal;
+    }
     if ( (unsigned int)currentTempOperand >= 0x20
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_expressions_eval.cpp",
@@ -1734,6 +1822,10 @@ double __cdecl GetSourceFloat(Operand *source)
     {
         __debugbreak();
     }
+#ifdef KISAK_WEB
+    if ( !Kisak_ExprStr(source->internals.string) )
+        return 0.0;
+#endif
     return (float)atof(source->internals.string);
 }
 
@@ -1755,6 +1847,10 @@ operandInternalDataUnion __cdecl GetSourceInt(Operand *source)
         {
             __debugbreak();
         }
+#ifdef KISAK_WEB
+        if ( !Kisak_ExprStr(source->internals.string) )
+            return 0;
+#endif
         return (operandInternalDataUnion)atoi(source->internals.string);
     }
     else
@@ -1840,6 +1936,12 @@ void __cdecl AddOperandToStack(OperandStack *dataStack, Operand *data)
     operandInternalDataUnion v2; // eax
     int numOperandLists; // ecx
 
+#ifdef KISAK_WEB
+    // OperandStack::stack has 60 slots. A runaway "visible when" used to write past that local and abort the page.
+    if ( dataStack->numOperandLists >= 60 )
+        return;
+    Kisak_ExprFixString(data);
+#endif
     if ( data->dataType == VAL_STRING
         && !data->internals.intVal
         && !Assert_MyHandler(
@@ -3138,11 +3240,19 @@ void __cdecl ShowZombieMap(int localClientNum, itemDef_s *item, OperandStack *da
     AddOperandToStack(dataStack, &result);
 }
 
+// Offline party model: the local user is always alone in their own party and is its host, unless the
+// xblive_privatepartyclient dvar says otherwise.
+static int Offline_IsPartyHost()
+{
+    return LiveOffline_IsSignedIn() && !(xblive_privatepartyclient && xblive_privatepartyclient->current.enabled);
+}
+
 void __cdecl PrivatePartyHostInLobby(int localClientNum, itemDef_s *item, OperandStack *dataStack)
 {
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
-    result.internals.intVal = 0;
+    // host and not currently in a map (menus / lobby)
+    result.internals.intVal = Offline_IsPartyHost() && CL_GetLocalClientConnectionState(localClientNum) == CA_DISCONNECTED;
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("PrivatePartyHostInLobby() = %i\n", result.internals.intVal);
@@ -3153,7 +3263,7 @@ void __cdecl AloneInPrivateParty(int localClientNum, itemDef_s *item, OperandSta
 {
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
-    result.internals.intVal = 0;
+    result.internals.intVal = Offline_IsPartyHost();
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("AloneInPrivateParty() = %i\n", result.internals.intVal);
@@ -3166,7 +3276,7 @@ void __cdecl AloneInPrivatePartyIgnoreSplitscreen(int localClientNum, itemDef_s 
     Operand result; // [esp+8h] [ebp-8h] BYREF
 
     GetOperand(dataStack, &source);
-    result.internals.intVal = 0;
+    result.internals.intVal = Offline_IsPartyHost();
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("AloneInPartyIgnoreSplitscreen() = %i\n", result.internals.intVal);
@@ -3177,7 +3287,7 @@ void __cdecl AloneInLobby(int localClientNum, itemDef_s *item, OperandStack *dat
 {
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
-    result.internals.intVal = 0;
+    result.internals.intVal = Offline_IsPartyHost();
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("AloneInLobby() = %i\n", result.internals.intVal);
@@ -3190,7 +3300,7 @@ void __cdecl AloneInLobbyIgnoreSplitscreen(int localClientNum, itemDef_s *item, 
     Operand result; // [esp+8h] [ebp-8h] BYREF
 
     GetOperand(dataStack, &source);
-    result.internals.intVal = 0;
+    result.internals.intVal = Offline_IsPartyHost();
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("AloneInLobbyIgnoreSplitscreen() = %i\n", result.internals.intVal);
@@ -3202,7 +3312,10 @@ void __cdecl GameHost(int localClientNum, itemDef_s *item, OperandStack *dataSta
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
     result.dataType = VAL_INT;
-    result.internals.intVal = 0;
+    // hosting locally: either our own server is running, or we are not connected to anyone else's
+    result.internals.intVal = LiveOffline_IsSignedIn()
+                                                 && (com_sv_running->current.enabled
+                                                  || CL_GetLocalClientConnectionState(localClientNum) == CA_DISCONNECTED);
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("GameHost() = %i\n", result.internals.intVal);
     AddOperandToStack(dataStack, &result);
@@ -3240,6 +3353,10 @@ void __cdecl IsVisibilityBitSet(int localClientNum, itemDef_s *item, OperandStac
     GetOperand(dataStack, &source);
     result.dataType = VAL_INT;
     checkBit = GetSourceInt(&source).intVal;
+#ifdef KISAK_WEB
+    if ( (unsigned)checkBit >= 64u )
+        checkBit = 0;
+#endif
     LODWORD(v4) = LODWORD(sharedUiInfo.visibilityBits[localClientNum]) & (1LL << checkBit);
     HIDWORD(v4) = HIDWORD(sharedUiInfo.visibilityBits[localClientNum]) & ((1LL << checkBit) >> 32);
     result.internals.intVal = v4 != 0;
@@ -3253,7 +3370,7 @@ void __cdecl PrivatePartyHost(int localClientNum, itemDef_s *item, OperandStack 
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
     result.dataType = VAL_INT;
-    result.internals.intVal = 0;
+    result.internals.intVal = Offline_IsPartyHost();
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("PrivatePartyHost() = %i\n", result.internals.intVal);
     AddOperandToStack(dataStack, &result);
@@ -3822,6 +3939,13 @@ void __cdecl GetFileShareRating(int localClientNum, itemDef_s *item, OperandStac
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("GetFileShareRating() = %d\n", result.internals.intVal);
     AddOperandToStack(dataStack, &result);
+#else
+    // every expression function must push exactly one operand
+    Operand result;
+
+    result.dataType = VAL_INT;
+    result.internals.intVal = 0;
+    AddOperandToStack(dataStack, &result);
 #endif
 }
 
@@ -4345,7 +4469,10 @@ void __cdecl GetItemIndex(int localClientNum, itemDef_s *item, OperandStack *dat
     GetOperand(dataStack, &source);
     result.dataType = VAL_INT;
     itemName = GetSourceString(source);
-    result.internals.intVal = BG_UnlockablesGetItemIndexFromName(itemName);
+    if ( !itemName || !itemName[0] )
+        result.internals.intVal = -1;
+    else
+        result.internals.intVal = BG_UnlockablesGetItemIndexFromName(itemName);
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("GetItemIndex() = %i\n", result.internals.intVal);
     AddOperandToStack(dataStack, &result);
@@ -8066,13 +8193,12 @@ void __cdecl GetXUID(int localClientNum, itemDef_s *item, OperandStack *dataStac
     controllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
     result.dataType = VAL_STRING;
     result.internals.intVal = (int)"";
-    //if (Live_IsSignedIn(controllerIndex))
-    //{
-    //    LODWORD(v3) = Live_GetXuid(controllerIndex);
-    //    v4 = va("%lld", v3);
-    //    result.internals.intVal = (int)CopyTempString(v4);
-    //}
-    //else
+    if (LiveOffline_IsSignedIn() && controllerIndex == 0)
+    {
+        v4 = va("%lld", (long long)LiveOffline_GetXuid());
+        result.internals.intVal = (int)CopyTempString(v4);
+    }
+    else
     {
         result.internals.intVal = (int)CopyTempString("0");
     }
@@ -8127,9 +8253,9 @@ void __cdecl GetSelfGamertag(int localClientNum, itemDef_s *item, OperandStack *
     result.dataType = VAL_STRING;
     result.internals.intVal = (int)"";
     controllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
-    //if (Live_IsSignedIn(controllerIndex))
-    //    result.internals.intVal = (int)Live_ControllerIndex_GetClientName(controllerIndex);
-    //else
+    if (LiveOffline_IsSignedIn() && controllerIndex == 0)
+        result.internals.intVal = (int)CopyTempString(LiveOffline_GetGamertag());
+    else
         result.internals.intVal = (int)"";
     AddOperandToStack(dataStack, &result);
 #endif
@@ -8320,7 +8446,7 @@ void __cdecl IsSignedIn(int localClientNum, itemDef_s *item, OperandStack *dataS
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
     ControllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
-    result.internals.intVal = 0;// Live_IsSignedIn(ControllerIndex);
+    result.internals.intVal = ControllerIndex == 0 && LiveOffline_IsSignedIn();
     result.dataType = VAL_INT;
     if (uiscript_debug && uiscript_debug->current.integer)
         Expression_TraceInternal("IsSignedIn() = %i\n", result.internals.intVal);
@@ -8343,7 +8469,7 @@ void __cdecl IsSignedInToLive(int localClientNum, itemDef_s *item, OperandStack 
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
     Com_LocalClient_GetControllerIndex(localClientNum);
-    result.internals.intVal = 0;// Live_IsSignedInToLive();
+    result.internals.intVal = LiveOffline_IsSignedIn();
     result.dataType = VAL_INT;
     if (uiscript_debug && uiscript_debug->current.integer)
         Expression_TraceInternal("IsSignedInToLive() = %i\n", result.internals.intVal);
@@ -8355,7 +8481,7 @@ void __cdecl AnySignedIn(int localClientNum, itemDef_s *item, OperandStack *data
 {
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
-    result.internals.intVal = 0;
+    result.internals.intVal = LiveOffline_IsSignedIn();
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("IsSignedIn() = %i\n", result.internals.intVal);
@@ -8366,7 +8492,7 @@ void __cdecl AnySignedInToLiveAndStatsFetched(int localClientNum, itemDef_s *ite
 {
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
-    result.internals.intVal = 0;
+    result.internals.intVal = LiveOffline_AreStatsReady();
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("IsSignedInToLive() = %i\n", result.internals.intVal);
@@ -8379,8 +8505,14 @@ void __cdecl AreStatsFetched(int localClientNum, itemDef_s *item, OperandStack *
     int localControllerIndex; // [esp+8h] [ebp-4h]
 
     localControllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
+#ifdef KISAK_LIVE
     result.internals.intVal = Live_IsUserSignedInToDemonware(localControllerIndex)
                                                  && LiveStorage_DoWeHaveAllStats(localControllerIndex);
+#else
+    result.internals.intVal = localControllerIndex == 0
+                                                 && LiveOffline_AreStatsReady()
+                                                 && LiveStorage_DoWeHaveAllStats(localControllerIndex);
+#endif
     result.dataType = VAL_INT;
     if ( uiscript_debug && uiscript_debug->current.integer )
         Expression_TraceInternal("AreStatsFetched() = %i\n", result.internals.intVal);
@@ -8557,7 +8689,8 @@ void __cdecl GetDStat(int localClientNum, itemDef_s *item, OperandStack *dataSta
 
     result.dataType = VAL_INT;
     result.internals.intVal = 0;
-#ifdef KISAK_LIVE
+    // NOTE: must always pop the argument list (GetOperandList) and push exactly one result, even in
+    // offline builds; otherwise the expression stack is corrupted for the rest of the statement.
     searchState = *LiveStats_GetRootDDLState();
     GetOperandList(dataStack, &list);
     if ( GetSearchState(&searchState, &list, 0) )
@@ -8590,7 +8723,6 @@ void __cdecl GetDStat(int localClientNum, itemDef_s *item, OperandStack *dataSta
             result.internals.intVal = LiveStats_GetDIntStat(controllerIndex, &searchState);
         }
     }
-#endif
     AddOperandToStack(dataStack, &result);
 }
 
@@ -8600,6 +8732,8 @@ char __cdecl GetSearchState(ddlState_t *searchState, OperandList *operandList, i
     int i; // [esp+Ch] [ebp-5Ch]
     OperandList list; // [esp+10h] [ebp-58h] BYREF
 
+    if (!searchState->ddl || operandList->operandCount <= listStartIndex)
+        return 0;
     memcpy(&list, operandList, sizeof(list));
     if ( list.operandCount - listStartIndex <= 8 )
     {
@@ -9936,8 +10070,6 @@ void __cdecl GetIndexIntoMatchScoreboard(int localClientNum, itemDef_s *item, Op
     result.dataType = VAL_INT;
     controllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
     result.internals.intVal = CG_GetIndexIntoMatchScoreboard(localClientNum, controllerIndex);
-    if ( result.internals.intVal < 0 )
-        result.internals.intVal = 0;
     AddOperandToStack(dataStack, &result);
 }
 
@@ -12003,6 +12135,38 @@ void __cdecl TableLookup(int localClientNum, itemDef_s *item, OperandStack *data
             }
             AddOperandToStack(dataStack, &operandResult);
         }
+        else if ( list.operandCount == 3 )
+        {
+            // Some menus (e.g. after_action_report.menu) use a 3-parameter form:
+            //   tablelookup( file, key, retCol )          -> search column 0
+            //   tablelookup( searchCol, key, retCol )     -> mp/statstable.csv
+            const char *tableName = "mp/statstable.csv";
+            int searchCol;
+            int keyIndex;
+            int retIndex;
+
+            if ( list.operands[0].dataType == VAL_STRING )
+            {
+                tableName = GetSourceString(list.operands[0]);
+                searchCol = 0;
+            }
+            else
+            {
+                searchCol = GetSourceInt(&list.operands[0]).intVal;
+            }
+            keyIndex = 1;
+            retIndex = 2;
+            StringTable_GetAsset(tableName, (XAssetHeader *)&tablePtr);
+            operandResult.dataType = VAL_STRING;
+            operandResult.internals.intVal = (int)StringTable_Lookup(
+                tablePtr,
+                searchCol,
+                GetSourceString(list.operands[keyIndex]),
+                GetSourceInt(&list.operands[retIndex]).intVal);
+            if ( !operandResult.internals.intVal )
+                operandResult.internals.intVal = (int)"";
+            AddOperandToStack(dataStack, &operandResult);
+        }
         else
         {
             Expression_Error(
@@ -13246,10 +13410,13 @@ void __cdecl RPN_OP_NEGATE(int localClientNum, itemDef_s *item, OperandStack *da
         if ( data1.dataType != VAL_FLOAT )
         {
             Expression_Error(" trying to negate a string: %s\n", data1.internals.string);
+            // still push one operand so the expression stack stays balanced
+            data1.dataType = VAL_INT;
+            data1.internals.intVal = 0;
+            AddOperandToStack(dataStack, &data1);
             return;
         }
-        //data1.internals.intVal ^= _mask__NegFloat_;
-        data1.internals.intVal = -data1.internals.intVal;
+        data1.internals.floatVal = -data1.internals.floatVal;
     }
     else
     {
@@ -14061,11 +14228,14 @@ int __cdecl Expression_GetIndexForFunction(int func)
 int __cdecl Expression_GetFunctionForOp(int op)
 {
     if (op < NUM_EXPRESSION_OPERATORS)
-    {
         return op;
-    }
-
-    return s_indexToFunctionMap[op - NUM_EXPRESSION_OPERATORS] + NUM_EXPRESSION_OPERATORS;
+    int idx = op - NUM_EXPRESSION_OPERATORS;
+    if ((unsigned)idx >= 1024)
+        return 0;
+    int mapped = s_indexToFunctionMap[idx] + NUM_EXPRESSION_OPERATORS;
+    if ((unsigned)mapped >= 480)
+        return 0;
+    return mapped;
 }
 
 char resultString_2[256];
@@ -14124,28 +14294,73 @@ char __cdecl EvaluateExpression(
     rpn = statement->rpn;
     s_currentStatement = statement;
 
-    //if ( uiscript_debug && uiscript_debug->current.integer )
-        //BLOPS_NULLSUB();
-
     memset(&dataStack, 0, sizeof(dataStack));
 
-    for (expressionRpn *i = rpn; i->type != 3; ++i )
+    if ( !rpn )
     {
+        s_currentStatement = 0;
+        return 0;
+    }
+
+    int limit = statement->numRpn > 0 && statement->numRpn < 256 ? statement->numRpn : 64;
+#ifdef KISAK_WEB
+    // The RPN block is only numRpn entries long. Walking a missing terminator used to read off the heap
+    // and abort the page while a lobby item's "visible when" was evaluated.
+    if ( !Kisak_ExprMem(rpn, sizeof(expressionRpn)) )
+    {
+        static int s_badRpn;
+        if ( s_badRpn < 8 )
+        {
+            ++s_badRpn;
+            const char *name = (item && Kisak_ExprStr(item->window.name)) ? item->window.name : "?";
+            Com_Printf(13, "kisak-expr skip rpn %p item %s\n", (void *)rpn, name);
+        }
+        // Leave the item hidden. Forcing it on draws "NEW" badges and blank panels over locked rows.
+        s_currentStatement = 0;
+        return 0;
+    }
+    {
+        uintptr_t heapEnd = (uintptr_t)emscripten_get_heap_size();
+        unsigned fit = (unsigned)((heapEnd - (uintptr_t)rpn) / sizeof(expressionRpn));
+        if ( limit < 1 || (unsigned)limit > fit )
+            limit = (int)fit;
+        if ( limit > 128 )
+            limit = 128;
+    }
+#endif
+    for ( int steps = 0; steps < limit; ++steps )
+    {
+        expressionRpn *i = rpn + steps;
+#ifdef KISAK_WEB
+        if ( !Kisak_ExprMem(i, sizeof(expressionRpn)) )
+            break;
+#endif
         type = i->type;
+        if ( type == 3 )
+            break;
         if ( !type )
         {
-            AddOperandToStack(&dataStack, &i->data.constant);
+            Operand constant = i->data.constant;
+#ifdef KISAK_WEB
+            Kisak_ExprFixString(&constant);
+#endif
+            AddOperandToStack(&dataStack, &constant);
             continue;
         }
         if ( type == 1 )
         {
-            i->type = 2;
-            i->data.cmd = rpnFunctions[Expression_GetFunctionForOp(i->data.cmdIdx)];
-            ((void (__cdecl *)(const int, itemDef_s *, OperandStack *))i->data.cmd)(localClientNum, item, &dataStack);
+            // Call through the table every time. Storing the function into the asset and calling it
+            // later fails Emscripten's signature check and freezes the match loading screen.
+            int fnIndex = Expression_GetFunctionForOp(i->data.cmdIdx);
+            void (__cdecl *fn)(const int, itemDef_s *, OperandStack *) =
+                ((unsigned)fnIndex < 480) ? rpnFunctions[fnIndex] : 0;
+            const int extraIndex = i->data.cmdIdx - NUM_EXPRESSION_OPERATORS;
+            if ((unsigned)extraIndex < ARRAY_COUNT(s_extraExpressionFunctions) && s_extraExpressionFunctions[extraIndex])
+                fn = s_extraExpressionFunctions[extraIndex];
+            if ( fn )
+                fn(localClientNum, item, &dataStack);
             continue;
         }
-        if ( type == 2 )
-            ((void(__cdecl *)(const int, itemDef_s *, OperandStack *))i->data.cmd)(localClientNum, item, &dataStack);
     }
 
 
@@ -14245,6 +14460,13 @@ void __cdecl Expression_MapIndexToFunction(int index, const char *function)
 {
     int i; // [esp+0h] [ebp-4h]
 
+    if ((unsigned)index >= ARRAY_COUNT(s_indexToFunctionMap)) return;
+    s_extraExpressionFunctions[index] = nullptr;
+    if (!I_stricmp(function, "IsLocalPlayerXUID")) s_extraExpressionFunctions[index] = Expr_IsLocalPlayerXUID;
+    if (!I_stricmp(function, "GetWagerWinningsFromMatchScoreboard")) s_extraExpressionFunctions[index] = Expr_WagerWinnings;
+    if (!I_stricmp(function, "getPlaylistCategoryName")) s_extraExpressionFunctions[index] = Expr_PlaylistCategoryName;
+    // PC asset function spellings differ from the recovered source in these slots.
+    if (!I_stricmp(function, "getnumitemattachmentswithattachpointINT")) function = "getnumitemattachmentswithattachpoint";
     if ( s_indexToFunctionMap[index]
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_expressions_eval.cpp",

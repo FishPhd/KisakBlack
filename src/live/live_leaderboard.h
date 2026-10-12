@@ -306,6 +306,9 @@ struct LbGlob // sizeof=0x3D528
     ~LbGlob() = default;
 };
 
+static_assert(sizeof(Leaderboard) == 0x3CA0, "Leaderboard layout");
+static_assert(sizeof(LbGlob) == 0x3D528, "LbGlob layout");
+
 bool __cdecl LB_NeedToReadLeaderBoard();
 void __cdecl LB_ForceRefresh();
 void __cdecl LB_InitStructure(LbStructure *const structure, int type);

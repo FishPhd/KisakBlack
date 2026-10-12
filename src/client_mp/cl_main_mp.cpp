@@ -1,4 +1,7 @@
 #include "cl_main_mp.h"
+#ifdef KISAK_WEB
+#include <emscripten.h>
+#endif
 #include <cgame_mp/cg_main_mp.h>
 #include <qcommon/common.h>
 #include <qcommon/sv_msg_write.h>
@@ -36,6 +39,8 @@
 #include <demo/demo_playback.h>
 #include <live/live_leaderboard.h>
 #include <live/live_stats.h>
+#include <live/live_offline.h>
+#include <live/live_offline_stats.h>
 #include <live/live_win.h>
 #include <cgame_mp/cg_newDraw_mp.h>
 #include <cgame_mp/cg_consolecmds_mp.h>
@@ -1333,6 +1338,14 @@ void __cdecl CL_Disconnect(unsigned int localClientNum, bool deactivateClient)
         __debugbreak();
     }
     clientUIActive = CL_GetLocalClientUIGlobals(localClientNum);
+
+#ifndef KISAK_LIVE
+    // Offline: persist the local stats (pulling in the local server's changes) while the
+    // server clients are still alive. This also covers quitting (CL_Shutdown -> CL_Disconnect).
+    if ( localClientNum == 0 && CL_GetLocalClientConnectionState(0) >= CA_CONNECTED )
+        LiveOffline_SaveStats(0);
+#endif
+
     if ( CL_LocalClient_IsCUIFlagSet(localClientNum, 2) )
     {
         connstate = CL_GetLocalClientConnectionState(localClientNum);
@@ -1986,15 +1999,6 @@ void __cdecl CL_CheckForResend(int localClientNum)
     clientConnection_t *clc; // [esp+93Ch] [ebp-414h]
     char pkt[1036]; // [esp+940h] [ebp-410h] BYREF
 
-    unsigned char *pSteamClientTicket = NULL;
-    uint32 steamClientTicketSize = 0;
-    char steamIDbuf[25];
-    unsigned char steamTicketBase64[2048]{ 0 };
-
-#ifdef _DEBUG
-    unsigned char steamTicketDecodeBuf[1024]{ 0 };
-#endif
-
     connstate = CL_GetLocalClientConnectionState(localClientNum);
     if ( connstate == CA_CONNECTING || connstate == CA_CHALLENGING || connstate == CA_SENDINGSTATS )
     {
@@ -2036,12 +2040,9 @@ void __cdecl CL_CheckForResend(int localClientNum)
                     //NET_OutOfBandPrint(Com_LocalClient_GetNetworkID(localClientNum), serverAddress, va("getchallenge 0 \"%s\"", md5Str));
                     //NET_OutOfBandPrint(Com_LocalClient_GetNetworkID(localClientNum), clc->serverAddress, va("getchallenge 0 \"%s\"", dummy));
 
-                    bool got = Steam_GetRawClientTicket(&pSteamClientTicket, &steamClientTicketSize);
-                    iassert(got);
-                    b64_encode(pSteamClientTicket, steamClientTicketSize, steamTicketBase64);
-                    iassert(b64_decode(steamTicketBase64, strlen((char *)steamTicketBase64), steamTicketDecodeBuf) == steamClientTicketSize);
-
-                    NET_OutOfBandPrint(Com_LocalClient_GetNetworkID(localClientNum), clc->serverAddress, va("getchallenge 0 \"%s\" \"%llu\"", steamTicketBase64, Steam_GetClientSteamID64()));
+                    // There is no ticket. Send an empty ticket plus the local identity
+                    // (0 until the offline profile supplies a XUID). The server accepts it ticketless.
+                    NET_OutOfBandPrint(Com_LocalClient_GetNetworkID(localClientNum), clc->serverAddress, va("getchallenge 0 \"\" \"%llu\"", Steam_GetClientSteamID64()));
 
                     *(&clc->nonce + 1) = 0;
                     clc->nonce = 0;
@@ -2329,7 +2330,6 @@ char    CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, msg_t
     connstate_t v30; // [esp-4h] [ebp-8CCh]
     bool v31; // [esp+0h] [ebp-8C8h]
     const char *v32; // [esp+4h] [ebp-8C4h]
-    unsigned __int64 serverSteamID; // [esp+50h] [ebp-878h]
     bool isMigration; // [esp+5Bh] [ebp-86Dh]
     char string[1028]; // [esp+60h] [ebp-868h] BYREF
     char *text_in; // [esp+464h] [ebp-464h]
@@ -2352,6 +2352,13 @@ char    CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, msg_t
         return 1;
     }
     connstate = CL_GetLocalClientConnectionState(localClientNum);
+    if (!I_stricmp(c, "kisak_stats_request"))
+    {
+        clc = CL_GetLocalClientConnection(localClientNum);
+        if (connstate >= CA_CONNECTED && NET_CompareAdr(from, clc->netchan.remoteAddress))
+            LiveOffline_BeginClientStatsUpload(localClientNum);
+        return 1;
+    }
     if ( I_stricmp(c, "challengeResponse") )
     {
         if ( !I_stricmp(c, "rcon") )
@@ -2374,11 +2381,6 @@ char    CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, msg_t
                         clientUIActives[localClientNum].connectionState = CA_CONNECTED;
                     else
                         Com_DPrintf(14, "Ignoring statsOK, I'm not CA_SENDINGSTATS\n");
-                }
-                if ( !I_strcmp(c, "steamauthReq") )
-                {
-                    serverSteamID = MSG_ReadInt64(msg);
-                    CL_SteamServerAuth(serverSteamID);
                 }
                 if ( I_stricmp(c, "disconnect") )
                 {
@@ -2540,16 +2542,31 @@ char    CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, msg_t
                         }
                         else
                         {
+#ifndef KISAK_LIVE
+                            // Offline: there is no DemonWare stats upload. The (local) server takes the stats
+                            // straight from the local buffers (LiveOffline_FillServerClientStats), so the
+                            // CA_SENDINGSTATS phase completes immediately.
+                            clientUIActives[localClientNum].connectionState = CA_CONNECTED;
+                            ControllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
+                            LiveStats_MakeStableStatsBuffer(ControllerIndex);
+                            if ( !xblive_basictraining || !xblive_basictraining->current.enabled )
+                            {
+                                v11 = Com_LocalClient_GetControllerIndex(localClientNum);
+                                LiveStats_MakeStableGlobalStatsBuffer(v11);
+                            }
+                            clc->statPacketsToSend = 0;
+#else
                             CL_SetLocalClientConnectionState(localClientNum, CA_SENDINGSTATS);
                             ControllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
                             LiveStats_MakeStableStatsBuffer(ControllerIndex);
-                            if ( !xblive_basictraining->current.enabled )
+                            if ( !xblive_basictraining || !xblive_basictraining->current.enabled )
                             {
                                 v11 = Com_LocalClient_GetControllerIndex(localClientNum);
                                 LiveStats_MakeStableGlobalStatsBuffer(v11);
                             }
                             memset(clc->statPacketSendTime, 0, 0x8Cu);
                             clc->statPacketsToSend = 0x7FFFFFFFFLL;
+#endif
                         }
                         clc->lastPacketTime = cls.realtime;
                         clc->lastPacketSentTime = -9999;
@@ -3617,17 +3634,14 @@ void __cdecl CL_InitDedicated()
 
 void __cdecl CL_startSingleplayer_f()
 {
-    if ( !Sys_IsMainThread()
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\client_mp\\cl_main_mp.cpp",
-                    6565,
-                    0,
-                    "%s",
-                    "Sys_IsMainThread()") )
-    {
-        __debugbreak();
-    }
-    Sys_QuitAndStartProcess("CoDSP_rd.exe");
+#ifdef KISAK_WEB
+    MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakMainMenu) Module.kisakMainMenu(); });
+#else
+    Dvar_SetStringByName("com_errorMessage", "Campaign and Zombies require the singleplayer runtime. This build contains multiplayer only.");
+    Dvar_SetBoolByName("com_isNotice", true);
+    UI_OpenMenu(0, "error_popmenu");
+    Com_Printf(0, "Campaign and Zombies require the singleplayer runtime; this build contains multiplayer only.\n");
+#endif
 }
 
 void __cdecl CL_DrawLogo(int localClientNum)
@@ -3768,7 +3782,7 @@ char __cdecl Playlist_ReadFromDisk()
 {
     void *playlistBuffer; // [esp+0h] [ebp-4h] BYREF
 
-    if ( FS_ReadFile("playlists_mp.info", &playlistBuffer) )
+    if ( FS_ReadFile("playlists_mp.info", &playlistBuffer) > 0 )
     {
         if ( playlistBuffer )
         {
@@ -3782,7 +3796,8 @@ char __cdecl Playlist_ReadFromDisk()
             warned = 1;
         }
     }
-    return 0;
+    Playlist_InitOfflineWagerDefaults();
+    return 1;
 }
 
 void __cdecl CL_PauseGame(bool state)

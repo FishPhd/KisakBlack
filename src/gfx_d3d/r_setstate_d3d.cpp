@@ -12,6 +12,10 @@ void __cdecl R_FinishGpuFence()
     ///    ;
 
     //while (dx.gpuSyncDelay->GetData(NULL, 0, D3DGETDATA_FLUSH) == S_FALSE)
+    // The render thread may have released the query while recovering a lost device (e.g. focus loss in fullscreen)
+    if (!dx.flushGpuQuery)
+        return;
+
     while (dx.flushGpuQuery->GetData(NULL, 0, D3DGETDATA_FLUSH) == S_FALSE)
     {
         /* spin until GPU reaches the fence */

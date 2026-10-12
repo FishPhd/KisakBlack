@@ -459,7 +459,7 @@ int __cdecl DB_GetAllXAssetOfType_LoadObj(XAssetType type, XAssetHeader *assets,
     assetList.assets = assets;
     assetList.assetCount = 0;
     assetList.maxCount = maxCount;
-    DB_EnumXAssets(type, (void (__cdecl *)(XAssetHeader, void *))Hunk_AddAsset, &assetList, 0);
+    DB_EnumXAssets(type, AssetEnumFn<Hunk_AddAsset>, &assetList, 0);
     return assetList.assetCount;
 }
 

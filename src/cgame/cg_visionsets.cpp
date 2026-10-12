@@ -127,7 +127,7 @@ void __cdecl CG_RegisterVisionSetsDvars()
 
 void __cdecl CG_InitVisionSetsMenu()
 {
-    DB_EnumXAssets(ASSET_TYPE_RAWFILE, (void (__cdecl *)(XAssetHeader, void *))CG_AddVisionSetMenuItem, 0, 0);
+    DB_EnumXAssets(ASSET_TYPE_RAWFILE, AssetEnumFn<CG_AddVisionSetMenuItem>, 0, 0);
 }
 
 void __cdecl CG_AddVisionSetMenuItem(XAssetHeader header)
@@ -418,7 +418,7 @@ double __cdecl LerpStepFloat(float from, float to, float fraction, visionSetLerp
 double __cdecl LerpFloat(float from, float to, float fraction, visionSetLerpStyle_t style)
 {
     double v5; // st7
-    long double var4; // [esp+0h] [ebp-4h]
+    double var4; // [esp+0h] [ebp-4h]
 
     iassert(style != VISIONSETLERP_NONE);
 

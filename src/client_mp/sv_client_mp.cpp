@@ -4,6 +4,7 @@
 #include <server_mp/sv_init_mp.h>
 #include <qcommon/com_gamemodes.h>
 #include <live/live_stats.h>
+#include <live/live_offline_stats.h>
 #include <universal/mem_largelocal.h>
 #include <live/live_steam_server.h>
 #include <universal/com_files.h>
@@ -159,56 +160,22 @@ void __cdecl SV_GetChallenge(netadr_t from)
     //challenge->pingTime = svs.time;
     //NET_OutOfBandPrint(NS_SERVER, from, va("challengeResponse %i", challenge->challenge));
     
-    // LWSS ADD - all new below here
-    char *clientSteamTicketBase64 = (char *)SV_Cmd_Argv(2);
-    char *clientSteamID64 = (char *)SV_Cmd_Argv(3);
-    unsigned char decodedSteamTicket[1024 + 128]{ 0 };
-
-    if (!clientSteamTicketBase64[0] || !clientSteamID64[0])
+    // Ticketless challenge acceptance.
+    // The client sends: getchallenge 0 "" "<localXuid>". There is no ticket to validate; the
+    // optional XUID (arg 3) is only recorded as the player's identity (0 if absent/invalid).
     {
-        iassert(0); // guy didn't send enough information
-        return;
-    }
+        const char *clientXuidStr = SV_Cmd_Argv(3);
+        uint64_t clientXuid = 0;
 
-    if (strlen(clientSteamTicketBase64) > sizeof(decodedSteamTicket))
-    {
-        iassert(0);
-        return;
-    }
+        if (clientXuidStr && clientXuidStr[0])
+        {
+            char *xuidEnd;
+            clientXuid = strtoull(clientXuidStr, &xuidEnd, 10);
+        }
 
-    uint32 decodedLen = b64_decode((unsigned char *)clientSteamTicketBase64, strlen(clientSteamTicketBase64), decodedSteamTicket);
-
-    char *endptr;
-    uint64_t steamID64 = strtoull(clientSteamID64, &endptr, 10);
-
-    //if (SV_IsBannedGuid(guid)) 
-    //{
-    //    Com_Printf(15, "rejected connection from permanently banned GUID \"%s\"\n", clientSteamID64);
-    //    NET_OutOfBandPrint(NS_SERVER, svs.challenges[i].adr, "error\xA\x15You are permanently banned from this server");
-    //    memset(&svs.challenges[i], 0, sizeof(svs.challenges[i]));
-    //    return;
-    //}
-    //if (SV_IsTempBannedGuid(guid)) 
-    //{
-    //    Com_Printf(15, "rejected connection from temporarily banned GUID \"%s\"\n", clientSteamID64);
-    //    NET_OutOfBandPrint(NS_SERVER, svs.challenges[i].adr, "error\xA\x15You are temporarily banned from this server");
-    //    memset(&svs.challenges[i], 0, sizeof(svs.challenges[i]));
-    //    return;
-    //}
-
-    challenge->steamID64 = steamID64;
-
-    if (Steam_CheckClientTicket(decodedSteamTicket, decodedLen, steamID64))
-    {
+        challenge->steamID64 = clientXuid;
         challenge->pingTime = svs.time;
         NET_OutOfBandPrint(NS_SERVER, from, va("challengeResponse %i", challenge->challenge));
-        return;
-    }
-    else
-    {
-        Com_Printf(15, "rejected connection from invalid Steam GUID \"%s\"\n", clientSteamID64);
-        NET_OutOfBandPrint(NS_SERVER, challenge->adr, "error\xA\x15Your Steam Client Ticket was Invalid");
-        memset(challenge, 0, sizeof(challenge_t));
         return;
     }
 }
@@ -260,7 +227,7 @@ void __cdecl SV_SetClientDIntStat(unsigned int clientNum, ddlState_t *searchStat
         __debugbreak();
     }
 
-    iassert(cl->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED);
+    // (not an assert: bots / early script calls can legitimately reach this before the stats were handed over)
     
     if (cl->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED && cl->header.state >= CS_RECONNECTING)
     {
@@ -271,7 +238,7 @@ void __cdecl SV_SetClientDIntStat(unsigned int clientNum, ddlState_t *searchStat
         if ( !cl->statsValidated )
         {
             StatsDDL = LiveStats_GetStatsDDL();
-            if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+            if ( !DDL_AssociateBuffer(buffer, 40548, StatsDDL) )
             {
                 DDL_PrintError("DDL: Could not get stat. Buffer error.");
                 return;
@@ -307,7 +274,7 @@ void __cdecl SV_SetClientDStringStat(unsigned int clientNum, ddlState_t *searchS
         __debugbreak();
     }
     
-    iassert(cl->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED);
+    // (not an assert: bots / early script calls can legitimately reach this before the stats were handed over)
 
     if (cl->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED && cl->header.state >= CS_RECONNECTING)
     {
@@ -318,7 +285,7 @@ void __cdecl SV_SetClientDStringStat(unsigned int clientNum, ddlState_t *searchS
         if ( !cl->statsValidated )
         {
             StatsDDL = LiveStats_GetStatsDDL();
-            if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+            if ( !DDL_AssociateBuffer(buffer, 40548, StatsDDL) )
             {
                 DDL_PrintError("DDL: Could not get stat. Buffer error.");
                 return;
@@ -354,7 +321,7 @@ void __cdecl SV_SetClientDInt64Stat(unsigned int clientNum, ddlState_t *searchSt
         __debugbreak();
     }
 
-    iassert(cl->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED);
+    // (not an assert: bots / early script calls can legitimately reach this before the stats were handed over)
     
     if (cl->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED && cl->header.state >= CS_RECONNECTING)
     {
@@ -365,7 +332,7 @@ void __cdecl SV_SetClientDInt64Stat(unsigned int clientNum, ddlState_t *searchSt
         if ( !cl->statsValidated )
         {
             StatsDDL = LiveStats_GetStatsDDL();
-            if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+            if ( !DDL_AssociateBuffer(buffer, 40548, StatsDDL) )
             {
                 DDL_PrintError("DDL: Could not get stat. Buffer error.");
                 return;
@@ -398,10 +365,6 @@ unsigned int __cdecl SV_GetClientDIntStat(unsigned int clientNum, ddlState_t *se
         __debugbreak();
     }
 
-#ifndef KISAK_STATS
-    iassert(0);
-#endif
-
     if (svs.clients[clientNum].statPacketsReceived != ALL_STATS_PACKETS_RECEIVED)
     {
         return 0;
@@ -416,7 +379,7 @@ unsigned int __cdecl SV_GetClientDIntStat(unsigned int clientNum, ddlState_t *se
     if ( !svs.clients[clientNum].statsValidated )
     {
         StatsDDL = LiveStats_GetStatsDDL();
-        if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+        if ( !DDL_AssociateBuffer(buffer, 40548, StatsDDL) )
         {
             DDL_PrintError("DDL: Could not get stat. Buffer error.");
             return 0;
@@ -443,8 +406,11 @@ char *__cdecl SV_GetClientDStringStat(unsigned int clientNum, ddlState_t *search
         __debugbreak();
     }
 
-    iassert(svs.clients[clientNum].statPacketsReceived == ALL_STATS_PACKETS_RECEIVED);
-    iassert(svs.clients[clientNum].header.state >= CS_RECONNECTING);
+    if ( svs.clients[clientNum].statPacketsReceived != ALL_STATS_PACKETS_RECEIVED
+        || svs.clients[clientNum].header.state < CS_RECONNECTING )
+    {
+        return (char *)"";
+    }
 
     if ( xblive_basictraining->current.enabled || searchState->member->permission != 2 )
         buffer = (char *)svs.clients[clientNum].stats;
@@ -453,7 +419,7 @@ char *__cdecl SV_GetClientDStringStat(unsigned int clientNum, ddlState_t *search
     if ( !svs.clients[clientNum].statsValidated )
     {
         StatsDDL = LiveStats_GetStatsDDL();
-        if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+        if ( !DDL_AssociateBuffer(buffer, 40548, StatsDDL) )
         {
             DDL_PrintError("DDL: Could not get stat. Buffer error.");
             return (char *)"";
@@ -480,12 +446,11 @@ unsigned int __cdecl SV_GetClientDInt64Stat(unsigned int clientNum, ddlState_t *
         __debugbreak();
     }
 
-#ifndef KISAK_STATS
-    iassert(0);
-#endif
-
-    iassert(svs.clients[clientNum].statPacketsReceived == ALL_STATS_PACKETS_RECEIVED);
-    iassert(svs.clients[clientNum].header.state >= CS_RECONNECTING);
+    if ( svs.clients[clientNum].statPacketsReceived != ALL_STATS_PACKETS_RECEIVED
+        || svs.clients[clientNum].header.state < CS_RECONNECTING )
+    {
+        return 0;
+    }
 
     if ( xblive_basictraining->current.enabled || searchState->member->permission != 2 )
         buffer = (char *)svs.clients[clientNum].stats;
@@ -494,7 +459,7 @@ unsigned int __cdecl SV_GetClientDInt64Stat(unsigned int clientNum, ddlState_t *
     if ( !svs.clients[clientNum].statsValidated )
     {
         StatsDDL = LiveStats_GetStatsDDL();
-        if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+        if ( !DDL_AssociateBuffer(buffer, 40548, StatsDDL) )
         {
             DDL_PrintError("DDL: Could not get stat. Buffer error.");
             return 0;
@@ -542,17 +507,9 @@ void __cdecl SV_SteamAuthClientRequest(netadr_t to, unsigned __int64 serverSteam
 
 void __cdecl SV_SteamAuthClient(netadr_t from, msg_t *msg)
 {
-    unsigned __int64 clientID; // [esp+0h] [ebp-818h]
-    unsigned int authBlobLen; // [esp+Ch] [ebp-80Ch]
-    unsigned __int8 authBlob[0x800]; // [esp+10h] [ebp-808h] BYREF
-
-    clientID = MSG_ReadInt64(msg);
-    authBlobLen = MSG_ReadShort(msg);
-
-    iassert(authBlobLen < sizeof(authBlob));
-
-    MSG_ReadData(msg, authBlob, authBlobLen);
-    LiveSteam_Server_ClientSteamAuthentication(clientID, from, authBlob, authBlobLen);
+    // Ticketless build: "steamauth" is not dispatched. Ignore anything that reaches us.
+    (void)from;
+    (void)msg;
 }
 
 int __cdecl SV_IsTempBannedGuid(int guid)
@@ -1103,10 +1060,7 @@ void __cdecl SV_DirectConnect(netadr_t from)
             I_strncpyz(newcl->PBguid, authSvPBguid, 33);
             I_strncpyz(newcl->clientPBguid, clientPBguid, 33);
 
-            // LWSS ADD - for steam auth
-            iassert(steamID64 || newcl->bIsDemoClient || !IsDedicatedServer());
             newcl->steamID = steamID64;
-            // LWSS END
 
             SV_UserinfoChanged(newcl);
             svs.challenges[i].firstPing = 0;
@@ -1246,6 +1200,15 @@ void __cdecl SV_DropClient(client_t *drop, const char *reason, bool tellThem, bo
 #ifdef KISAK_STATS
         if (drop->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED && writeStats)
             SV_DWWriteClientStats(drop);
+#else
+        // Offline: no DemonWare write; keep the local player's stat changes in the local buffers
+        // (they are written to disk by LiveOffline_SaveStats).
+        if (drop->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED && writeStats)
+        {
+            LiveOffline_SaveClientStats(drop);
+            LiveOffline_SyncStatsFromLocalServer();
+        }
+        LiveOffline_ForgetClientStats(drop);
 #endif
 
         if (drop->reservedSlot > 0)
@@ -1445,8 +1408,9 @@ void __cdecl SV_SendClientGameState(client_t *client)
         return;
     }
 #else
-    memset(client->stats, 0, sizeof(client->stats));
-    client->statPacketsReceived = ALL_STATS_PACKETS_RECEIVED;
+    // Offline: no DemonWare stats download. The local player's stats come from the local stats files
+    // (via the client's local buffers), everyone else (bots / remote clients) gets fresh empty stats.
+    LiveOffline_FillServerClientStats(client);
 #endif
 
     memset(&snapInfo, 0, sizeof(snapInfo));
@@ -1773,6 +1737,11 @@ bool __cdecl SV_ConfigStringIsConstant(int configStringNum)
 
 void __cdecl SV_ClientEnterWorld(client_t *client, usercmd_s *cmd)
 {
+    if (!LiveOffline_ClientStatsReady(client))
+    {
+        LiveOffline_RequestClientStats(client);
+        return; // A first-time remote profile must be validated before scripts award progression.
+    }
     gentity_s *ent; // [esp+Ch] [ebp-8h]
     unsigned int clientNum; // [esp+10h] [ebp-4h]
 
@@ -2485,13 +2454,12 @@ void __cdecl SV_UserinfoChanged(client_t *cl)
         StringToXUID(val, &newXuid);
         if ( newXuid ) // KISAKTODO: prob should ifdef off this branch
         {
-            if ( newXuid != __PAIR64__(LODWORD(svs.mapCenter[2 * clientNum - 63]), svs.xuids[clientNum]) )
+            if ( newXuid != svs.xuids[clientNum] )
             {
                 cl->xuid = newXuid;
-                if ( LODWORD(svs.mapCenter[2 * clientNum - 63]) | LODWORD(svs.xuids[clientNum]) )
+                if ( svs.xuids[clientNum] )
                 {
-                    HIDWORD(v12) = LODWORD(svs.mapCenter[2 * clientNum - 63]);
-                    LODWORD(v12) = svs.xuids[clientNum];
+                    v12 = svs.xuids[clientNum];
                     Com_PrintWarning(
                         15,
                         "Unregistering xuid %llx because %llx has gotten their clientNum (%i)\n",
@@ -2500,18 +2468,16 @@ void __cdecl SV_UserinfoChanged(client_t *cl)
                         clientNum);
                 }
                 v7 = clientNum;
-                LODWORD(svs.xuids[clientNum]) = newXuid;
-                svs.mapCenter[2 * v7 - 63] = *((float *)&newXuid + 1);
+                svs.xuids[clientNum] = newXuid;
             }
             if ( cl->header.netchan.remoteAddress.type == NA_LOOPBACK )
                 NET_SetNetAdrLoopbackIP(&addr);
             else
                 addr = cl->header.netchan.remoteAddress;
             Com_Printf(15, "Setting client %i XUID to %s\n", clientNum, val);
-            if ( LODWORD(svs.mapCenter[2 * clientNum - 63]) | LODWORD(svs.xuids[clientNum]) )
+            if ( svs.xuids[clientNum] )
             {
-                HIDWORD(v13) = LODWORD(svs.mapCenter[2 * clientNum - 63]);
-                LODWORD(v13) = svs.xuids[clientNum];
+                v13 = svs.xuids[clientNum];
                 clientNumForXuid = Live_GetClientNumForXuid(&g_serverSession, v13);
                 if ( clientNumForXuid != clientNum )
                 {
@@ -2626,6 +2592,11 @@ void __cdecl SV_ExecuteClientCommand(client_t *cl, const char *s, int clientOK, 
         __debugbreak();
     }
     SV_Cmd_TokenizeString(s);
+    if (!fromOldServer && LiveOffline_HandleStatsCommand(cl))
+    {
+        SV_Cmd_EndTokenizedString();
+        return;
+    }
     for ( u = ucmds; u->name; ++u )
     {
         if ( !strcmp(SV_Cmd_Argv(0), u->name) )
@@ -3165,6 +3136,15 @@ int __cdecl SV_ClientCommand(client_t *cl, msg_t *msg, int fromOldServer)
 
 gentity_s *__cdecl SV_AddTestClient()
 {
+    if (Dvar_GetBool("xblive_wagermatch") && svs.clients && com_maxclients)
+    {
+        const int wanted = Dvar_GetInt("kisak_pm_bots");
+        int bots = 0;
+        for (int slot = 0; slot < com_maxclients->current.integer; ++slot)
+            if (svs.clients[slot].header.state >= CS_CONNECTED && svs.clients[slot].bIsTestClient
+                && !svs.clients[slot].bIsDemoClient) ++bots;
+        if (bots >= wanted) return nullptr;
+    }
     int LicenseType; // eax
     int Primary; // eax
     netadr_t v4; // [esp-10h] [ebp-4B4h]
@@ -3193,12 +3173,15 @@ gentity_s *__cdecl SV_AddTestClient()
     {
         __debugbreak();
     }
+#ifdef KISAK_LIVE
+    // Online builds: test clients are not allowed on ranked servers unless developer is set.
     if (!Dvar_GetInt("developer"))
     {
         LicenseType = SV_GetLicenseType();
         if (SV_IsServerRanked(LicenseType))
             return 0;
     }
+#endif // offline build: no ranked/developer restriction on test clients
     i = 0;
     drop = svs.clients;
     while (i < com_maxclients->current.integer)

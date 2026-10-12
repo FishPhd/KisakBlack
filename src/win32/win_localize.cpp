@@ -55,6 +55,9 @@ int Win_InitLocalization()
             if (localization.language[i] == 10)
             {
                 localization.language[i] = 0;
+                // MSVC's text-mode fopen already folded CRLF; a POSIX libc does not.
+                if (i > 0 && localization.language[i - 1] == 13)
+                    localization.language[i - 1] = 0;
                 localization.strings = &localization.language[i + 1];
                 SEH_GetLanguageIndexForName(localization.language, &lang);
                 return lang;

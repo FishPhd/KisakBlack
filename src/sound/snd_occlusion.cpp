@@ -185,12 +185,12 @@ void __cdecl Snd_LosOcclusionMultiTrace(
 //{
 //    double v5; // xmm0_8
 //    double v6; // xmm0_8
-//    long double v7; // [esp-1Ch] [ebp-BCh]
-//    long double v8; // [esp-1Ch] [ebp-BCh]
-//    long double v9; // [esp-1Ch] [ebp-BCh]
-//    long double v10; // [esp-1Ch] [ebp-BCh]
-//    long double v11; // [esp-1Ch] [ebp-BCh]
-//    long double v12; // [esp-14h] [ebp-B4h]
+//    double v7; // [esp-1Ch] [ebp-BCh]
+//    double v8; // [esp-1Ch] [ebp-BCh]
+//    double v9; // [esp-1Ch] [ebp-BCh]
+//    double v10; // [esp-1Ch] [ebp-BCh]
+//    double v11; // [esp-1Ch] [ebp-BCh]
+//    double v12; // [esp-14h] [ebp-B4h]
 //    float x; // [esp+0h] [ebp-A0h] BYREF
 //    float v14; // [esp+4h] [ebp-9Ch]
 //    int v15; // [esp+8h] [ebp-98h]

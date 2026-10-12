@@ -458,6 +458,7 @@ void    SCR_UpdateScreen()
     }
 }
 
+
 void    SCR_UpdateFrame()
 {
     bool IsMature; // al
@@ -954,7 +955,7 @@ LABEL_24:
     for ( shot = 1; shot < 7; ++shot )
     {
         R_BeginCubemapShot(size, 1);
-        R_BeginFrame();
+    R_BeginFrame();
         R_BeginSharedCmdList();
         R_ClearClientCmdList2D();
         DemoType = CL_GetDemoType();

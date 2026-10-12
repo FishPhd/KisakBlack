@@ -784,11 +784,17 @@ void __cdecl G_SetLastServerTime(int clientNum, int lastServerTime)
 {
     gentity_s *ent; // [esp+0h] [ebp-4h]
 
+    // SV_ClientThink calls this for every CS_ACTIVE slot. During map load, and after
+    // G_FreeEntity clears the player, that slot has no gclient. The old assert logged
+    // and then stored through the null pointer (hundreds of times on nuketown). On wasm
+    // the store is inside the heap, so it corrupts low memory instead of trapping.
+    if ( (unsigned int)clientNum >= (unsigned int)level.maxclients )
+        return;
     ent = &g_entities[clientNum];
-    if ( !ent->client
-        && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_active_mp.cpp", 817, 0, "%s", "ent->client") )
+    if ( !ent->client )
     {
-        __debugbreak();
+        Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_active_mp.cpp", 817, 0, "%s", "ent->client");
+        return;
     }
     if ( level.time - lastServerTime > 1000 )
         lastServerTime = level.time - 1000;
@@ -1687,8 +1693,13 @@ void __cdecl ClientThink(int clientNum)
 
     iassert(Sys_IsServerThread());
 
+    // Release builds compile iassert out, so a CS_ACTIVE slot with no gclient used to
+    // memcpy a usercmd onto address 0. Same window as G_SetLastServerTime.
+    if ( (unsigned int)clientNum >= (unsigned int)level.maxclients )
+        return;
     ent = &g_entities[clientNum];
-    iassert(ent->client);
+    if ( !ent->client )
+        return;
 
     iassert(bgs == 0);
     
@@ -1709,10 +1720,10 @@ void __cdecl G_RunClient(gentity_s *ent)
     float *origin; // [esp+0h] [ebp-10h]
     int savedregs; // [esp+10h] [ebp+0h] BYREF
 
-    if ( !ent->client
-        && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_active_mp.cpp", 1753, 0, "%s", "ent->client") )
+    if ( !ent->client )
     {
-        __debugbreak();
+        Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_active_mp.cpp", 1753, 0, "%s", "ent->client");
+        return;
     }
     if ( ent->client->sess.connected == CON_DISCONNECTED
         && !Assert_MyHandler(

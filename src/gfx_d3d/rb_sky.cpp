@@ -183,6 +183,10 @@ void __cdecl RB_DrawSun(unsigned int localClientNum)
 
 void __cdecl RB_DrawSunQuerySprite(SunFlareDynamic *sunFlare)
 {
+#ifdef KISAK_WEB
+    RB_UpdateSunVisibilityWithoutQuery(sunFlare);
+    return;
+#endif
     float v2; // [esp+10h] [ebp-4Ch]
     unsigned int sunSpriteSamples; // [esp+44h] [ebp-18h]
     unsigned int drawnSampleCount; // [esp+48h] [ebp-14h]

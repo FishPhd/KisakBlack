@@ -1,5 +1,6 @@
 #include "cm_load.h"
 #include "common.h"
+#include "threads.h"
 #include <gfx_d3d/rb_backend.h>
 #include <gfx_d3d/r_dvars.h>
 #include <universal/com_memory.h>
@@ -44,8 +45,8 @@ void CM_InitAllThreadData()
 
     CM_InitThreadData(THREAD_CONTEXT_MAIN);
     CM_InitThreadData(THREAD_CONTEXT_BACKEND);
-    for ( workerIndex = 0; workerIndex < r_smp_worker_threads->current.integer; ++workerIndex )
-        CM_InitThreadData(workerIndex + 2);
+    for ( workerIndex = 0; workerIndex < (int)Sys_GetWorkerThreadCount(); ++workerIndex )
+        CM_InitThreadData(workerIndex + THREAD_CONTEXT_WORKER0);
     CM_InitThreadData(THREAD_CONTEXT_SERVER);
     CM_InitThreadData(THREAD_CONTEXT_OCCLUSION);
 }
@@ -103,7 +104,8 @@ void __cdecl CM_LoadMapData_LoadObj(const char *name)
 
 void __cdecl CM_LoadMapData_FastFile(const char *name)
 {
-    if ( DB_FindXAssetHeader(ASSET_TYPE_CLIPMAP_PVS, (char*)name, 1, -1).clipMap != &cm
+    const XAssetType type = I_strncmp(name, "maps/mp/", 8) ? ASSET_TYPE_CLIPMAP : ASSET_TYPE_CLIPMAP_PVS;
+    if ( DB_FindXAssetHeader(type, (char*)name, 1, -1).clipMap != &cm
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\cm_load.cpp", 168, 0, "%s", "clipMap == &cm") )
     {
         __debugbreak();

@@ -322,7 +322,7 @@ itemInfo_t *__cdecl BG_UnlockablesGetItemInfo(int itemIndex)
     {
         __debugbreak();
     }
-    if ( itemIndex >= 256 || itemIndex == -1 )
+    if ( itemIndex < 0 || itemIndex >= 256 )
     {
         Com_PrintError(13, "Invalid unlockable item %d returning NULL\n", itemIndex);
         return 0;
@@ -1688,6 +1688,8 @@ bool __cdecl BG_UnlockablesIsItemNew(int controllerIndex, int itemIndex)
     if ( BG_UnlockablesAllItemsUnlocked() )
         return 0;
     if ( BG_UnlockablesIsItemLocked(controllerIndex, itemIndex) )
+        return 0;
+    if ( BG_UnlockablesIsItemClassified(itemIndex) )
         return 0;
     if ( !BG_UnlockablesGetItemInfo(itemIndex) )
         return 0;

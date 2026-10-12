@@ -3052,6 +3052,12 @@ void __cdecl Phys_BodyGrabSnapshotNitrous(PhysObjUserData *userData, float delta
 }
 
 //void __cdecl Nitrous_ForEachBody<void(__cdecl *)(PhysObjUserData &, float)>(void(__cdecl *func)(PhysObjUserData *, float), float t)
+// Exact callback prototype for Nitrous_ForEachBody (indirect calls are signature-checked on wasm).
+static void __cdecl Phys_DebugRenderBody(PhysObjUserData *userData, float)
+{
+    Phys_DebugRender(userData);
+}
+
 void __cdecl Nitrous_ForEachBody(void(__cdecl *func)(PhysObjUserData *, float), float t)
 {
     PhysGlob *i; // [esp+Ch] [ebp-4h]
@@ -3060,7 +3066,7 @@ void __cdecl Nitrous_ForEachBody(void(__cdecl *func)(PhysObjUserData *, float), 
         &physGlob != i;
         i = (PhysGlob *)i->objects.m_dummy_head.m_next_T_internal)
     {
-        ((void(__cdecl *)(PhysObjUserData **, _DWORD))func)(i->objects.m_ptr_list, LODWORD(t));
+        func((PhysObjUserData *)i->objects.m_ptr_list, t);
     }
 }
 
@@ -3252,7 +3258,7 @@ void    UpdateRigidBody(float delta_t)
         //Nitrous_ForEachBody<void (__cdecl *)(PhysObjUserData &,float)>(Phys_BodyGrabSnapshotNitrous, t);
         Nitrous_ForEachBody(Phys_BodyGrabSnapshotNitrous, t);
         //Nitrous_ForEachBody<void (__cdecl *)(PhysObjUserData &,float)>((void (__cdecl *)(PhysObjUserData *, float))Phys_DebugRender, t);
-        Nitrous_ForEachBody((void(__cdecl *)(PhysObjUserData *, float))Phys_DebugRender, t);
+        Nitrous_ForEachBody(Phys_DebugRenderBody, t);
         render_debug_draw_gjk_trace_geom();
         NitrousVehicle::frame_prolog_all_systems(t);
     }

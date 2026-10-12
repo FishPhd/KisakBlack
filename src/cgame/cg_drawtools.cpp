@@ -1,5 +1,15 @@
 #include "cg_drawtools.h"
 #include <gfx_d3d/r_gfx.h>
+#ifdef KISAK_WEB
+#include <cstdint>
+#include <emscripten/heap.h>
+static bool Kisak_MatOk(const void *p, unsigned int bytes)
+{
+    uintptr_t a = (uintptr_t)p;
+    uintptr_t heap = (uintptr_t)emscripten_get_heap_size();
+    return a >= 0x1000 && bytes < heap && a <= heap - bytes;
+}
+#endif
 #include <gfx_d3d/r_material.h>
 #include <gfx_d3d/r_rendercmds.h>
 #include <gfx_d3d/r_font.h>
@@ -55,6 +65,12 @@ double __cdecl CG_GetPicWidth(Material *mat)
 
 const Material *__cdecl Material_FromHandle(Material *handle)
 {
+#ifdef KISAK_WEB
+    // Menu items sometimes carry a null or unfixed material. The assert handler does not
+    // stop, so the following name load would abort the page.
+    if (!Kisak_MatOk(handle, sizeof(Material)) || !Kisak_MatOk(handle->info.name, 1) || !handle->info.name[0])
+        return rgp.defaultMaterial;
+#endif
     if ( !handle
         && !Assert_MyHandler("c:\\projects_pc\\cod\\codsrc\\src\\cgame\\../gfx_d3d/r_material.h", 538, 0, "%s", "handle") )
     {
@@ -97,7 +113,7 @@ void __cdecl CG_DrawRotatedPicPhysicalW(
     const float *color,
     Material *material)
 {
-    long double v9; // st7
+    double v9; // st7
     float v10; // [esp+Ch] [ebp-70h]
     float v11; // [esp+Ch] [ebp-70h]
     float v12; // [esp+10h] [ebp-6Ch]
@@ -197,7 +213,7 @@ void __cdecl CG_DrawRotatedQuadPic(
                 const float *color,
                 Material *material)
 {
-    long double v7; // st7
+    double v7; // st7
     float v8; // [esp+0h] [ebp-70h]
     float v9; // [esp+0h] [ebp-70h]
     float v10; // [esp+8h] [ebp-68h]
@@ -500,7 +516,7 @@ void __cdecl CG_DebugBox(
     int depthTest,
     int duration)
 {
-    long double v7; // st7
+    double v7; // st7
     float v8; // [esp+0h] [ebp-9Ch]
     float *v9; // [esp+4h] [ebp-98h]
     unsigned int j; // [esp+1Ch] [ebp-80h]

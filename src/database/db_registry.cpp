@@ -1,4 +1,8 @@
 #include "db_registry.h"
+#include <setjmp.h> // _setjmp (Release/NDEBUG builds don't get it transitively)
+#ifdef KISAK_WEB
+#include <web/web_assets.h> // Web_EnsureFile / Web_RemoteKnown (per-map on-demand fastfiles)
+#endif
 #include <universal/profile.h>
 #include <clientscript/cscr_parsetree.h>
 #include <gfx_d3d/rb_resource.h>
@@ -67,11 +71,15 @@
 #define POOLSIZE_MENUFILE          164
 //#define POOLSIZE_MENU              850
 #define POOLSIZE_MENU              1024
+#ifdef KISAK_WEB
+#define POOLSIZE_LOCALIZE          24576 // MP core plus SP/Zombies localized strings.
+#else
 #define POOLSIZE_LOCALIZE          10240
+#endif
 #define POOLSIZE_WEAPON            2048
 #define POOLSIZE_WEAPONDEF         0
 #define POOLSIZE_WEAPONVARIANT     0
-#define POOLSIZE_SNDDRIVERGLOBALS  1
+#define POOLSIZE_SNDDRIVERGLOBALS  2
 //#define POOLSIZE_FX                450
 #define POOLSIZE_FX                500
 #define POOLSIZE_IMPACTFX          4
@@ -259,7 +267,7 @@ void *DB_XAssetPool[43] =
   &cm,
   &cm,
   &comWorld,
-  NULL,
+  &gameWorldSp,
   &gameWorldMp,
   &g_MapEntsPool,
   &s_world,
@@ -482,10 +490,18 @@ struct// $73C9AB3B505E60D629E435B147795978 // sizeof=0x8011C
 unsigned __int8 g_fileBuf[524288];
 
 unsigned __int16 db_hashTable[0x8000/*32768*/];
+#ifdef KISAK_WEB
+XAssetEntryPoolEntry g_assetEntryPool[65536]; // Entry links remain unsigned 16-bit indices.
+#else
 XAssetEntryPoolEntry g_assetEntryPool[32768];
+#endif
 XZoneName g_zoneNames[33];
 
+#ifdef KISAK_WEB
+XAssetEntry *g_copyInfo[16384];
+#else
 XAssetEntry *g_copyInfo[3072];
+#endif
 unsigned int g_copyInfoCount;
 
 unsigned int g_zoneAllocType;
@@ -667,12 +683,14 @@ void __cdecl DB_RemoveSoundPatch(XAssetHeader header)
 
 void __cdecl Load_ClipMapAsset(XAssetHeader *clipMap)
 {
-    clipMap->xmodelPieces = DB_AddXAsset(ASSET_TYPE_CLIPMAP_PVS, (XAssetHeader)clipMap->xmodelPieces).xmodelPieces;
+    const XAssetType type = I_strncmp(clipMap->clipMap->name, "maps/mp/", 8) ? ASSET_TYPE_CLIPMAP : ASSET_TYPE_CLIPMAP_PVS;
+    *clipMap = DB_AddXAsset(type, *clipMap);
 }
 
 void __cdecl Mark_ClipMapAsset(clipMap_t *clipMap)
 {
-    DB_GetXAsset(ASSET_TYPE_CLIPMAP_PVS, (XAssetHeader)clipMap);
+    const XAssetType type = I_strncmp(clipMap->name, "maps/mp/", 8) ? ASSET_TYPE_CLIPMAP : ASSET_TYPE_CLIPMAP_PVS;
+    DB_GetXAsset(type, (XAssetHeader)clipMap);
 }
 
 void __cdecl DB_RemoveClipMap(XAssetHeader)
@@ -1090,7 +1108,7 @@ XAssetHeader __cdecl DB_AllocXAssetHeader(XAssetType type)
     {
         Sys_LeaveCriticalSection(CRITSECT_DBHASH);
         Com_PrintError(1, "Exceeded limit of %d '%s' assets.\n", g_poolSize[type], g_assetNames[type]);
-        DB_PrintXAssetsForType(type, (void (__cdecl *)(XAssetHeader, void *))DB_PrintAssetName, &type, 1);
+        DB_PrintXAssetsForType(type, AssetEnumFn<DB_PrintAssetName>, &type, 1);
         Com_Error(ERR_DROP, "Exceeded limit of %d '%s' assets.\n", g_poolSize[type], g_assetNames[type]);
     }
     return header;
@@ -1243,9 +1261,10 @@ const char *__cdecl DB_FindXAssetNameFromHash(XAssetType type, unsigned int hash
     const char *name; // [esp+4h] [ebp-8h]
     XAssetEntryPoolEntry *assetEntry; // [esp+8h] [ebp-4h]
 
+    // Read-only walk: shared lock. (The bucket head is read after taking the lock, so a zone load
+    // can't relink the chain underneath us.)
+    Sys_EnterCriticalSectionShared(CRITSECT_DBHASH);
     uint16_t assetEntryIndex = db_hashTable[hash % 0x8000];
-
-    Sys_EnterCriticalSection(CRITSECT_DBHASH);
 
     while (assetEntryIndex)
     {
@@ -1256,15 +1275,15 @@ const char *__cdecl DB_FindXAssetNameFromHash(XAssetType type, unsigned int hash
             name = DB_GetXAssetName(&assetEntry->entry.asset);
             if (DB_HashForName(name, type) == hash)
             {
-                Sys_LeaveCriticalSection(CRITSECT_DBHASH);
+                Sys_LeaveCriticalSectionShared(CRITSECT_DBHASH);
                 return name;
             }
         }
 
         assetEntryIndex = assetEntry->entry.nextHash;
     }
-        
-    Sys_LeaveCriticalSection(CRITSECT_DBHASH);
+
+    Sys_LeaveCriticalSectionShared(CRITSECT_DBHASH);
 
     return 0;
 }
@@ -1329,13 +1348,14 @@ XAssetHeader __cdecl DB_FindXAssetHeader(XAssetType type, char *name, bool error
     {
         while (1)
         {
-            Sys_EnterCriticalSection(CRITSECT_DBHASH);
+            // Read-only lookup on the hot path: share the lock so concurrent lookups don't serialize.
+            Sys_EnterCriticalSectionShared(CRITSECT_DBHASH);
             if (use_so_name)
                 assEntry = DB_FindXAssetEntry(type, so_name);
             else
                 assEntry = DB_FindXAssetEntry(type, name);
             assetEntry = &assEntry->entry;
-            Sys_LeaveCriticalSection(CRITSECT_DBHASH);
+            Sys_LeaveCriticalSectionShared(CRITSECT_DBHASH);
             if (use_so_name)
                 DB_RegisteredReorderAsset(type, so_name, assetEntry);
             else
@@ -1952,7 +1972,7 @@ bool __cdecl DB_IsXAssetDefault(XAssetType type, const char *name)
     XAssetEntryPoolEntry *assetEntry; // [esp+8h] [ebp-4h]
 
     hash = DB_HashForName(name, type);
-    Sys_EnterCriticalSection(CRITSECT_DBHASH);
+    Sys_EnterCriticalSectionShared(CRITSECT_DBHASH); // read-only lookup
     for ( assetEntryIndex = db_hashTable[hash % 0x8000]; assetEntryIndex; assetEntryIndex = assetEntry->entry.nextHash )
     {
         assetEntry = &g_assetEntryPool[assetEntryIndex];
@@ -1961,12 +1981,13 @@ bool __cdecl DB_IsXAssetDefault(XAssetType type, const char *name)
             XAssetName = DB_GetXAssetName(&assetEntry->entry.asset);
             if ( !I_stricmp(XAssetName, name) )
             {
-                Sys_LeaveCriticalSection(CRITSECT_DBHASH);
-                return assetEntry->entry.zoneIndex == 0;
+                const bool isDefault = assetEntry->entry.zoneIndex == 0;
+                Sys_LeaveCriticalSectionShared(CRITSECT_DBHASH);
+                return isDefault;
             }
         }
     }
-    Sys_LeaveCriticalSection(CRITSECT_DBHASH);
+    Sys_LeaveCriticalSectionShared(CRITSECT_DBHASH);
     if ( !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\database\\db_registry.cpp", 3697, 0, "unreachable") )
         __debugbreak();
     return 1;
@@ -2450,7 +2471,11 @@ XAssetEntryPoolEntry *__cdecl DB_LinkXAssetEntry(XAssetEntry *newEntry, int allo
         {
             __debugbreak();
         }
-        if ( !*g_defaultAssetName[type] && type != ASSET_TYPE_RAWFILE && type != ASSET_TYPE_MAP_ENTS )
+        const bool zombieCoreOverride = zombiemode && zombiemode->current.enabled
+            && ((type == ASSET_TYPE_DDL && (g_zoneNames[newEntry->zoneIndex].flags & 16))
+                || ((type == ASSET_TYPE_DDL || type == ASSET_TYPE_SNDDRIVER_GLOBALS)
+                    && !I_stricmp(g_zoneNames[newEntry->zoneIndex].name, "code_post_gfx")));
+        if ( !*g_defaultAssetName[type] && type != ASSET_TYPE_RAWFILE && type != ASSET_TYPE_MAP_ENTS && !zombieCoreOverride )
         {
             Sys_LeaveCriticalSection(CRITSECT_DBHASH);
             Com_Error(
@@ -2695,7 +2720,7 @@ void __cdecl DB_DelayedCloneXAsset(XAssetEntry *newEntry)
     }
     else
     {
-        if ( g_copyInfoCount >= 0xC00 )
+        if ( g_copyInfoCount >= ARRAY_COUNT(g_copyInfo) )
         {
             Com_Printf(0, "g_copyInfo exceeded: too many asset overrides in one call to DB_LoadXAssets.\n");
             for ( i = 0; i < 0xC00; ++i )
@@ -3314,13 +3339,13 @@ void DB_Init()
 
     g_freeAssetEntryHead = g_assetEntryPool + 16;
 
-    for (i = 1; i < 0x7FFF; ++i)
+    for (i = 1; i < ARRAY_COUNT(g_assetEntryPool) - 1; ++i)
     {
         g_assetEntryPool[i].next = &g_assetEntryPool[i + 1];
         //g_assetEntryPool[i].entry.asset.type = g_assetEntryPool[i + 1].entry.asset.type;
     }
 
-    g_assetEntryPool[0x7FFF].next = NULL;
+    g_assetEntryPool[ARRAY_COUNT(g_assetEntryPool) - 1].next = NULL;
     //g_assetEntryPool[0x7FFF].entry.asset.type = ASSET_TYPE_XMODELPIECES;
 }
 
@@ -3457,8 +3482,36 @@ void __cdecl DB_DumpMaterialList_f()
     XAssetType type; // [esp+0h] [ebp-4h] BYREF
 
     type = ASSET_TYPE_MATERIAL;
-    DB_PrintXAssetsForType(ASSET_TYPE_MATERIAL, (void (__cdecl *)(XAssetHeader, void *))DB_PrintAssetName, &type, 1);
+    DB_PrintXAssetsForType(ASSET_TYPE_MATERIAL, AssetEnumFn<DB_PrintAssetName>, &type, 1);
 }
+
+#ifdef KISAK_WEB
+// Same path DB_TryLoadXFileInternal opens, so the page fetches the file the inflater will read.
+static void DB_ResolveZoneFastFile(const char *zoneName, int zoneFlags, char *filename, unsigned int size)
+{
+    if ((zoneFlags & 0x2AAAAAA) != 0
+        || (DB_BuildOSPath_Unlocalized(zoneName, ".ff", size, filename), GetFileAttributesA(filename) == -1))
+    {
+        DB_BuildOSPath(zoneName, ".ff", size, filename);
+    }
+}
+
+static void DB_KickQueuedZoneEnsures(unsigned int zoneInfoCount)
+{
+    if (zoneInfoCount < 2)
+        return;
+    char paths[32][260];
+    const char *ptrs[32];
+    const unsigned int n = zoneInfoCount > 32u ? 32u : zoneInfoCount;
+    for (unsigned int i = 0; i < n; ++i)
+    {
+        paths[i][0] = 0;
+        DB_ResolveZoneFastFile(g_zoneInfo[i].name, g_zoneInfo[i].flags, paths[i], 0x100u);
+        ptrs[i] = paths[i];
+    }
+    Web_KickEnsureFiles(ptrs, (int)n);
+}
+#endif
 
 void __cdecl DB_LoadXZone(XZoneInfo *zoneInfo, unsigned int zoneCount)
 {
@@ -3509,6 +3562,11 @@ void __cdecl DB_LoadXZone(XZoneInfo *zoneInfo, unsigned int zoneCount)
             g_zoneInfo[zoneInfoCount++].flags = zoneInfo[j].allocFlags;
         }
     }
+#ifdef KISAK_WEB
+    // Start every fastfile before the database thread opens them one by one. Inflate still
+    // waits until each file is fully local (Web_EnsureFile).
+    DB_KickQueuedZoneEnsures(zoneInfoCount);
+#endif
     if ( zoneInfoCount )
     {
         g_loadingAssets = zoneInfoCount;
@@ -3551,7 +3609,7 @@ void __cdecl    DB_Thread(unsigned int threadContext)
     }
     Value = (int*)Sys_GetValue(2);
     //if ( _setjmp3(Value, 0) )
-    if ( _setjmp(Value) )
+    if ( _setjmp(*(jmp_buf *)Value) )
         Com_ErrorAbort();
     while ( 1 )
     {
@@ -3665,12 +3723,19 @@ int __cdecl DB_TryLoadXFileInternal(const char *zoneName, int zoneFlags)
         __debugbreak();
     }
     zoneFile = (void *)-1;
+#ifdef KISAK_WEB
+    DB_ResolveZoneFastFile(zoneName, zoneFlags, filename, 0x100u);
+    Web_EnsureFile(filename); // per-map on-demand load: pulls the fastfile into OPFS first if needed
+#else
     if ((zoneFlags & 0x2AAAAAA) != 0
         || (DB_BuildOSPath_Unlocalized(zoneName, ".ff", 0x100u, filename), GetFileAttributesA(filename) == -1) )
     {
         DB_BuildOSPath(zoneName, ".ff", 0x100u, filename);
     }
+#endif
     zoneFile = CreateFileA(filename, 0x80000000, 1u, 0, 3u, 0x60000000u, 0);
+    if ( zoneFile != (void *)-1 )
+        FS_TraceOpen("zone", zoneName, filename);
     if ( zoneFile == (void *)-1 )
         DB_ModXFileHandle(zoneName, &zoneFile, &zoneDir);
     if ( zoneFile == (void *)-1 )
@@ -4892,7 +4957,14 @@ int __cdecl DB_FileSize(const char *zoneName, FF_DIR source)
         DB_BuildOSPath_FromSource(zoneName, source, 0x100u, filename);
     zoneFile = CreateFileA(filename, 0x80000000, 1u, 0, 3u, 0x60000000u, 0);
     if ( zoneFile == (void *)-1 )
+    {
+#ifdef KISAK_WEB
+        unsigned long long remoteSize;
+        if ( Web_RemoteKnown(filename, &remoteSize) )
+            return (int)remoteSize;
+#endif
         return 0;
+    }
     size = GetFileSize(zoneFile, 0);
     CloseHandle(zoneFile);
     return size;
@@ -4906,7 +4978,14 @@ char __cdecl DB_FileExists(const char *zoneName, FF_DIR source)
     DB_BuildOSPath_FromSource(zoneName, source, 0x100u, filename);
     zoneFile = CreateFileA(filename, 0x80000000, 1u, 0, 3u, 0x60000000u, 0);
     if ( zoneFile == (void *)-1 )
+    {
+#ifdef KISAK_WEB
+        // Not in OPFS yet but the page can fetch it: the map is available (loaded on demand).
+        if ( Web_RemoteKnown(filename, 0) )
+            return 1;
+#endif
         return 0;
+    }
     CloseHandle(zoneFile);
     return 1;
 }
@@ -4996,13 +5075,9 @@ void __cdecl DB_LoadGraphicsAssetsForPC()
     zoneCount = 1;
     DB_LoadXAssets(zoneInfo, zoneCount, 0);
     DB_SyncXAssets();
-    zoneInfo[0].name = "dev_mp";
-    zoneInfo[0].allocFlags = 4;
-    zoneInfo[0].freeFlags = 0;
-    zoneInfo[1].name = "patch_mp";
-    zoneInfo[1].allocFlags = 16;
-    zoneInfo[1].freeFlags = 0;
-    zoneCount = 2;
+    zoneCount = 0;
+    zoneInfo[zoneCount++] = {"dev_mp", 4, 0};
+    zoneInfo[zoneCount++] = {"patch_mp", 16, 0};
     if ( DB_ModFileExists() )
     {
         zoneInfo[zoneCount].name = "mod";

@@ -23,6 +23,10 @@
 #include <sound/snd_public_async.h>
 #include <win32/win_net.h>
 #include <sound/snd_stream.h>
+#ifdef KISAK_WEB
+#include <web/web_assets.h>
+#include <cstdio>
+#endif
 
 const char TEN_SPACE[] = "          ";
 
@@ -49,6 +53,7 @@ fileHandleData_t fsh[70];
 
 const dvar_t *fs_debug;
 const dvar_t *fs_copyfiles;
+const dvar_t *fs_traceOpens;
 const dvar_t *fs_cdpath;
 const dvar_t *fs_basepath;
 const dvar_t *fs_basegame;
@@ -732,7 +737,22 @@ bool __cdecl FS_PureIgnoreFiles(const char *filename)
 int __cdecl FS_FOpenFileRead(const char *filename, int *file)
 {
     com_fileAccessed = 1;
-    return FS_FOpenFileReadCurrentThread(filename, file);
+    unsigned int result = FS_FOpenFileReadCurrentThread(filename, file);
+#ifdef KISAK_WEB
+    // The trimmed web packs do not contain every image. Pull the real file out of the install's
+    // IWDs the first time the game opens it, then search again.
+    if ((int)result < 0 && filename && filename[0] && !strstr(filename, "..") && !strchr(filename, ':'))
+    {
+        char rel[512];
+        snprintf(rel, sizeof(rel), "main/%s", filename);
+        for (char *c = rel; *c; ++c)
+            if (*c == '\\')
+                *c = '/';
+        if (Web_EnsureLoose(rel))
+            result = FS_FOpenFileReadCurrentThread(filename, file);
+    }
+#endif
+    return (int)result;
 }
 
 unsigned int __cdecl FS_FOpenFileReadCurrentThread(const char *filename, int *file)
@@ -864,6 +884,7 @@ unsigned int __cdecl FS_FOpenFileReadForThread(const char *filename, int *file, 
                                             sanitizedName,
                                             v14->iwdFilename);
                                     }
+                                    FS_TraceOpen("iwd", sanitizedName, v14->iwdFilename);
                                     return zfi->cur_file_info.uncompressed_size;
                                 }
                             }
@@ -909,6 +930,7 @@ unsigned int __cdecl FS_FOpenFileReadForThread(const char *filename, int *file, 
                                             thread);
                                         FS_CopyFile(netpath, copypath);
                                     }
+                                    FS_TraceOpen("file", sanitizedName, netpath);
                                     return FS_filelength(*file);
                                 }
                             }
@@ -2410,6 +2432,8 @@ void __cdecl FS_Startup(const char *gameName, bool allow_devraw)
         v4 = va("%s_shared", gameName);
         FS_AddLocalizedGameDirectory((char *)fs_basepath->current.integer, v4);
         FS_AddLocalizedGameDirectory((char *)fs_homepath->current.integer, gameName);
+        // Saved configs live in home/players, separate from browser game assets.
+        FS_AddLocalizedGameDirectory((char *)fs_homepath->current.string, "players");
     }
     if ( *(_BYTE *)fs_basegame->current.integer
         && !I_stricmp(gameName, "main")
@@ -2539,6 +2563,12 @@ void __cdecl FS_AddLocalizedGameDirectory(char *path, const char *dir)
     FS_AddGameDirectory(path, dir, 0, 0);
 }
 
+void FS_TraceOpen(const char *kind, const char *name, const char *source)
+{
+    if ( fs_traceOpens && fs_traceOpens->current.enabled )
+        Com_Printf(10, "FSTRACE\t%s\t%s\t%s\n", kind, name, source);
+}
+
 void FS_RegisterDvars()
 {
     char *v1; // eax
@@ -2548,6 +2578,7 @@ void FS_RegisterDvars()
 
     fs_debug = _Dvar_RegisterInt("fs_debug", 0, 0, 2, 0, "Enable file system debugging information");
     fs_copyfiles = _Dvar_RegisterBool("fs_copyfiles", 0, 0x10u, "Copy all used files to another location");
+    fs_traceOpens = _Dvar_RegisterBool("fs_traceOpens", 0, 0, "Log every IWD entry, loose file and fastfile opened (asset manifest tooling)");
     v1 = (char *)Sys_DefaultCDPath();
     fs_cdpath = _Dvar_RegisterString("fs_cdpath", v1, 0x10u, "CD path");
     v2 = Sys_Cwd();
@@ -2685,6 +2716,7 @@ void __cdecl FS_InitFilesystem(bool allow_devraw)
     Com_StartupVariable("fs_h");
     Com_StartupVariable("fs_game");
     Com_StartupVariable("fs_copyfiles");
+    Com_StartupVariable("fs_traceOpens");
     Com_StartupVariable("fs_restrict");
     Com_StartupVariable("loc_language");
     SEH_InitLanguage();
@@ -2834,6 +2866,7 @@ void __cdecl FS_Flush(int f)
 
 void __cdecl Com_GetBspFilename(char *filename, unsigned int size, const char *mapname)
 {
-    Com_sprintf(filename, size, "maps/mp/%s.d3dbsp", mapname);
+    const bool zombieMap = !I_strncmp(mapname, "zombie_", 7) || !I_strcmp(mapname, "zombietron");
+    Com_sprintf(filename, size, zombieMap ? "maps/%s.d3dbsp" : "maps/mp/%s.d3dbsp", mapname);
 }
 

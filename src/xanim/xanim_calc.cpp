@@ -906,8 +906,8 @@ void __cdecl XAnimCalcParts_unsigned_short_(
         }
         if (!ignorePartBits->testBit(modelPartIndex))
         {
-            frameVec.u[0] = 0.0f;
-            frameVec.u[1] = 0.0f;
+            frameVec.v[0] = 0.0f;
+            frameVec.v[1] = 0.0f;
             frameVec.v[2] = (float)*dataShort * 0.000030518509;
             frameVec.v[3] = (float)dataShort[1] * 0.000030518509;
             v29 = &rotTransArray[modelPartIndex];
@@ -1015,12 +1015,12 @@ void __cdecl XAnimCalcParts_unsigned_short_(
             v60.v[0] = (float)*v57;
             v60.v[1] = (float)v57[1];
             v60.v[2] = (float)v57[2];
-            v60.u[3] = 0.0f;
+            v60.v[3] = 0.0f;
             v20 = v57 + 3;
             v58.v[0] = (float)v57[3];
             v58.v[1] = (float)v57[4];
             v58.v[2] = (float)v57[5];
-            v58.u[3] = 0.0f;
+            v58.v[3] = 0.0f;
             XAnimWeightedAccumLerpedTrans(&v60, &v58, v59, weightScale, dataInt, &rotTransArray[modelPartIndex]);
         }
         ++animPartIndex;
@@ -1085,11 +1085,11 @@ void __cdecl XAnimCalcParts_unsigned_short_(
             v55.v[0] = (float)*v52;
             v55.v[1] = (float)v52[1];
             v55.v[2] = (float)v52[2];
-            v55.u[3] = 0.0f;
+            v55.v[3] = 0.0f;
             v53.v[0] = (float)v52[3];
             v53.v[1] = (float)v52[4];
             v53.v[2] = (float)v52[5];
-            v53.u[3] = 0.0f;
+            v53.v[3] = 0.0f;
             XAnimWeightedAccumLerpedTrans(&v55, &v53, v54, weightScale, dataInt, &rotTransArray[modelPartIndex]);
         }
         ++animPartIndex;
@@ -1497,8 +1497,8 @@ void __cdecl XAnimCalcParts_unsigned_char_(
         }
         if (!ignorePartBits->testBit(modelPartIndex))
         {
-            frameVec.u[0] = 0.0f;
-            frameVec.u[1] = 0.0f;
+            frameVec.v[0] = 0.0f;
+            frameVec.v[1] = 0.0f;
             frameVec.v[2] = (float)*dataShort * 0.000030518509;
             frameVec.v[3] = (float)dataShort[1] * 0.000030518509;
             v16 = &rotTransArray[modelPartIndex];
@@ -1580,11 +1580,11 @@ void __cdecl XAnimCalcParts_unsigned_char_(
             v38.v[0] = (float)*v35;
             v38.v[1] = (float)v35[1];
             v38.v[2] = (float)v35[2];
-            v38.u[3] = 0.0f;
+            v38.v[3] = 0.0f;
             v36.v[0] = (float)v35[3];
             v36.v[1] = (float)v35[4];
             v36.v[2] = (float)v35[5];
-            v36.u[3] = 0.0f;
+            v36.v[3] = 0.0f;
             XAnimWeightedAccumLerpedTrans(&v38, &v36, v37, weightScale, dataInt, &rotTransArray[modelPartIndex]);
         }
         ++animPartIndex;
@@ -1624,11 +1624,11 @@ void __cdecl XAnimCalcParts_unsigned_char_(
             v33.v[0] = (float)*v30;
             v33.v[1] = (float)v30[1];
             v33.v[2] = (float)v30[2];
-            v33.u[3] = 0.0f;
+            v33.v[3] = 0.0f;
             v31.v[0] = (float)v30[3];
             v31.v[1] = (float)v30[4];
             v31.v[2] = (float)v30[5];
-            v31.u[3] = 0.0f;
+            v31.v[3] = 0.0f;
             XAnimWeightedAccumLerpedTrans(&v33, &v31, v32, weightScale, dataInt, &rotTransArray[modelPartIndex]);
         }
         ++animPartIndex;
@@ -2555,7 +2555,7 @@ void __cdecl XAnim_CalcPosDeltaDuring_unsigned_short_(
             minsVec.v[3] = 0.0;
             *(_QWORD *)sizeVec.v = *(_QWORD *)&posFrameDeltas->u.frame0[3];
             sizeVec.u[2] = LODWORD(posFrameDeltas->u.frames.size[2]);
-            sizeVec.u[3] = 0.0;
+            sizeVec.v[3] = 0.0f;
             posDelta->v[0] = (float)(sizeVec.v[0] * lerp.v[0]) + minsVec.v[0];
             posDelta->v[1] = (float)(sizeVec.v[1] * lerp.v[1]) + minsVec.v[1];
             posDelta->v[2] = (float)(sizeVec.v[2] * lerp.v[2]) + minsVec.v[2];
@@ -2630,7 +2630,7 @@ void __cdecl XAnim_CalcPosDeltaDuring_unsigned_char_(
                 fromVec.v[0] = (float)*v7;
                 fromVec.v[1] = (float)v7[1];
                 fromVec.v[2] = (float)v7[2];
-                fromVec.u[3] = 0.0;
+                fromVec.v[3] = 0.0f;
                 v6 = posFrameDeltas->u.frames.frames._1[nextKeyFrameIndex];
                 toVec.v[0] = (float)*v6;
                 toVec.v[1] = (float)v6[1];
@@ -2642,23 +2642,23 @@ void __cdecl XAnim_CalcPosDeltaDuring_unsigned_char_(
                 fromVec.v[0] = (float)*(unsigned __int16 *)v5;
                 fromVec.v[1] = (float)*((unsigned __int16 *)v5 + 1);
                 fromVec.v[2] = (float)*((unsigned __int16 *)v5 + 2);
-                fromVec.u[3] = 0.0;
+                fromVec.v[3] = 0.0f;
                 v4 = posFrameDeltas->u.frames.frames._1[2 * nextKeyFrameIndex];
                 toVec.v[0] = (float)*(unsigned __int16 *)v4;
                 toVec.v[1] = (float)*((unsigned __int16 *)v4 + 1);
                 toVec.v[2] = (float)*((unsigned __int16 *)v4 + 2);
             }
-            toVec.u[3] = 0.0;
+            toVec.v[3] = 0.0f;
             lerp.v[0] = (float)(keyFrameLerpFrac * (float)(toVec.v[0] - fromVec.v[0])) + fromVec.v[0];
             lerp.v[1] = (float)(keyFrameLerpFrac * (float)(toVec.v[1] - fromVec.v[1])) + fromVec.v[1];
             lerp.v[2] = (float)(keyFrameLerpFrac * (float)(toVec.v[2] - fromVec.v[2])) + fromVec.v[2];
             lerp.v[3] = (float)(keyFrameLerpFrac * (float)(0.0 - fromVec.v[3])) + fromVec.v[3];
             *(_QWORD *)minsVec.v = *(_QWORD *)posFrameDeltas->u.frames.mins;
             minsVec.u[2] = LODWORD(posFrameDeltas->u.frames.mins[2]);
-            minsVec.u[3] = 0.0;
+            minsVec.v[3] = 0.0f;
             *(_QWORD *)sizeVec.v = *(_QWORD *)&posFrameDeltas->u.frame0[3];
             sizeVec.u[2] = LODWORD(posFrameDeltas->u.frames.size[2]);
-            sizeVec.u[3] = 0.0;
+            sizeVec.v[3] = 0.0f;
             posDelta->v[0] = (float)(sizeVec.v[0] * lerp.v[0]) + minsVec.v[0];
             posDelta->v[1] = (float)(sizeVec.v[1] * lerp.v[1]) + minsVec.v[1];
             posDelta->v[2] = (float)(sizeVec.v[2] * lerp.v[2]) + minsVec.v[2];

@@ -1,4 +1,6 @@
 #include "g_weapon.h"
+#include <database/db_registry.h>
+#include <vector>
 #include <game_mp/g_main_mp.h>
 #include <server/sv_world.h>
 #include <glass/glass_server.h>
@@ -729,7 +731,7 @@ gentity_s* Weapon_RocketLauncher_Fire(
 
 void __cdecl gunrandom(float *x, float *y)
 {
-    long double v2; // st7
+    double v2; // st7
     float sinT; // [esp+Ch] [ebp-10h]
     float theta; // [esp+10h] [ebp-Ch]
     float r; // [esp+14h] [ebp-8h]
@@ -753,7 +755,7 @@ gentity_s *__cdecl Weapon_BombDrop_Fire(
                 gentity_s *target,
                 const float *targetOffset)
 {
-    long double v8; // [esp+0h] [ebp-4Ch]
+    double v8; // [esp+0h] [ebp-4Ch]
     float fAimOffset; // [esp+20h] [ebp-2Ch]
     float r; // [esp+28h] [ebp-24h] BYREF
     float dir[3]; // [esp+2Ch] [ebp-20h] BYREF
@@ -1845,7 +1847,17 @@ void __cdecl G_SetupWeaponDef()
         ClearRegisteredItems();
         BG_ClearWeaponDef();
         G_GetWeaponIndexForName((char*)"defaultweapon_mp");
-        BG_LoadWeaponTable("_mp", G_RegisterWeapon);
+        if (zombiemode->current.enabled)
+        {
+            std::vector<const char *> weapons;
+            DB_EnumXAssets_FastFile(ASSET_TYPE_WEAPON, [](XAssetHeader asset, void *context) {
+                const char *name = asset.weapon->szInternalName;
+                if (name && !I_stristr(name, "_mp"))
+                    static_cast<std::vector<const char *> *>(context)->push_back(name);
+            }, &weapons, false);
+            for (const char *name : weapons) G_GetWeaponIndexForName((char *)name);
+        }
+        else BG_LoadWeaponTable("_mp", G_RegisterWeapon);
     }
     Com_DPrintf(17, "----------------------\n");
 }

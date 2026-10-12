@@ -1,4 +1,8 @@
 #include "rb_shade.h"
+#include <cstdio>
+#include <cstring>
+
+extern int g_kisakLobbyTrace;
 #include "r_dvars.h"
 #include "rb_logfile.h"
 #include "rb_pixelcost.h"
@@ -474,11 +478,23 @@ void __cdecl R_DrawTessTechnique(GfxCmdBufContext context, const GfxDrawPrimArgs
         __debugbreak();
     }
     technique = context.state->technique;
-    if ( !technique
-        && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\gfx_d3d\\rb_shade.cpp", 247, 0, "%s", "technique") )
+    if ( !technique )
     {
-        __debugbreak();
+        // A UI material can lack the 2D technique (private-match map art is one). Drawing it
+        // used to read the null technique and abort the page. Skip the surface instead.
+        static int s_missingTechLogs;
+        if ( s_missingTechLogs < 8 && context.state->material && context.state->material->info.name )
+        {
+            ++s_missingTechLogs;
+            Com_PrintWarning(8, "Skipping draw of '%s': no technique %d\n", context.state->material->info.name,
+                             context.state->techType);
+        }
+        return;
     }
+    if ( g_kisakLobbyTrace && context.state->material && context.state->material->info.name )
+        fprintf(stderr, "kisak-draw %s tech %p\n", context.state->material->info.name, (void *)technique);
+    if ( g_kisakLobbyTrace && technique )
+        fprintf(stderr, "kisak-draw passes %u\n", technique->passCount);
     R_BeginPixMaterial(context.state);
     if ( r_logFile->current.integer )
     {

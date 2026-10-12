@@ -1,7 +1,30 @@
 #include "ui_shared.h"
+#ifdef KISAK_WEB
+#include <web/web_graphics.h>
+#endif
 #include "ui_shared_obj.h"
 #include "ui_localvars.h"
 #include "ui_utils.h"
+#include <cstdio>
+
+int g_kisakLobbyTrace;
+#ifdef KISAK_WEB
+#include <cstdint>
+#include <emscripten/heap.h>
+static bool Kisak_UiStr(const char *s)
+{
+    uintptr_t a = (uintptr_t)s;
+    uintptr_t heap = (uintptr_t)emscripten_get_heap_size();
+    if ( a < 0x1000 || a >= heap )
+        return false;
+    for ( unsigned n = 0; n < 512 && a + n < heap; ++n )
+    {
+        if ( !s[n] )
+            return true;
+    }
+    return false;
+}
+#endif
 #include <universal/q_parse.h>
 #include <universal/assertive.h>
 #include <stringed/stringed_hooks.h>
@@ -2476,7 +2499,7 @@ void __cdecl Script_ExecOnDvarFloatValue(int localClientNum, UiContext *dc, item
 
 bool __cdecl Script_ExecIfFloatsEqual(const char *dvarValue, const char *testValue)
 {
-    long double v3; // [esp+4h] [ebp-Ch]
+    double v3; // [esp+4h] [ebp-Ch]
     float v4; // [esp+Ch] [ebp-4h]
 
     v3 = atof(testValue);
@@ -3888,7 +3911,8 @@ void __cdecl UI_ValidatePrivateMatchGametype_f()
         if ( !I_strcmp(ui_gametype->current.string, sharedUiInfo.customMatchGameTypes[i].gameType) )
             return;
     }
-    Dvar_SetString((dvar_s *)ui_gametype, (const char *)&sharedUiInfo.numCustomMatchGameTypes);
+    if ( sharedUiInfo.numCustomMatchGameTypes > 0 )
+        Dvar_SetString((dvar_s *)ui_gametype, sharedUiInfo.customMatchGameTypes[0].gameType);
 }
 
 void __cdecl UI_SetActiveMenu_f()
@@ -4287,6 +4311,13 @@ void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu)
     int i; // [esp+18h] [ebp-4h]
     int ia; // [esp+18h] [ebp-4h]
 
+    // Offline private match: add the "BOTS: n" row to the lobby before it is shown (idempotent).
+#ifdef KISAK_WEB
+    Web_EnsureGraphicsMenu(dc, menu);
+#endif
+    if ( menu && menu->window.name && !I_stricmp(menu->window.name, "menu_xboxlive_privatelobby") )
+        UI_KisakEnsurePrivateLobbyBotsRow(menu);
+
     for ( i = dc->openMenuCount - 1; i >= 0; --i )
         Menu_LoseFocusDueToOpen(localClientNum, dc, dc->menuStack[i].menu);
     for ( ia = 0; ia < dc->menuCount; ++ia )
@@ -4331,11 +4362,14 @@ void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu)
         }
     }
     Menus_SetupOpenMenu(localClientNum, dc, menu);
-    if ( dc->openMenuCount > 0 && dc->Menus[2 * dc->openMenuCount + 599] != menu )
+    if ( dc->openMenuCount > 0 && dc->menuStack[dc->openMenuCount - 1].menu != menu )
     {
         Menu_LoseFocusDueToOpen(localClientNum, dc, menu);
-        Menus_SetupOpenMenu(localClientNum, dc, dc->Menus[2 * dc->openMenuCount + 599]);
+        Menus_SetupOpenMenu(localClientNum, dc, dc->menuStack[dc->openMenuCount - 1].menu);
     }
+#ifdef KISAK_WEB
+    fprintf(stderr, "kisak-open done\n");
+#endif
 }
 
 void __cdecl Menus_AddToStack(int localClientNum, UiContext *dc, menuDef_t *pMenu)
@@ -4456,9 +4490,18 @@ void    Menus_SetupOpenMenu(int localClientNum, UiContext *dc, menuDef_t *menu)
     {
         if (!CL_IsLocalClientInGame(localClientNum))
         {
+#ifdef KISAK_WEB
+            fprintf(stderr, "kisak-sound %s\n", menu->soundName);
+#endif
             UI_PlaySound(dc->contextIndex, (char*)menu->soundName);
+#ifdef KISAK_WEB
+            fprintf(stderr, "kisak-sound done\n");
+#endif
         }
     }
+#ifdef KISAK_WEB
+    fprintf(stderr, "kisak-setup done %s\n", menu->window.name ? menu->window.name : "?");
+#endif
 }
 
 itemDef_s *__cdecl Menu_SetNextCursorItem(
@@ -5749,6 +5792,47 @@ bool __cdecl Item_ContainsMouse(UiContext *dc, itemDef_s *item)
     return v6;
 }
 
+// Offline fix: Item_List_NextEntryForKey treats every K_MOUSE1 as "next". Multi / dvarenum items draw a left and a
+// right arrow around the value text (see Item_Text_Paint), so a left click on the left half must go backwards.
+// Same geometry as Item_Text_Paint: left arrow at textRect.x - textRect.h, right arrow at textRect.x + textWidth.
+static int Item_List_KeyForMouse(UiContext *dc, itemDef_s *item, int key, const char *valueText)
+{
+    const textDef_s *textDefPtr;
+    const rectDef_s *textRect;
+    Font_s *font;
+    rectDef_s r;
+    float textWidth;
+    float cursorX;
+    float midX;
+
+    if ( key != 200 )
+        return key;
+    if ( !dc || !item || !valueText || !dc->isCursorVisible )
+        return key;
+    textDefPtr = Item_GetTextDef(item);
+    if ( !textDefPtr || !item->typeData.textDef )
+        return key;
+    if ( *valueText == 64 )
+        valueText = UI_SafeTranslateString(valueText + 1);
+    if ( !valueText )
+        return key;
+    font = Item_GetFont(dc->contextIndex, item);
+    textRect = &Item_GetTextRect(dc->contextIndex, item)->textRect[0];
+    textWidth = (float)UI_TextWidth(valueText, 64, font, textDefPtr->textscale);
+
+    // Whole value display: left arrow, text, right arrow. Split it down the middle of the text.
+    r.x = textRect->x;
+    r.y = textRect->y - textRect->h;
+    r.w = textWidth;
+    r.h = textRect->h;
+    r.horzAlign = textRect->horzAlign;
+    r.vertAlign = textRect->vertAlign;
+    ScrPlace_ApplyRect(&scrPlaceView[dc->contextIndex], &r.x, &r.y, &r.w, &r.h, r.horzAlign, r.vertAlign);
+    midX = r.x + r.w * 0.5f;
+    cursorX = (float)ScrPlace_ApplyX(&scrPlaceView[dc->contextIndex], dc->cursor.x, 4);
+    return cursorX < midX ? 201 : 200;
+}
+
 int __cdecl Item_Multi_HandleKey(UiContext *dc, itemDef_s *item, int key)
 {
     char *v4; // eax
@@ -5773,6 +5857,7 @@ int __cdecl Item_Multi_HandleKey(UiContext *dc, itemDef_s *item, int key)
         return 0;
     current = Item_Multi_FindDvarByValue(item);
     count = Item_Multi_CountSettings(item);
+    key = Item_List_KeyForMouse(dc, item, key, Item_Multi_Setting(item));
     next = Item_List_NextEntryForKey(key, current, count);
     if ( next == current )
         return 0;
@@ -5874,7 +5959,7 @@ int __cdecl Item_List_NextEntryForKey(int key, int current, int count)
     }
     else
     {
-        v5 = key == 13 || key == 163 || key == 157 || key == 31 || key == 23;
+        v5 = key == 13 || key == 163 || key == 157 || key == 187 || key == 31 || key == 23;
         v7 = v5;
     }
     if ( v7 )
@@ -5885,7 +5970,7 @@ int __cdecl Item_List_NextEntryForKey(int key, int current, int count)
     }
     else
     {
-        v4 = key == 164 || key == 156 || key == 30 || key == 22;
+        v4 = key == 164 || key == 156 || key == 185 || key == 30 || key == 22;
         v6 = v4;
     }
     if ( v6 )
@@ -5914,6 +5999,7 @@ int __cdecl Item_DvarEnum_HandleKey(UiContext *dc, itemDef_s *item, int key)
         return 0;
     current = Item_DvarEnum_EnumIndex(item);
     count = Item_DvarEnum_CountSettings(item);
+    key = Item_List_KeyForMouse(dc, item, key, Item_DvarEnum_Setting(item));
     next = Item_List_NextEntryForKey(key, current, count);
     if ( next == current )
         return 0;
@@ -6409,7 +6495,7 @@ int __cdecl Item_Slider_HandleKey(UiContext *dc, itemDef_s *item, int key)
             }
             else
             {
-                v10 = key == 156 || key == 164;
+                v10 = key == 156 || key == 164 || key == 185;
                 v12 = v10;
             }
             if ( v12 )
@@ -6430,7 +6516,7 @@ int __cdecl Item_Slider_HandleKey(UiContext *dc, itemDef_s *item, int key)
                 }
                 else
                 {
-                    v8 = key == 157 || key == 163;
+                    v8 = key == 157 || key == 163 || key == 187;
                     v11 = v8;
                 }
                 if ( v11 )
@@ -6633,7 +6719,17 @@ void __cdecl Item_TextColor(UiContext *dc, itemDef_s *item, float (*newColor)[4]
     Window_SetDynamicFlags(dc->contextIndex, &item->window, flags);
     if (Window_HasFocus(dc->contextIndex, &item->window))
     {
-        if (!var || I_strcmp(var->table[0].u.string, "popmenu") || (item->parent->window.staticFlags & 0x1000000) != 0)
+        // The private-match BOTS row sits on the lobby's light highlight bar. The stock rows
+        // cover their white label with a separate dark overlay; this row is one item, so the
+        // focused label itself has to be dark or it disappears into the bar.
+        if (item->dvar && !I_stricmp(item->dvar, "kisak_pm_bots"))
+        {
+            (*newColor)[0] = 0.0f;
+            (*newColor)[1] = 0.0f;
+            (*newColor)[2] = 0.0f;
+            (*newColor)[3] = 1.0f;
+        }
+        else if (!var || I_strcmp(var->table[0].u.string, "popmenu") || (item->parent->window.staticFlags & 0x1000000) != 0)
         {
             (*newColor)[0] = item->window.foreColor[0];
             (*newColor)[1] = item->window.foreColor[1];
@@ -8004,7 +8100,7 @@ void __cdecl Menu_PerformTransitionEffects(int localClientNum, UiContext *dc, me
             if (direction[3])
             {
                 Window_RemoveDynamicFlags(dc->contextIndex, &menu->window, 0x20000);
-                if (dc->Menus[2 * dc->openMenuCount + 599] == menu)
+                if (dc->menuStack[dc->openMenuCount - 1].menu == menu)
                     Menu_CallOnFocusDueToOpen(localClientNum, dc, menu);
                 menu->slideTimeCounter = -1;
             }
@@ -8041,7 +8137,7 @@ void __cdecl Menu_PerformTransitionEffects(int localClientNum, UiContext *dc, me
             if (direction[1])
             {
                 Window_RemoveDynamicFlags(dc->contextIndex, &menu->window, 0x80000);
-                if (dc->Menus[2 * dc->openMenuCount + 599] == menu)
+                if (dc->menuStack[dc->openMenuCount - 1].menu == menu)
                     Menu_CallOnFocusDueToOpen(localClientNum, dc, menu);
                 menu->fadeTimeCounter = -1;
             }
@@ -8082,6 +8178,25 @@ char    Menu_Paint(
     //v23[1] = scrPlaceViewStacka;
     dummyDef.parent = menu;
 
+#ifdef KISAK_WEB
+    if (menu && menu->window.name
+        && (!I_stricmp(menu->window.name, "menu_xboxlive_privatelobby")
+            || !I_stricmp(menu->window.name, "menu_xboxlive_basictraining")))
+    {
+        int flags = Window_GetDynamicFlags(dc->contextIndex, &menu->window);
+        static int s_once;
+        if (!s_once)
+        {
+            s_once = 1;
+            fprintf(stderr, "kisak-why flags=%d full=%d exp=%p\n", flags, menu->fullScreen,
+                    (void *)menu->visibleExp.filename);
+        }
+        // The lobby is opened, but its visible bit is clear, so Menu_IsVisible skips the
+        // whole screen. Put the bit back. The stock open path is supposed to set it.
+        if ((flags & 4) == 0)
+            Window_AddDynamicFlags(dc->contextIndex, &menu->window, 6);
+    }
+#endif
     iassert(menu);
 
     if (menu->ui3dWindowId < 0)
@@ -8166,6 +8281,17 @@ char    Menu_Paint(
     
     if (menu->fullScreen)
     {
+#ifdef KISAK_WEB
+        if (menu->window.name && !I_stricmp(menu->window.name, "menu_xboxlive_privatelobby"))
+        {
+            static int s_traceFrames;
+            if (s_traceFrames < 1)
+            {
+                ++s_traceFrames;
+                fprintf(stderr, "kisak-paint bg %p\n", (void *)menu->window.background);
+            }
+        }
+#endif
         if (menu->window.background)
         {
             PROF_SCOPED("UI_DrawHandlePic");
@@ -8200,8 +8326,21 @@ char    Menu_Paint(
     {
         v7 = va("Item_Paint (%d)", menu->itemCount);
         PROF_SCOPED_RUNTIME_NAME(v7);
+#ifdef KISAK_WEB
+        static int s_itemLog;
+        if (!s_itemLog && menu->window.name && !I_stricmp(menu->window.name, "menu_xboxlive_privatelobby"))
+            fprintf(stderr, "kisak-paint items %d\n", menu->itemCount);
+#endif
         for (ib = 0; ib < menu->itemCount; ++ib)
         {
+#ifdef KISAK_WEB
+            if (!s_itemLog && menu->window.name && !I_stricmp(menu->window.name, "menu_xboxlive_privatelobby"))
+                fprintf(stderr, "kisak-item %d type %d style %d od %d bg %p dvar %s %s\n", ib, menu->items[ib]->type,
+                        menu->items[ib]->window.style, menu->items[ib]->window.ownerDraw,
+                        (void *)menu->items[ib]->window.background,
+                        menu->items[ib]->dvar ? menu->items[ib]->dvar : "-",
+                        menu->items[ib]->window.name ? menu->items[ib]->window.name : "-");
+#endif
             if ((Window_GetDynamicFlags(dc->contextIndex, &menu->window) & 0x82000) != 0 || menu->fadeTimeCounter == -3)
             {
                 if (menu->fadeTimeCounter == -3)
@@ -8218,6 +8357,9 @@ char    Menu_Paint(
                 Item_Paint(localClientNum, dc, menu->items[ib]);
             }
         }
+#ifdef KISAK_WEB
+        s_itemLog = 1;
+#endif
     }
     
     menu->window.rect.x = menu->initialRectInfo.x;
@@ -8387,7 +8529,7 @@ void __cdecl Window_Paint(
             //BG_EvalVehicleName();
             break;
         case 3u:
-            if ((Window_GetDynamicFlags(dc->contextIndex, &item->parent->window) & 0x2000) != 0)
+            if ( item && item->parent && (Window_GetDynamicFlags(dc->contextIndex, &item->parent->window) & 0x2000) != 0 )
             {
                 foreColor = w->foreColor;
             }
@@ -8438,6 +8580,8 @@ void __cdecl Window_Paint(
             }
             else
             {
+                if ( !w->background )
+                    break;
                 if (w->rotation != 0.0)
                     goto LABEL_42;
                 UI_DrawHandlePic(
@@ -8757,14 +8901,16 @@ void __cdecl Item_Paint(int localClientNum, UiContext *dc, itemDef_s *item)
         {
             if ( item->forecolorAExp.filename )
                 item->window.foreColor[3] = GetExpressionFloat(localClientNum, item, &item->forecolorAExp);
-            //if ( item->window.name )
-            //    //PIXBeginNamedEvent(-1, "Item_IsVisible %s", item->window.name);
-            //else
-            //    //PIXBeginNamedEvent(-1, "Item_IsVisible");
+#ifdef KISAK_WEB
+            if ( g_kisakLobbyTrace )
+                fprintf(stderr, "kisak-stage vis %p\n", (void *)item->visibleExp.filename);
+#endif
             if ( Item_IsVisible(localClientNum, dc->contextIndex, item) )
             {
-                //if ( GetCurrentThreadId() == g_DXDeviceThread )
-                    //D3DPERF_EndEvent();
+#ifdef KISAK_WEB
+                if ( g_kisakLobbyTrace )
+                    fprintf(stderr, "kisak-stage draw bg %p\n", (void *)item->window.background);
+#endif
                 if ( item->rectExpData && (!item->animInfo || !item->animInfo->animating) )
                 {
                     if ( item->rectExpData->rectXExp.filename )
@@ -8786,12 +8932,24 @@ void __cdecl Item_Paint(int localClientNum, UiContext *dc, itemDef_s *item)
                 }
                 if ( item->window.style == 5 )
                 {
-                    String = Dvar_GetString(item->dvar);
-                    I_strncpyz(lowerCaseName, String, 64);
-                    I_strlwr(lowerCaseName);
-                    item->window.background = Material_RegisterHandle(lowerCaseName, item->imageTrack);
+                    // A style-5 item paints whatever material the dvar names. A missing name, or a
+                    // material the 2D renderer cannot draw, must not take the whole menu down.
+#ifdef KISAK_WEB
+                    if ( Kisak_UiStr(item->dvar) && item->dvar[0] )
+#else
+                    if ( item->dvar && item->dvar[0] )
+#endif
+                    {
+                        String = Dvar_GetString(item->dvar);
+                        if ( String && String[0] )
+                        {
+                            I_strncpyz(lowerCaseName, String, 64);
+                            I_strlwr(lowerCaseName);
+                            item->window.background = Material_RegisterHandle(lowerCaseName, item->imageTrack);
+                        }
+                    }
                 }
-                else if ( item->type == 2 && LODWORD(item->typeData.textDef->textRect[0].x) )
+                else if ( item->type == 2 && item->typeData.textDef && LODWORD(item->typeData.textDef->textRect[0].x) )
                 {
                     ExpressionResultString = GetExpressionResultString(
                                                                          localClientNum,
@@ -8910,6 +9068,8 @@ void __cdecl Item_Text_Paint(int localClientNum, UiContext *dc, itemDef_s *item)
     char textWithBinding[1028]; // [esp+474h] [ebp-408h] BYREF
 
     textDefPtr = Item_GetTextDef(item);
+    if ( !textDefPtr )
+        return;
     cinematic = (textDefPtr->itemFlags & 2) != 0;
     subtitle = cinematic;
     if ( cinematic )
@@ -8926,10 +9086,18 @@ void __cdecl Item_Text_Paint(int localClientNum, UiContext *dc, itemDef_s *item)
     {
         if ( !item->dvar )
             return;
+#ifdef KISAK_WEB
+        if ( !Kisak_UiStr(item->dvar) )
+            return;
+#endif
         VariantString = Dvar_GetVariantString(item->dvar);
         I_strncpyz(text, VariantString, 1024);
         textPtr = text;
     }
+#ifdef KISAK_WEB
+    if ( !Kisak_UiStr(textPtr) )
+        return;
+#endif
     if ( *textPtr == 64 )
         textPtr = UI_SafeTranslateString(textPtr + 1);
     if ( *textPtr )
@@ -10631,7 +10799,7 @@ void __cdecl Menu_PaintAll_AppendToVisibleList(char *stringBegin, unsigned int s
 
     if (!lastNewline)
     {
-        // No newline in string � treat start as line beginning
+        // No newline in string ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ treat start as line beginning
         lastNewline = stringBegin - 1;
     }
 

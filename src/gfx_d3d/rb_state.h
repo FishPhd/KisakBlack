@@ -193,7 +193,17 @@ struct GfxCmdBufState // sizeof=0x13D0
     // padding byte
     // padding byte
     int stateOverride;
+
+    // Last literal uploaded to each shader constant register. A register whose *ConstState slot holds
+    // SHADER_LITERAL_CACHED is known to hold exactly these floats, so an identical literal skips the
+    // SetVertex/PixelShaderConstantF call. Cleared together with the const state (R_InitCmdBufState).
+    float vertexShaderLiteralShadow[256][4];
+    float pixelShaderLiteralShadow[256][4];
 };
+
+// Never equal to a code-constant version tag (register index < 0xFFFE, versions are small counters)
+// and distinct from the all-ones "invalid" marker.
+static const unsigned __int64 SHADER_LITERAL_CACHED = 0xFFFFFFFEFFFFFFFEull;
 
 struct GfxCodeMatrices // sizeof=0x800
 {                                       // XREF: GfxCmdBufSourceState/r

@@ -251,6 +251,11 @@ extern int fs_numServerIwds;
 
 extern const dvar_t *fs_debug;
 extern const dvar_t *fs_copyfiles;
+extern const dvar_t *fs_traceOpens;
+
+// fs_traceOpens 1: log every IWD entry, loose file and fastfile the engine opens (one "FSTRACE" line each).
+// tools/web/gen_manifest.py turns these into the web boot and per-map asset lists.
+void FS_TraceOpen(const char *kind, const char *name, const char *source);
 extern const dvar_t *fs_cdpath;
 extern const dvar_t *fs_basepath;
 extern const dvar_t *fs_basegame;

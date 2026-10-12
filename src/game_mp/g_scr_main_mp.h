@@ -7,9 +7,10 @@
 #include <game/g_player_corpse.h>
 
 struct gentity_s;
+void GScr_DumpLoadedScripts();
 struct scr_animscript_t;
 struct pathnode_t;
-enum objectiveState_t;
+enum objectiveState_t : __int32;
 struct objective_t;
 struct XAnimTree_s;
 struct scr_animtree_t;

@@ -1,6 +1,7 @@
 #include "phys_mem_new.h"
 
 #include <Windows.h> // interlockedexchange
+#include <cstdint>
 #include <new>
 #include <universal/q_shared.h>
 
@@ -232,6 +233,16 @@ void __cdecl PMM_VALIDATE(char *ptr, unsigned int size, unsigned int alignment)
     slot_pool->validate_slot(ptr);
 }
 
+bool __cdecl PMM_SLOT_OWNED(const void *ptr, unsigned int size, unsigned int alignment)
+{
+    phys_slot_pool *slot_pool;
+
+    if (!g_phys_memory_manager || !ptr)
+        return false;
+    slot_pool = g_phys_memory_manager->get_slot_pool(size, alignment);
+    return slot_pool->slot_is_owned(ptr);
+}
+
 phys_memory_manager::phys_memory_manager(char *memory_buffer, int memory_buffer_size)
 {
     this->m_slot_pool_map_mutex.m_count = 1;
@@ -284,6 +295,33 @@ void __cdecl phys_memory_manager_init(void *const memory_buffer, int memory_buff
     }
 }
 
+bool phys_slot_pool::slot_ptr_readable(const void *slot) const
+{
+    unsigned int slot_size = (unsigned __int16)this->m_map_key;
+    unsigned int slot_align = this->m_map_key >> 16;
+
+    if (slot_align < 4 || slot_size < sizeof(extra_info))
+        return false;
+    // Heap-range check is inside phys_walk_ptr_ok and is wasm-only. Alignment is checked on every build.
+    if (!phys_walk_ptr_ok(slot, slot_size))
+        return false;
+    if ((reinterpret_cast<uintptr_t>(slot) % slot_align) != 0)
+        return false;
+    return true;
+}
+
+bool phys_slot_pool::slot_is_owned(const void *slot) const
+{
+    unsigned int slot_size;
+    const extra_info *ei;
+
+    if (!this->slot_ptr_readable(slot))
+        return false;
+    slot_size = (unsigned __int16)this->m_map_key;
+    ei = (const extra_info *)((const char *)slot + slot_size - sizeof(extra_info));
+    return ei->m_slot_pool_owner == this;
+}
+
 void phys_slot_pool::extra_info_init(char *slot)
 {
     phys_slot_pool::extra_info *ei; // eax
@@ -314,7 +352,7 @@ void phys_slot_pool::extra_info_init(char *slot)
     }
 }
 
-void __thiscall phys_slot_pool::extra_info_allocate(char *slot)
+bool __thiscall phys_slot_pool::extra_info_allocate(char *slot)
 {
 #if 0
     char *v3; // ebx
@@ -359,6 +397,8 @@ void __thiscall phys_slot_pool::extra_info_allocate(char *slot)
 #else // aislop 
     if (!slot && _tlAssert("source/phys_mem_new.cpp", 306, "slot", ""))
         __debugbreak();
+    if (!slot)
+        return false;
 
     phys_slot_pool::extra_info *ei = (phys_slot_pool::extra_info *)&slot[(unsigned __int16)this->m_map_key - sizeof(phys_slot_pool::extra_info)];
 
@@ -367,14 +407,23 @@ void __thiscall phys_slot_pool::extra_info_allocate(char *slot)
     {
         __debugbreak();
     }
+    if (ei->m_slot_pool_owner != this)
+        return false;
 
+    // The log hit this twice and then physics called a null function. The slot was
+    // already marked allocated, so handing it out again aliases two objects.
     if ((phys_slot_pool *)_InterlockedCompareExchange(
         (volatile unsigned __int32 *)&ei->m_allocation_owner,
         0xFEDCBA98,
-        (signed __int32)this) != this
-        && _tlAssert("source/phys_mem_new.cpp", 312, "retv", "internal error."))
+        (signed __int32)this) != this)
     {
-        __debugbreak();
+        static int s_retv;
+        if (s_retv < 4)
+        {
+            ++s_retv;
+            _tlAssert("source/phys_mem_new.cpp", 312, "retv", "internal error.");
+        }
+        return false;
     }
 
     _InterlockedExchangeAdd((volatile long *)&this->m_allocated_slot_count, 1u);
@@ -387,10 +436,11 @@ void __thiscall phys_slot_pool::extra_info_allocate(char *slot)
     {
         __debugbreak();
     }
+    return true;
 #endif
 }
 
-void __thiscall phys_slot_pool::extra_info_free(unsigned __int8 *slot)
+bool __thiscall phys_slot_pool::extra_info_free(unsigned __int8 *slot)
 {
 #if 0
     unsigned __int8 *v3; // ebx
@@ -446,9 +496,10 @@ void __thiscall phys_slot_pool::extra_info_free(unsigned __int8 *slot)
     if (!slot && _tlAssert("source/phys_mem_new.cpp", 323, "slot", ""))
         __debugbreak();
 
-    phys_slot_pool::extra_info *ei = (phys_slot_pool::extra_info *)&slot[(unsigned __int16)this->m_map_key - sizeof(phys_slot_pool::extra_info)];
+    if (!this->slot_ptr_readable(slot))
+        return false;
 
-    memset(slot, 0xFFu, (unsigned __int16)this->m_map_key - sizeof(phys_slot_pool::extra_info));
+    phys_slot_pool::extra_info *ei = (phys_slot_pool::extra_info *)&slot[(unsigned __int16)this->m_map_key - sizeof(phys_slot_pool::extra_info)];
 
     if (ei->m_slot_pool_owner != this
         && _tlAssert(
@@ -459,19 +510,28 @@ void __thiscall phys_slot_pool::extra_info_free(unsigned __int8 *slot)
     {
         __debugbreak();
     }
+    if (ei->m_slot_pool_owner != this)
+        return false;
 
+    // The 0xFF fill is what was landing in neighboring engine memory (r_materialXYZ).
+    // Only a slot this pool still owns gets wiped, and only after the owner swap succeeds.
     if ((phys_slot_pool *)_InterlockedCompareExchange(
         (volatile unsigned __int32 *)&ei->m_allocation_owner,
         (signed __int32)this,
-        0xFEDCBA98) != (phys_slot_pool *)0xFEDCBA98
-        && _tlAssert(
-            "source/phys_mem_new.cpp",
-            332,
-            "retv",
-            "incorrect owner attempting to free a slot, possibly trying to free a slot more than once."))
+        0xFEDCBA98) != (phys_slot_pool *)0xFEDCBA98)
     {
-        __debugbreak();
+        if (_tlAssert(
+                "source/phys_mem_new.cpp",
+                332,
+                "retv",
+                "incorrect owner attempting to free a slot, possibly trying to free a slot more than once."))
+        {
+            __debugbreak();
+        }
+        return false;
     }
+
+    memset(slot, 0xFFu, (unsigned __int16)this->m_map_key - sizeof(phys_slot_pool::extra_info));
 
     _InterlockedExchangeAdd((volatile long *)&this->m_allocated_slot_count, (unsigned long)-1);
 
@@ -489,6 +549,7 @@ void __thiscall phys_slot_pool::extra_info_free(unsigned __int8 *slot)
     {
         __debugbreak();
     }
+    return true;
 #endif
 }
 
@@ -522,6 +583,9 @@ void __thiscall phys_slot_pool::validate_slot(char *slot)
         }
     }
 #else // aislop
+    if (!this->slot_ptr_readable(slot))
+        return;
+
     phys_slot_pool::extra_info *ei = (phys_slot_pool::extra_info *)&slot[(unsigned __int16)this->m_map_key - sizeof(phys_slot_pool::extra_info)];
 
     if (ei->m_slot_pool_owner != this
@@ -542,6 +606,8 @@ void __thiscall phys_slot_pool::validate_slot(char *slot)
     {
         __debugbreak();
     }
+    if (ei->m_slot_pool_owner != this)
+        return;
 #endif
 }
 
@@ -589,8 +655,12 @@ void phys_slot_pool::free_slot(unsigned __int8 *slot)
 
     if (!slot && _tlAssert("source/phys_mem_new.cpp", 445, "slot", "no support for freeing NULL slots."))
         __debugbreak();
+    if (!slot || !this->slot_ptr_readable(slot))
+        return;
 
-    this->extra_info_free(slot);
+    // A failed owner swap must not 0xFF the slot or put it back on the free list.
+    if (!this->extra_info_free(slot))
+        return;
 
     while (1)
     {
@@ -656,19 +726,35 @@ char * phys_slot_pool::allocate_slot()
         if (!v3)
             break; // free list empty, fall through to fresh alloc
 
-        next = __SPAIR64__(HIDWORD(cur) + 1, *(unsigned int *)v3);
+        if (!this->slot_is_owned(v3))
+        {
+            // The head is not a slot from this pool. Drop it; the rest of the chain is not safe to follow.
+            next = __SPAIR64__(HIDWORD(cur) + 1, 0);
+            if (_InterlockedCompareExchange64(
+                (volatile signed __int64 *)&this->m_first_free_slot,
+                next,
+                cur) == cur)
+                break;
+            continue;
+        }
+
+        unsigned int next_ptr = *(unsigned int *)v3;
+        if (next_ptr && !this->slot_is_owned(reinterpret_cast<void *>(static_cast<uintptr_t>(next_ptr))))
+            next_ptr = 0;
+        next = __SPAIR64__(HIDWORD(cur) + 1, next_ptr);
         if (_InterlockedCompareExchange64(
             (volatile signed __int64 *)&this->m_first_free_slot,
             next,
             cur) == cur)
         {
-            this->extra_info_allocate(v3);
+            if (!this->extra_info_allocate(v3))
+                continue;
             return v3;
         }
         // CAS failed, retry
     }
 
-    // No free slots � allocate fresh from memory manager
+    // No free slots ÃÂÃÂ allocate fresh from memory manager
     char *v5 = (char *)g_phys_memory_manager->allocate(
         (unsigned __int16)this->m_map_key,
         (unsigned int)this->m_map_key >> 16);

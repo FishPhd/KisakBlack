@@ -1,3 +1,4 @@
+#include <setjmp.h>
 #include "rb_backend.h"
 #include "rb_stats.h"
 #include "r_image.h"
@@ -34,6 +35,7 @@
 #include "r_setstate_d3d.h"
 #include <intrin.h>
 #include "r_streamalloc.h"
+#include "r_buffers.h"
 #include "r_stream.h"
 #include "rb_resource.h"
 #include <client_mp/cl_scrn_mp.h>
@@ -956,7 +958,13 @@ void __cdecl RB_StretchPicCmd(GfxRenderCommandExecState *execState)
 
     cmd = (const GfxCmdStretchPic *)execState->cmd;
 
-    if ( **((unsigned int **)execState->cmd + 1) )
+    if ( !cmd->material )
+    {
+        execState->cmd = (char *)execState->cmd + *(unsigned __int16 *)execState->cmd;
+        return;
+    }
+
+    if ( cmd->material->info.name && *cmd->material->info.name )
         v1 = va("\"%s\"", cmd->material->info.name);
     else
         v1 = va("\"%s\"", "noname");
@@ -1707,10 +1715,12 @@ unsigned int __cdecl R_RenderDrawSurfListMaterial(const GfxDrawSurfListArgs *lis
                 R_SetupPass(prepassContext, 0);
                 passPrepassContext_4 = prepassContext.state;
             }
-            subListCount = ((int (__cdecl *)(const GfxDrawSurfListArgs *, GfxCmdBufSourceState *, GfxCmdBufState *))rb_tessTable[(drawSurf.packed >> 51) & 0xF])(
-                                             listArgs,
-                                             passPrepassContext,
-                                             passPrepassContext_4);
+            // (the decompiler flattened the by-value GfxCmdBufContext into two pointer arguments; that mismatches
+            // the table's prototype, which is a hard trap on WebAssembly)
+            GfxCmdBufContext passPrepass;
+            passPrepass.source = passPrepassContext;
+            passPrepass.state = passPrepassContext_4;
+            subListCount = rb_tessTable[(drawSurf.packed >> 51) & 0xF](listArgs, passPrepass);
         }
 
         if ( isPixelCostEnabled )
@@ -5154,6 +5164,47 @@ void __cdecl RB_UpdateDynamicBuffers(GfxBackEndData *backendData)
     unsigned __int8 *bufferc; // [esp+18h] [ebp-8h]
 
     PROF_SCOPED("RB_UpdateDynamicBuffers");
+#ifdef KISAK_WEB
+    // Engine verts are already the CPU copy. Queue one glBufferSubData from that
+    // pointer instead of memcpy into the dynamic-buffer shadow.
+    if (backendData->skinnedCacheVb->buffer && backendData->skinnedCacheVb->used)
+        R_StageDynamicVertexUpload(backendData->skinnedCacheVb->buffer, backendData->skinnedCacheVb->verts, 0,
+                                   backendData->skinnedCacheVb->used);
+    if (backendData->markMesh.vb.buffer && backendData->markMesh.vb.used)
+    {
+        if (backendData->markMesh.vb.used >= backendData->markMesh.vb.total)
+            total = backendData->markMesh.vb.total;
+        else
+            total = backendData->markMesh.vb.used;
+        R_StageDynamicVertexUpload(backendData->markMesh.vb.buffer, backendData->markMesh.vb.verts, 0, total);
+    }
+    if (backendData->codeMeshPtr->vb.buffer && backendData->codeMeshPtr->vb.used)
+    {
+        if (backendData->codeMeshPtr->vb.used >= backendData->codeMeshPtr->vb.total)
+            used = backendData->codeMeshPtr->vb.total;
+        else
+            used = backendData->codeMeshPtr->vb.used;
+        R_StageDynamicVertexUpload(backendData->codeMeshPtr->vb.buffer, backendData->codeMeshPtr->vb.verts, 0, used);
+    }
+    if (backendData->glassMesh.vb.buffer && backendData->glassMesh.vb.used)
+    {
+        if (backendData->glassMesh.vb.used >= backendData->glassMesh.vb.total)
+            v3 = backendData->glassMesh.vb.total;
+        else
+            v3 = backendData->glassMesh.vb.used;
+        R_StageDynamicVertexUpload(backendData->glassMesh.vb.buffer, backendData->glassMesh.vb.verts, 0, v3);
+    }
+    if (backendData->preTessIb && backendData->preTessIb->used)
+    {
+        if (2 * backendData->preTessIb->used >= (unsigned int)(2 * backendData->preTessIb->total))
+            v2 = 2 * backendData->preTessIb->total;
+        else
+            v2 = 2 * backendData->preTessIb->used;
+        R_StageDynamicIndexUpload(backendData->preTessIb->buffer, backendData->preTessIb->indices, 0, v2);
+    }
+    *backendData->dynamicBufferCurrentFrame = 0;
+    return;
+#else
     buffer = (unsigned __int8 *)R_LockVertexBuffer(
                                                                 backendData->skinnedCacheVb->buffer,
                                                                 0,
@@ -5202,9 +5253,11 @@ void __cdecl RB_UpdateDynamicBuffers(GfxBackEndData *backendData)
         R_UnlockIndexBuffer(backendData->preTessIb->buffer);
     }
     *backendData->dynamicBufferCurrentFrame = 0;
+#endif
 }
 
-const void *data;
+// (file-local: with Itanium name mangling a global named "data" collides with waterdata_t data in r_water_sim.cpp)
+static const void *data;
 void     RB_RenderThread(unsigned int threadContext)
 {
     void *Value; // eax
@@ -5473,8 +5526,8 @@ void __cdecl RB_RegisterBackendAssets()
 //void __cdecl RB_SaveScreen_BlendBlurred(const GfxBlendSaveScreenBlurredParam *p, const GfxViewInfo *viewInfo)
 //{
 //    float v2; // xmm0_4
-//    long double v3; // [esp+28h] [ebp-54h]
-//    long double image; // [esp+30h] [ebp-4Ch]
+//    double v3; // [esp+28h] [ebp-54h]
+//    double image; // [esp+30h] [ebp-4Ch]
 //    float t0; // [esp+54h] [ebp-28h]
 //    float s1; // [esp+5Ch] [ebp-20h]
 //    const SavedScreenParams *ssParams; // [esp+60h] [ebp-1Ch]

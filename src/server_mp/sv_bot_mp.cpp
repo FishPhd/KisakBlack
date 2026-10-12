@@ -19,6 +19,10 @@
 #include <client_mp/g_client_mp.h>
 #include <game/g_debug.h>
 #include <game/g_bsp.h>
+#include <qcommon/com_gamemodes.h>
+#include <live/live_win.h>
+#include <qcommon/dvar_cmds.h>
+#include <win32/win_shared.h>
 
 const char *botNames[47] =
 {
@@ -121,6 +125,18 @@ const dvar_t *sv_botMaxStrafeTime;
 
 bot_info_t botInfos[32];
 
+static bot_info_t *SV_BotInfoForEnt(const client_t *bot)
+{
+    unsigned int num;
+
+    if ( !bot || !bot->gentity )
+        return 0;
+    num = (unsigned int)bot->gentity->s.number;
+    if ( num >= 32 )
+        return 0;
+    return &botInfos[num];
+}
+
 float g_botFovCos;
 
 float botFov = -1.0f;
@@ -145,7 +161,8 @@ void __cdecl SV_BotSwitchWeapon(const client_t *bot, int weapIndex)
     {
         __debugbreak();
     }
-    botInfos[bot->gentity->s.number].weapon = weapIndex;
+    if ( bot_info_t *botInfo = SV_BotInfoForEnt(bot) )
+        botInfo->weapon = weapIndex;
 }
 
 void __cdecl SV_BotSetScriptGoal(const client_t *bot, const float *goal, float goalRadius)
@@ -162,7 +179,9 @@ void __cdecl SV_BotSetScriptGoal(const client_t *bot, const float *goal, float g
     {
         __debugbreak();
     }
-    botInfo = &botInfos[bot->gentity->s.number];
+    botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return;
     botInfo->scriptGoal[0] = *goal;
     botInfo->scriptGoal[1] = goal[1];
     botInfo->scriptGoal[2] = goal[2];
@@ -184,7 +203,9 @@ void __cdecl SV_BotClearScriptGoal(const client_t *bot)
     {
         __debugbreak();
     }
-    v1 = &botInfos[bot->gentity->s.number];
+    v1 = SV_BotInfoForEnt(bot);
+    if ( !v1 )
+        return;
     v1->flags &= ~4u;
     Path_Clear(&v1->path);
 }
@@ -203,7 +224,9 @@ void __cdecl SV_BotSetScriptEnemy(const client_t *bot, const gentity_s *enemy)
     {
         __debugbreak();
     }
-    botInfo = &botInfos[bot->gentity->s.number];
+    botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return;
     if ( enemy && enemy->r.inuse && enemy->health > 0 )
     {
         botInfo->threat.enemy = enemy;
@@ -226,7 +249,9 @@ void __cdecl SV_BotClearScriptEnemy(const client_t *bot)
     {
         __debugbreak();
     }
-    botInfo = &botInfos[bot->gentity->s.number];
+    botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return;
     botInfo->flags &= ~8u;
     Bot_ClearThreat(botInfo);
     Path_Clear(&botInfo->path);
@@ -245,20 +270,24 @@ void __cdecl Bot_ClearThreat(bot_info_t *botInfo)
 void __cdecl SV_BotPressUseButton(const client_t *bot, int msec)
 {
     iassert(bot->bIsTestClient);
-    botInfos[bot->gentity->s.number].useButtonEndTime = msec + svs.time;
+    if ( bot_info_t *botInfo = SV_BotInfoForEnt(bot) )
+        botInfo->useButtonEndTime = msec + svs.time;
 }
 
 void __cdecl SV_BotPressAttackButton(const client_t* bot)
 {
     iassert(bot->bIsTestClient);
-    botInfos[bot->gentity->s.number].flags |= 0x1000u;
+    if ( bot_info_t *botInfo = SV_BotInfoForEnt(bot) )
+        botInfo->flags |= 0x1000u;
 }
 
 void __cdecl SV_BotSetAttacker(const client_t *bot, const gentity_s *attacker)
 {
     bot_info_t *botInfo; // [esp+4h] [ebp-4h]
 
-    botInfo = &botInfos[bot->gentity->s.number];
+    botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return;
     if ( attacker && attacker->s.number != 1023 && attacker->s.number != 1022 && attacker->r.inuse )
         botInfo->attackerEnt = attacker;
     else
@@ -298,6 +327,8 @@ void __cdecl SV_BotThink(client_t *bot, usercmd_s *cmd)
     {
         __debugbreak();
     }
+    if ( clientNum >= 32 )
+        return;
     botInfo = &botInfos[clientNum];
     memcpy(cmd, &bot->lastUsercmd, sizeof(usercmd_s));
     for ( i = 0; i < 2; ++i )
@@ -650,7 +681,10 @@ float __cdecl SV_BotGetLookaheadDist(const client_t *bot)
 {
     iassert(bot->bIsTestClient);
 
-    path_t* path = &botInfos[bot->gentity->s.number].path;
+    bot_info_t *botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return 0.0f;
+    path_t* path = &botInfo->path;
     if (Path_Exists(path))
         return path->fLookaheadDist;
     return 0.0f;
@@ -661,7 +695,10 @@ bool __cdecl SV_BotGetLookaheadDir(const client_t* bot, float* outDir)
     iassert(bot->bIsTestClient);
 
     outDir[0] = outDir[1] = outDir[2] = 0.0f;
-    path_t* path = &botInfos[bot->gentity->s.number].path;
+    bot_info_t *botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return false;
+    path_t* path = &botInfo->path;
     if (!Path_Exists(path))
         return false;
     
@@ -673,7 +710,10 @@ gentity_s* __cdecl SV_BotGetThreat(const client_t* bot)
 {
     iassert(bot->bIsTestClient);
 
-    gentity_s* pThreat = (gentity_s*)botInfos[bot->gentity->s.number].threat.enemy;
+    bot_info_t *botInfo = SV_BotInfoForEnt(bot);
+    if ( !botInfo )
+        return nullptr;
+    gentity_s* pThreat = (gentity_s*)botInfo->threat.enemy;
     if(!pThreat || pThreat->s.number == 1023 || pThreat->s.number == 1022 || !pThreat->r.inuse)
         return nullptr;
     return pThreat;
@@ -683,7 +723,8 @@ bool __cdecl SV_BotHasScriptGoal(const client_t* bot)
 {
     iassert(bot->bIsTestClient);
 
-    return (botInfos[bot->gentity->s.number].flags & 4) != 0;
+    bot_info_t *botInfo = SV_BotInfoForEnt(bot);
+    return botInfo && (botInfo->flags & 4) != 0;
 }
 
 bool __cdecl Bot_IsFacingEnemy(const client_t *bot, const gentity_s *enemy, float *dot)
@@ -2639,7 +2680,7 @@ char __cdecl Bot_GrenadeInRange(
                 float *outPitch)
 {
     double v6; // xmm0_8
-    long double v7; // [esp+0h] [ebp-78h]
+    double v7; // [esp+0h] [ebp-78h]
     float iProjectileSpeedForward; // [esp+20h] [ebp-58h]
     float iProjectileSpeedRelativeUp; // [esp+2Ch] [ebp-4Ch]
     float iProjectileSpeed; // [esp+30h] [ebp-48h]
@@ -2950,8 +2991,146 @@ void __cdecl Bot_Clear(bot_info_t *botInfo)
         //D3DPERF_EndEvent();
 }
 
+// Offline private match opt-in bots. 0 = off (default). Defined up here so SV_BotsExpected can see it.
+static const dvar_t *kisak_pm_bots;
+
+bool __cdecl SV_BotsExpected()
+{
+    if ( xblive_basictraining && xblive_basictraining->current.enabled )
+        return true;
+    if ( (xblive_privatematch && xblive_privatematch->current.enabled)
+        || (xblive_wagermatch && xblive_wagermatch->current.enabled) )
+    {
+        if ( (bot_enemies && bot_enemies->current.integer > 0) || (bot_friends && bot_friends->current.integer > 0) )
+            return true;
+        if ( kisak_pm_bots && kisak_pm_bots->current.integer > 0 )
+            return true;
+    }
+    return false;
+}
+
+void __cdecl SV_BotEnableAI()
+{
+    if ( !sv_botsAllowMovement || !sv_botsPressAttackBtn || !sv_botsPressMeleeBtn )
+        return;
+    Dvar_SetBool((dvar_s *)sv_botsAllowMovement, 1);
+    Dvar_SetBool((dvar_s *)sv_botsPressAttackBtn, 1);
+    Dvar_SetBool((dvar_s *)sv_botsPressMeleeBtn, 1);
+}
+
+// N > 0 asks the game's own PC private match bot manager
+// (maps/mp/gametypes/_bot.gsc bot_spawner_Once, driven by scr_bots_managed_*) for N bots split across both teams.
+// Combat Training keeps using the game's default bot_friends / bot_enemies settings and ignores this.
+void __cdecl SV_ApplyPrivateMatchBots()
+{
+    int count;
+    const char *difficulty;
+
+    if ( !kisak_pm_bots || kisak_pm_bots->current.integer <= 0 )
+        return;
+    if ( !Dvar_GetBool("xblive_privatematch") && !Dvar_GetBool("xblive_wagermatch") )
+        return;
+    if ( xblive_basictraining && xblive_basictraining->current.enabled )
+        return;
+
+    count = kisak_pm_bots->current.integer;
+
+    // Register as ints before the scripts initialise. Dvar_SetIntByName would otherwise create them as
+    // strings, and bot_spawner_Once only fills these in when they are still 0.
+    if ( !Dvar_FindVar("scr_bots_managed_all") )
+        _Dvar_RegisterInt("scr_bots_managed_all", 0, 0, 32, 0, "Private match: bots split across both teams");
+    if ( !Dvar_FindVar("scr_bots_managed_axis") )
+        _Dvar_RegisterInt("scr_bots_managed_axis", 0, 0, 32, 0, "Private match: axis bots");
+    if ( !Dvar_FindVar("scr_bots_managed_allies") )
+        _Dvar_RegisterInt("scr_bots_managed_allies", 0, 0, 32, 0, "Private match: allies bots");
+    if ( !Dvar_FindVar("scr_bots_managed_spawn") )
+        _Dvar_RegisterInt("scr_bots_managed_spawn", 0, 0, 1, 0, "Private match: ask the script bot manager to spawn");
+    Dvar_SetIntByName("scr_bots_managed_all", count);
+    Dvar_SetIntByName("scr_bots_managed_axis", 0);
+    Dvar_SetIntByName("scr_bots_managed_allies", 0);
+    Dvar_SetIntByName("scr_bots_managed_spawn", 1);
+
+    difficulty = Dvar_GetString("bot_difficulty");
+    if ( difficulty && *difficulty )
+        Dvar_SetStringByName("scr_bot_difficulty", (char *)difficulty);
+
+    SV_BotEnableAI();
+    Com_Printf(0, "Private match bots enabled: %d bot(s) (kisak_pm_bots); they join within ~10 seconds of the match starting.\n", count);
+}
+
+// If the script manager left every bot as a spectator, push an even axis/allies split (the side the
+// human is not on gets the extra bot) and ask it to spawn again.
+void __cdecl SV_PrivateMatchBotsTick()
+{
+    static unsigned int s_last;
+    const unsigned int now = Sys_Milliseconds();
+    if ( now - s_last < 2000u )
+        return;
+    s_last = now;
+    if ( !kisak_pm_bots || kisak_pm_bots->current.integer <= 0 )
+        return;
+    if ( !Dvar_GetBool("xblive_privatematch") && !Dvar_GetBool("xblive_wagermatch") )
+        return;
+    if ( !Dvar_GetBool("party_teambased") )
+        return; // Free-for-all placement belongs to the shipped _bot script.
+    if ( !com_sv_running || !com_sv_running->current.enabled || svs.time < 12000 )
+        return;
+
+    int humanTeam = 0, botsAxis = 0, botsAllies = 0, botsSpec = 0;
+    const int maxClients = com_maxclients ? com_maxclients->current.integer : 0;
+    for ( int i = 0; i < maxClients; ++i )
+    {
+        if ( svs.clients[i].header.state < CS_CONNECTED )
+            continue;
+        gentity_s *ent = &g_entities[i];
+        if ( !ent->client )
+            continue;
+        const int team = ent->client->sess.cs.team;
+        const bool bot = svs.clients[i].header.netchan.remoteAddress.type == NA_BOT;
+        if ( !bot )
+        {
+            if ( team == TEAM_AXIS || team == TEAM_ALLIES )
+                humanTeam = team;
+        }
+        else if ( team == TEAM_AXIS )
+            ++botsAxis;
+        else if ( team == TEAM_ALLIES )
+            ++botsAllies;
+        else
+            ++botsSpec;
+    }
+    if ( botsAxis + botsAllies > 0 || botsSpec == 0 )
+        return;
+
+    const int want = kisak_pm_bots->current.integer;
+    int axis = want / 2;
+    int allies = want - axis;
+    if ( humanTeam == TEAM_AXIS )
+    {
+        allies = (want + 1) / 2;
+        axis = want / 2;
+    }
+    else if ( humanTeam == TEAM_ALLIES )
+    {
+        axis = (want + 1) / 2;
+        allies = want / 2;
+    }
+    Dvar_SetIntByName("scr_bots_managed_all", 0);
+    Dvar_SetIntByName("scr_bots_managed_axis", axis);
+    Dvar_SetIntByName("scr_bots_managed_allies", allies);
+    Dvar_SetIntByName("scr_bots_managed_spawn", 1);
+    Com_Printf(0, "Private match bots still spectating; requested axis=%d allies=%d.\n", axis, allies);
+}
+
 void __cdecl SV_BotRegisterDvars()
 {
+    kisak_pm_bots = _Dvar_RegisterInt(
+        "kisak_pm_bots",
+        0,
+        0,
+        17,
+        1u,
+        "Private match: number of bots to add (0 = off). Split across both teams, joins ~10s after the match starts.");
     sv_botsAllowMovement = _Dvar_RegisterBool("sv_botsAllowMovement", 0, 0, "Allow testclients to pathfind and move");
     sv_botsForceStand = _Dvar_RegisterBool("sv_botsForceStand", 0, 0, "Make testclients always stand");
     sv_botsForceCrouch = _Dvar_RegisterBool("sv_botsForceCrouch", 0, 0, "Make testclients always crouch");
@@ -3227,7 +3406,7 @@ void __cdecl Bot_DrawDebug(const ScreenPlacement *scrPlace)
     name = (char *)"<None>";
     x = sv_botDebugX->current.integer;
     y = sv_botDebugY->current.value;
-    if ( clientNum >= 0 )
+    if ( clientNum >= 0 && clientNum < 32 )
     {
         v50 = &svs.clients[clientNum];
         if ( v50->header.state == CS_ACTIVE && v50->bIsTestClient && v50->gentity )
@@ -3508,9 +3687,11 @@ void __cdecl Bot_DrawPath(const client_t *bot)
 {
     bot_info_t *botPath; // [esp+0h] [ebp-4h]
 
-    if ( bot->header.state == CS_ACTIVE && bot->bIsTestClient && bot->gentity->health > 0 )
+    if ( bot->header.state == CS_ACTIVE && bot->bIsTestClient && bot->gentity && bot->gentity->health > 0 )
     {
-        botPath = &botInfos[bot->gentity->s.number];
+        botPath = SV_BotInfoForEnt(bot);
+        if ( !botPath )
+            return;
         if ( Path_Exists(&botPath->path) )
             Path_DebugDraw(&botPath->path, bot->gentity->r.currentOrigin, bot->gentity->s.number, -1);
     }
@@ -3575,9 +3756,11 @@ void    Bot_DrawThreat(const client_t *bot)
     //
     //v22 = a1;
     //bota = (const client_t *)vars0;
-    if (bot->header.state == CS_ACTIVE && bot->bIsTestClient && bot->gentity->health > 0)
+    if (bot->header.state == CS_ACTIVE && bot->bIsTestClient && bot->gentity && bot->gentity->health > 0)
     {
         clientNum = bot->gentity->s.number;
+        if ( (unsigned)clientNum >= 32 )
+            return;
         botInfo = &botInfos[clientNum];
         enemy = botInfo->threat.enemy;
         ps = (const playerState_s *)G_GetPlayerState(bot->gentity->s.number);

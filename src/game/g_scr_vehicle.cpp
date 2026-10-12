@@ -2051,7 +2051,7 @@ double    Scr_Vehicle_DamageScale(
 {
     int v9; // xmm0_4
     int integer; // xmm0_4
-    long double v11; // [esp-14h] [ebp-9Ch]
+    double v11; // [esp-14h] [ebp-9Ch]
     float v12; // [esp-8h] [ebp-90h]
     float pointAdjusted; // [esp+8h] [ebp-80h]
     float pointAdjusted_4; // [esp+Ch] [ebp-7Ch]
@@ -2712,7 +2712,7 @@ char __cdecl G_VehicleUpdateField(const char *vehicleInfoName, char *keyValue)
 void __cdecl G_ReloadScrVehicleInfo()
 {
     double v0; // xmm0_8
-    long double v1; // [esp+0h] [ebp-4058h]
+    double v1; // [esp+0h] [ebp-4058h]
     char string[64]; // [esp+8h] [ebp-4050h] BYREF
     char *pszBuffer; // [esp+48h] [ebp-4010h]
     unsigned __int8 *pStruct; // [esp+4Ch] [ebp-400Ch]
@@ -2947,13 +2947,9 @@ void __cdecl G_SpawnVehicle(gentity_s *ent, char *typeName, int load)
     //    atexit(G_SpawnVehicle_::_16_::_dynamic_atexit_destructor_for__dummy__);
     //}
 
-    static colgeom_visitor_inlined_t<200> dummy_0;
-
-    //veh->vehicle_cache.proximity_data.__vftable = dummy_0.__vftable;
-    veh->vehicle_cache.proximity_data = dummy_0;
-
-    //colgeom_visitor_inlined_t<500>::reset(&veh->vehicle_cache.proximity_data);
-    veh->vehicle_cache.proximity_data.reset();
+    // memset above cleared the visitor vptr. Assignment does not restore it, so
+    // VEH_GroundPlant's virtual visit() was a null function on the server thread.
+    new (&veh->vehicle_cache.proximity_data) colgeom_visitor_inlined_t<200>();
     for ( i = 0; i < 6; ++i )
     {
         veh->vehicle_cache.hit_indices[i] = -1;
@@ -3018,7 +3014,7 @@ int __cdecl G_LoadVehicle(char *name)
 {
     double v2; // xmm0_8
     int AliasId; // eax
-    long double v4; // [esp+0h] [ebp-4070h]
+    double v4; // [esp+0h] [ebp-4070h]
     unsigned __int8 *v5; // [esp+8h] [ebp-4068h]
     char *v6; // [esp+Ch] [ebp-4064h]
     int i; // [esp+14h] [ebp-405Ch]
@@ -6147,7 +6143,7 @@ LABEL_13:
 void __cdecl VEH_UpdateBody(gentity_s *ent)
 {
     float v1; // xmm0_8
-    //long double v2; // [esp+8h] [ebp-18h]
+    //double v2; // [esp+8h] [ebp-18h]
     float v3; // [esp+8h] [ebp-18h]
     scr_vehicle_s *veh; // [esp+18h] [ebp-8h]
     float intensity; // [esp+1Ch] [ebp-4h]
@@ -7781,7 +7777,7 @@ void __cdecl VEH_CheckVerticalVelocityToGoal(scr_vehicle_s *veh, float verticalD
     float verticalSpeed; // [esp+28h] [ebp-4h]
 
     verticalSpeed = veh->phys.vel[2];
-    if ( fabs((unsigned int)accelVec[2]) >= 0.001
+    if ( fabsf(accelVec[2]) >= 0.001f
         && fabs(verticalSpeed) >= 0.001
         && (float)(verticalSpeed * accelVec[2]) < 0.0
         && (float)(verticalDist * verticalSpeed) > 0.0 )

@@ -4,6 +4,7 @@
 #include <live/live_win.h>
 #include <live/live_sessions_win.h>
 #include <live/live_stats.h>
+#include <live/live_offline.h>
 #include <live/live_steam.h>
 
 #include <qcommon/net_chan_mp.h>
@@ -341,7 +342,7 @@ void __cdecl CL_ConnectHackDW()
 
 bool __cdecl CL_CDKeyValidate(netadr_t addr)
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(KISAK_WEB)
     return Steam_UpdateClientAuthTicket(addr);
 #else
 #error Steam Auth for Arch
@@ -438,7 +439,8 @@ void __cdecl CL_Connect_f()
 
 void __cdecl CL_PC_SignInLive()
 {
-    //BLOPS_NULLSUB();
+    // Offline build: "signing in to Live" is a local profile sign-in.
+    LiveOffline_SignIn(0);
 }
 
 void __cdecl CL_InitServerInfo(serverInfo_t *server, netadr_t adr)
@@ -1315,8 +1317,17 @@ cmd_function_s CL_LanConnect_f_VAR;
 cmd_function_s CL_CACValidateRequest_f_VAR;
 cmd_function_s CL_Prestige_f_VAR;
 cmd_function_s CL_QuickMatchConnect_f_VAR;
+cmd_function_s CL_ReadStats_f_VAR;
+cmd_function_s CL_NoSplitscreen_f_VAR;
+cmd_function_s CL_EndSplitscreenSignin_f_VAR;
+void __cdecl CL_ReadStats_f();
+void __cdecl CL_NoSplitscreen_f();
+void __cdecl CL_EndSplitscreenSignin_f();
 void __cdecl CL_Platform_RegisterCommands()
 {
+    Cmd_AddCommandInternal("readStats", CL_ReadStats_f, &CL_ReadStats_f_VAR);
+    Cmd_AddCommandInternal("nosplitscreen", CL_NoSplitscreen_f, &CL_NoSplitscreen_f_VAR);
+    Cmd_AddCommandInternal("endsplitscreensignin", CL_EndSplitscreenSignin_f, &CL_EndSplitscreenSignin_f_VAR);
     Cmd_AddCommandInternal("xsigninlive", CL_PC_SignInLive, &CL_PC_SignInLive_VAR);
     Cmd_AddCommandInternal("xsignin", CL_PC_SignIn, &CL_PC_SignIn_VAR);
     Cmd_AddCommandInternal("xrequirelivesignin", CL_PC_RequireLiveSignin, &CL_PC_RequireLiveSignin_VAR);
@@ -1485,7 +1496,7 @@ char __cdecl CL_RequestCACValidate(unsigned __int64 serverId)
         }
         else
         {
-            v5 = MSG_CompressWithZLib(buffer->statsBuffer, 0x9CE8u, to, 0x9CE8u);
+            v5 = MSG_CompressWithZLib(buffer->statsBuffer, 0x9E64u, to, 0x9E64u);
             payload[0] = 3;
             payload[1] = 0;
             v8 = v5;
@@ -1531,6 +1542,13 @@ char __cdecl CL_RequestCACValidate(unsigned __int64 serverId)
 void __cdecl CL_CACValidateRequest_f()
 {
     persistentStats *StatsBuffer; // eax
+
+#ifndef KISAK_LIVE
+    // Offline: there is no CAC validation server, a "validate" simply persists the local stats.
+    if ( !Dvar_GetBool("allItemsUnlocked") && !Dvar_GetBool("allItemsPurchased") )
+        LiveOffline_SaveStats(0);
+    return;
+#endif
 
     if ( Dvar_GetBool("allItemsUnlocked") || Dvar_GetBool("allItemsPurchased") )
     {
@@ -1972,7 +1990,20 @@ void __cdecl CL_QuickMatch_f()
 
 void __cdecl CL_QuickWager_f()
 {
+#ifndef KISAK_LIVE_STUBS
+    // The PC main menu invokes "wagermatch". Use its existing local lobby and
+    // gametype/map/bot pickers; StartListenServer switches to wager flags at launch.
+    Dvar_SetBoolByName("onlinegame", true);
+    Dvar_SetBoolByName("xblive_wagermatch", false);
+    Dvar_SetBoolByName("xblive_rankedmatch", false);
+    Dvar_SetBoolByName("xblive_basictraining", false);
+    Dvar_SetBoolByName("xblive_privatematch", true);
+    Dvar_SetStringByName("ui_gametype", "gun");
+    Dvar_SetStringByName("g_gametype", "gun");
+    Cbuf_AddText(0, "openmenu menu_xboxlive_privatelobby\n");
+#else
     CL_QuickWager_Start();
+#endif
 }
 
 void __cdecl CL_QuickMatch_InitDvars()
@@ -2028,6 +2059,9 @@ void __cdecl CL_QuickMatch_Init()
     Cmd_AddCommandInternal("quickmatch", CL_QuickMatch_f, &CL_QuickMatch_f_VAR);
     Cmd_AddCommandInternal("wagermatch", CL_QuickWager_f, &CL_QuickWager_f_VAR);
     CL_QuickMatch_InitDvars();
+#else
+    static cmd_function_s offlineWagerCommand;
+    Cmd_AddCommandInternal("wagermatch", CL_QuickWager_f, &offlineWagerCommand);
 #endif
 }
 
@@ -2344,6 +2378,23 @@ char *__cdecl CL_LongNameForShortName(const char *shortname)
 
 void __cdecl CL_PC_SignIn()
 {
-    //BLOPS_NULLSUB();
+    LiveOffline_SignIn(0);
+}
+
+// win_main.cpp queues "readStats" right after Com_Init; offline this performs the
+// local profile sign-in and loads (or initialises) the local stats.
+void __cdecl CL_ReadStats_f()
+{
+    LiveOffline_SignIn(0);
+}
+
+void __cdecl CL_NoSplitscreen_f()
+{
+    // No splitscreen support offline.
+}
+
+void __cdecl CL_EndSplitscreenSignin_f()
+{
+    // No splitscreen support offline.
 }
 

@@ -24,8 +24,6 @@ bool __cdecl Pregame_isEnabled()
     LicenseType = SV_GetLicenseType();
     if ( SV_IsServerRanked(LicenseType) )
         return 1;
-    if ( Dvar_GetBool("xblive_wagermatch") )
-        return 1;
     return g_pregame_enabled->current.enabled;
 }
 

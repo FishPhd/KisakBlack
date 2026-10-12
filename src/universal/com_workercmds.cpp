@@ -6,8 +6,10 @@
 #include <gfx_d3d/r_foliage.h>
 #include <tl/tl_system.h>
 #include <qcommon/threads.h>
+#include <qcommon/sys_futex.h>
 #include <Windows.h>
 #include <gfx_d3d/r_workercmds.h>
+
 
 bool g_WorkerCmdInit;
 unsigned __int64 gMainWaitWorker;
@@ -188,6 +190,27 @@ bool __cdecl R_FinishedFrontendWorkerCmds()
     if ( jqPoll(&nuge_physicsModule.Group) )
         return 0;
     return !jqPoll(&r_skin_cached_staticmodelModule.Group);
+}
+
+void __cdecl R_AssistFrontendWorkerCmds()
+{
+    // A zero batch budget makes jqWorkerLoop return after each batch, so completion is rechecked
+    // between batches and the main thread never gets stuck in a long unrelated job.
+    unsigned __int64 oneBatch = 0;
+    unsigned int spins = 0;
+
+    while (!R_FinishedFrontendWorkerCmds())
+    {
+        if (jqAreJobsQueued(0))
+        {
+            jqWorkerLoop(jqWorkers, 0, true, &oneBatch);
+            spins = 0;
+        }
+        else
+        {
+            Sys_SpinBackoff(spins);
+        }
+    }
 }
 
 void __cdecl R_WaitFrontendWorkerCmds()

@@ -100,7 +100,7 @@ double __cdecl lerp_float(const float tgt, float cur, float rate, float delta_t)
 {
   double result; // st7
   double v5; // st6
-  long double v6; // st5
+  double v6; // st5
   double v7; // st4
   double v8; // st4
   float stepa; // [esp+8h] [ebp+8h]

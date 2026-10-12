@@ -1,3 +1,6 @@
+#ifdef KISAK_WEB
+#include <web/web_graphics.h>
+#endif
 #include "r_draw_material.h"
 #include "r_draw_method.h"
 #include "r_char_tech_util.h"
@@ -394,6 +397,10 @@ int __cdecl R_SetMaterial(GfxCmdBufContext context, GfxDrawSurf drawSurf, unsign
     while ( 1 )
     {
         material = rgp.sortedMaterials[drawSurf.fields.materialSortedIndex];
+#ifdef KISAK_WEB
+        if (web_disableMotionBlur->current.enabled && !I_strnicmp(material->info.name, "motionblur", 10))
+            return 0;
+#endif
         technique = Material_GetTechnique(material, techType);
         context.state->material = material;
         context.state->technique = technique;
@@ -483,6 +490,10 @@ int __cdecl R_TrySetMaterialWithFunc(
         v5 = "TECHNIQUE_NONE";
     else
         v5 = RB_LogTechniqueType(techAssigned);
+    // TECHNIQUE_BUILD_FLOAT_Z (1) is a depth prepass many materials do not ship. Skipping the
+    // draw is correct; warning every frame floods the browser console and does not change the image.
+    if ( *techType == 1 )
+        return ret;
     R_WarnOncePerFrame(
         R_WARN_MISSING_TECHNIQUE,
         rgp.sortedMaterials[drawSurf.fields.materialSortedIndex]->info.name,

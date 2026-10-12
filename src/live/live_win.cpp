@@ -1,4 +1,5 @@
 #include "live_win.h"
+#include "live_offline.h"
 #include <win32/win_tasks.h>
 #include "live_steam.h"
 #include <DW/dwLogOn_pc.h>
@@ -115,7 +116,12 @@ char __cdecl Live_ContentRatingAllowed()
 
 bool __cdecl Live_IsUserSignedInToLive()
 {
+#ifdef KISAK_LIVE
     return LiveSteam_IsClientSignedInOnline();
+#else
+    // offline build: "signed in to live" is the local offline sign-in
+    return LiveOffline_IsSignedIn();
+#endif
 }
 
 bool __cdecl Live_IsUserSignedInToDemonware(int controllerIndex)
@@ -123,12 +129,15 @@ bool __cdecl Live_IsUserSignedInToDemonware(int controllerIndex)
 #ifdef KISAK_LIVE
     return dwGetLogOnStatus(controllerIndex) == 4;
 #else
-    return false;
+    return controllerIndex == 0 && LiveOffline_IsSignedIn();
 #endif
 }
 
 char __cdecl Live_RequireUserToPlayOnline()
 {
+#ifndef KISAK_LIVE
+    return LiveOffline_SignIn(0) ? 1 : 0;
+#else
     if ( LiveSteam_IsClientSignedInOnline() )
     {
         if ( !Live_IsUserSignedInToLive()
@@ -148,10 +157,15 @@ char __cdecl Live_RequireUserToPlayOnline()
         //BLOPS_NULLSUB();
         return 0;
     }
+#endif
 }
 
 char *__cdecl Live_ControllerIndex_GetClientName(int controllerIndex)
 {
+#ifndef KISAK_LIVE
+    if ( controllerIndex == 0 && LiveOffline_IsSignedIn() )
+        return (char *)LiveOffline_GetGamertag();
+#endif
     return (char*)"kisak"; // KISAKTODO: idc
     //if ( controllerIndex < 0
     //    && !Assert_MyHandler(
@@ -691,6 +705,12 @@ char __cdecl XUserGetXUID(int controllerIndex, unsigned __int64 *xuid)
     *xuid = g_fakeXUID << controllerIndex;
     return 1;
 #else
+    if ( controllerIndex != 0 )
+    {
+        *xuid = 0;
+        return 0;
+    }
+    *xuid = LiveOffline_GetXuid();
     return 1;
 #endif
 }
@@ -725,6 +745,14 @@ char __cdecl Live_UserGetName(int controllerIndex, char *buf, int bufsize)
     }
     return ok;
 #else
+    if ( !buf || bufsize <= 0 )
+        return 0;
+    if ( controllerIndex != 0 )
+    {
+        buf[0] = 0;
+        return 0;
+    }
+    I_strncpyz(buf, LiveOffline_GetGamertag(), bufsize);
     return 1;
 #endif
 }
@@ -853,6 +881,7 @@ bool Live_UserSignedInToLive(int controllerIndex, char **disconnectMessage)
 
 bool __cdecl Live_IsSignedIn(int controllerIndex)
 {
+#ifdef KISAK_LIVE
     if ( LiveSteam_IsInitialized()
         && !LiveSteam_IsClientSignedInLocally()
         && !Assert_MyHandler(
@@ -864,14 +893,25 @@ bool __cdecl Live_IsSignedIn(int controllerIndex)
     {
         __debugbreak();
     }
+#else
+    if ( controllerIndex != 0 )
+        return false;
+#endif
     return xenonUserData[controllerIndex].signinState > 0;
 }
 
 bool __cdecl Live_IsSignedInToLive()
 {
+#ifdef KISAK_LIVE
     if ( !LiveSteam_IsClientSignedInOnline() )
         return 0;
     return dw_active && dw_active->current.enabled;
+#else
+    // Offline build: there is no online service session (PCache / DW profile / emblem lookups that key
+    // off this would touch uninitialised DemonWare state). The UI expression IsSignedInToLive and
+    // Live_IsUserSignedInToLive() report the local offline sign-in instead.
+    return false;
+#endif
 }
 
 unsigned long long __cdecl Live_GetXuid(int controllerIndex)

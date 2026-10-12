@@ -5,11 +5,17 @@
 #include <direct.h>
 #include <universal/q_shared.h>
 #include <universal/com_shared.h>
+#include <qcommon/threads.h>
+#include <qcommon/sys_rwlock.h>
 
 char cwd[256];
 char exePath[256];
 
 _RTL_CRITICAL_SECTION s_criticalSection[75];
+
+// The asset hash table lock is a recursive reader/writer lock instead of a CRITICAL_SECTION, so
+// concurrent asset lookups no longer serialize (see sys_rwlock.h). Its s_criticalSection slot is unused.
+static SysRecursiveRWLock s_dbHashLock;
 
 void __cdecl Sys_Mkdir(const char *path)
 {
@@ -253,7 +259,32 @@ void __cdecl Sys_EnterCriticalSection(CriticalSection critSect)
     {
         __debugbreak();
     }
+    if ( critSect == CRITSECT_DBHASH )
+    {
+        s_dbHashLock.LockExclusive(Sys_GetCurrentThreadId());
+        return;
+    }
     EnterCriticalSection(&s_criticalSection[critSect]);
+}
+
+void __cdecl Sys_EnterCriticalSectionShared(CriticalSection critSect)
+{
+    if ( critSect == CRITSECT_DBHASH )
+    {
+        s_dbHashLock.LockShared(Sys_GetCurrentThreadId());
+        return;
+    }
+    Sys_EnterCriticalSection(critSect);
+}
+
+void __cdecl Sys_LeaveCriticalSectionShared(CriticalSection critSect)
+{
+    if ( critSect == CRITSECT_DBHASH )
+    {
+        s_dbHashLock.UnlockShared(Sys_GetCurrentThreadId());
+        return;
+    }
+    Sys_LeaveCriticalSection(critSect);
 }
 
 bool __cdecl Sys_TryEnterCriticalSection(CriticalSection critSect)
@@ -269,6 +300,8 @@ bool __cdecl Sys_TryEnterCriticalSection(CriticalSection critSect)
     {
         __debugbreak();
     }
+    if ( critSect == CRITSECT_DBHASH )
+        return s_dbHashLock.TryLockExclusive(Sys_GetCurrentThreadId());
     return TryEnterCriticalSection(&s_criticalSection[critSect]);
 }
 
@@ -284,6 +317,11 @@ void __cdecl Sys_LeaveCriticalSection(CriticalSection critSect)
                     75) )
     {
         __debugbreak();
+    }
+    if ( critSect == CRITSECT_DBHASH )
+    {
+        s_dbHashLock.UnlockExclusive();
+        return;
     }
     LeaveCriticalSection(&s_criticalSection[critSect]);
 }

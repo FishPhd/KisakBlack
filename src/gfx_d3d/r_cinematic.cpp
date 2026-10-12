@@ -107,7 +107,7 @@ jqModule _UpdateFrameModule =
 {
     .Name = "_UpdateFrame",
     .Type = JQ_WORKER_GENERIC,
-    .Code = (int(__cdecl *)(jqBatch *))_UpdateFrameCallback,
+    .Code = _UpdateFrameCallback,
     //.Group = 0
 };
 jqWorkerCmd _UpdateFrameWorkerCmd = { &_UpdateFrameModule, sizeof(CINE_JQ_CMD), 0, 0, &_UpdateFrameLimit, NULL, 0u};
@@ -546,7 +546,7 @@ void __cdecl R_Cinematic_StopPlayback()
     Sys_LeaveCriticalSection(CRITSECT_CINEMATIC);
 }
 
-int __cdecl _UpdateFrameCallback()
+int __cdecl _UpdateFrameCallback(jqBatch *)
 {
     R_Cinematic_UpdateFrame_Core(0);
     _InterlockedExchange(&cineThreadBlock, 0);
@@ -612,6 +612,11 @@ void __cdecl R_Cinematic_UpdateFrame_Core(bool force_wait)
             else
             {
                 cinematicGlob.currentCinematicName[0] = 0;
+#ifdef KISAK_NO_BINK
+                // Requested movie can't be played: report it as finished so waiters (menus, loading) progress.
+                if (localTargetCinematic[0])
+                    cinematicGlob.cinematicFinished = 1;
+#endif
             }
         }
         isCinematicBeingPlayed = cinematicGlob.currentCinematicName[0] != 0;
@@ -1027,6 +1032,12 @@ char __cdecl R_Cinematic_StartPlayback_Now(const char *filename, unsigned int pl
 {
     unsigned int TrackIDsToPlay[5]; // [esp+1Ch] [ebp-9Ch] BYREF
     char errText[132]; // [esp+30h] [ebp-88h] BYREF
+
+#ifdef KISAK_NO_BINK
+    // Built without binkw32: never open a video. The caller treats a failed start as "finished".
+    Com_PrintWarning(8, "R_Cinematic: video '%s' skipped (built with KISAK_NO_BINK)\n", filename);
+    return 0;
+#endif
 
     TrackIDsToPlay[0] = 0;
     TrackIDsToPlay[1] = 1;
@@ -1567,6 +1578,11 @@ void __cdecl R_Cinematic_UpdateFrame(bool force_wait)
 
 void R_Cinematic_UpdateRendererImages()
 {
+#ifdef KISAK_NO_BINK
+    // No movie frames exist. Binding the black cinematic code images paints a black screen over
+    // the loading UI until something else replaces them.
+    return;
+#endif
     if ( cinematicGlob.activeImageFrame == -1 )
         R_Cinematic_BlackRendererImages();
     else

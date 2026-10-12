@@ -20,6 +20,27 @@ struct ALLOCATION_SCHEME_FUNCTIONS // sizeof=0x14
     void (__cdecl *Free)(HunkUser *, void *);
 };
 
+// wasm checks the signature of every indirect call, so the table entries must have exactly the
+// prototype they are called through (x86 cdecl tolerated extra or missing arguments).
+static void *__cdecl Hunk_UserDebugAllocThunk(HunkUser *user, int size, int alignment, const char *name)
+{
+    return (void *)(uintptr_t)(unsigned int)Hunk_UserDebugAlloc(user, size, alignment);
+}
+
+static void *__cdecl Hunk_FirstFitAllocThunk(HunkUser *user, int size, int alignment, const char *name)
+{
+    return (void *)(uintptr_t)(unsigned int)Hunk_FirstFitAlloc(user, size, alignment);
+}
+
+static void *__cdecl Hunk_FixedAllocThunk(HunkUser *user, int size, int alignment, const char *name)
+{
+    return (void *)Hunk_FixedAlloc(user);
+}
+
+static void *__cdecl Hunk_UserDefaultAllocThunk(HunkUser *user, int size, int alignment, const char *name)
+{
+    return (void *)(uintptr_t)(unsigned int)Hunk_UserDefaultAlloc((HunkUserDefault *)user, (unsigned int)size, alignment, name);
+}
 // KISAKTODO: remove casts and fix prototypes
 ALLOCATION_SCHEME_FUNCTIONS g_HunkUserAllocationSchemeMap[4] =
 {
@@ -27,28 +48,28 @@ ALLOCATION_SCHEME_FUNCTIONS g_HunkUserAllocationSchemeMap[4] =
     (HunkUser *(*)(void*, int, HU_ALLOCATION_SCHEME, unsigned int, void*, const char *, int))Hunk_UserDefaultInit,
     (void(*)(HunkUser*))Hunk_UserDefaultReset,
      (void(*)(HunkUser *))Hunk_UserDefaultDestroy,
-    (void *(*)(HunkUser *, int, int, const char *))Hunk_UserDefaultAlloc,
+    Hunk_UserDefaultAllocThunk,
     Hunk_UserDefaultFree
   },
   {
     (HunkUser *(*)(void *, int, HU_ALLOCATION_SCHEME, unsigned int, void *, const char *, int))Hunk_UserDebugInit,
     Hunk_UserDebugReset,
     Hunk_UserDebugDestroy,
-    (void *(*)(HunkUser *, int, int, const char *))Hunk_UserDebugAlloc,
+    Hunk_UserDebugAllocThunk,
     (void(__cdecl *)(HunkUser *, void *))Hunk_UserDebugFree
   },
   {
     (HunkUser *(*)(void *, int, HU_ALLOCATION_SCHEME, unsigned int, void *, const char *, int))Hunk_FirstFitInit,
     Hunk_FirstFitReset,
     Hunk_FirstFitDestroy,
-    (void *(*)(HunkUser *, int, int, const char *))Hunk_FirstFitAlloc,
+    Hunk_FirstFitAllocThunk,
     (void(__cdecl *)(HunkUser *, void *))Hunk_FirstFitFree
   },
   {
     (HunkUser *(*)(void *, int, HU_ALLOCATION_SCHEME, unsigned int, void *, const char *, int))Hunk_FixedInit,
     Hunk_FixedReset,
     Hunk_FixedDestroy,
-    (void *(*)(HunkUser *, int, int, const char *))Hunk_FixedAlloc,
+    Hunk_FixedAllocThunk,
     (void(__cdecl *)(HunkUser *, void *))Hunk_FixedFree
   }
 };

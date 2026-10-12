@@ -73,7 +73,7 @@ void __cdecl R_ModelList_f()
     v7 = 0;
     v6 = 0;
     inData = 0;
-    DB_EnumXAssets(ASSET_TYPE_XMODEL, (void (__cdecl *)(XAssetHeader, void *))R_GetModelList, &inData, 1);
+    DB_EnumXAssets(ASSET_TYPE_XMODEL, AssetEnumFn<R_GetModelList>, &inData, 1);
     //std::_Sort<XModel * *,int,bool (__cdecl *)(XModel * &,XModel * &)>(v4, &v4[inData], (4 * inData) >> 2, R_ModelSort);
 
     std::sort(v4, v4 + inData, R_ModelSort);
@@ -461,7 +461,7 @@ void __cdecl R_ShutdownModels()
 
 void __cdecl R_ReleaseAllModels()
 {
-    DB_EnumXAssets(ASSET_TYPE_XMODEL, (void (__cdecl *)(XAssetHeader, void *))R_ReleaseModel, 0, 1);
+    DB_EnumXAssets(ASSET_TYPE_XMODEL, AssetEnumFn<R_ReleaseModel>, 0, 1);
 }
 
 void __cdecl R_ReleaseModel(XAssetHeader header)
@@ -473,7 +473,7 @@ void __cdecl R_ReleaseModel(XAssetHeader header)
 void __cdecl R_OptimizeAllModels()
 {
     if ( r_loadForRenderer->current.enabled )
-        DB_EnumXAssets(ASSET_TYPE_XMODEL, (void (__cdecl *)(XAssetHeader, void *))R_OptimizeModel, 0, 1);
+        DB_EnumXAssets(ASSET_TYPE_XMODEL, AssetEnumFn<R_OptimizeModel>, 0, 1);
 }
 
 void __cdecl R_OptimizeModel(XAssetHeader header)

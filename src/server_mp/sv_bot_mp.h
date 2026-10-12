@@ -114,6 +114,10 @@ char __cdecl Bot_GrenadePickType(const bot_info_t *botInfo, const playerState_s 
 char __cdecl Bot_ShouldThrowGrenade(bot_info_t *botInfo, const client_t *bot);
 void __cdecl Bot_Clear(bot_info_t *botInfo);
 void __cdecl SV_BotRegisterDvars();
+bool __cdecl SV_BotsExpected();
+void __cdecl SV_BotEnableAI();
+void __cdecl SV_ApplyPrivateMatchBots();
+void __cdecl SV_PrivateMatchBotsTick();
 void __cdecl Bot_DrawDebug(const ScreenPlacement *scrPlace);
 void __cdecl Bot_DrawString(const ScreenPlacement *scrPlace, char *text, float x, float *y, const float *color);
 void __cdecl SV_DrawBotPath();

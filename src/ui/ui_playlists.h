@@ -148,6 +148,7 @@ struct playlistInfo // sizeof=0x90
 
 int __cdecl Playlist_GetCategoryIdByName(const char *name);
 void __cdecl Playlist_ParsePlaylists(const char *buffer);
+void Playlist_InitOfflineWagerDefaults();
 char *__cdecl Playlist_Strdup(const char *src);
 char *__cdecl Playlist_Strdup_Newline(const char *src);
 char *__cdecl Playlist_BeginRules();

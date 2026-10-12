@@ -4,6 +4,7 @@
 #include "../tl_system.h"
 #include <universal/q_shared.h>
 #include <qcommon/threads.h>
+#include <qcommon/sys_futex.h>
 
 thread_local jqBatch *jqCurBatch;
 thread_local jqWorker *jqCurWorker;
@@ -16,8 +17,9 @@ jqQueue jqHighPriorityQueue;
 jqBatchPool jqPool;
 
 void(__cdecl *jqWorkerInitFn)(int);
-HANDLE jqNewJobAdded;
-bool jqStopSignal;
+// Bumped on every wake request; idle workers park on it.
+volatile uint32_t jqWakeEpoch;
+volatile bool jqStopSignal;
 volatile unsigned int jqPoolLock;
 jqQueue jqGlobalQueue;
 jqWorker jqMainThreadWorker;
@@ -34,11 +36,7 @@ const char *jqCheckContext;
 
 unsigned int __cdecl tlAtomicAdd(volatile unsigned __int32 *var, unsigned int value)
 {
-  volatile signed __int32 i; // ecx
-
-  for ( i = *var; _InterlockedCompareExchange(var, *var + value, *var) != i; i = *var )
-    Sleep(0);
-  return i + value;
+  return (unsigned int)_InterlockedExchangeAdd((volatile long *)var, (long)value) + value;
 }
 
 unsigned __int64 __cdecl tlAtomicAnd(volatile unsigned __int64 *var, unsigned __int64 value)
@@ -131,11 +129,12 @@ void __thiscall tlAtomicMutex::Lock()
     }
     else
     {
+        unsigned int spins = 0;
         while (1)
         {
-            if (!_InterlockedCompareExchange64(&this->ThisPtr->ThreadId, CurThread, 0))
+            if (!this->ThisPtr->ThreadId && !_InterlockedCompareExchange64(&this->ThisPtr->ThreadId, CurThread, 0))
                 break;
-            SwitchToThread();
+            Sys_SpinBackoff(spins);
         }
         //Target = 0;
         //InterlockedExchange(&Target, 0);
@@ -242,20 +241,22 @@ void tlSharedAtomicMutex::Lock()
     }
 
     // spin until CAS succeeds
+    unsigned int spins = 0;
     for (;;)
     {
         uint64_t expected = 0;
         uint64_t desired = tid;
 
-        if (_InterlockedCompareExchange64(
-            (volatile long long *)&m->ThreadId,
-            desired,
-            expected) == expected)
+        if (m->ThreadId == expected
+            && _InterlockedCompareExchange64(
+                (volatile long long *)&m->ThreadId,
+                desired,
+                expected) == expected)
         {
             break;
         }
 
-        SwitchToThread();
+        Sys_SpinBackoff(spins);
     }
 
     // weird compiler artifact from original code
@@ -387,6 +388,7 @@ unsigned __int8 *jqAtomicHeap::Alloc(unsigned int Size, unsigned int Align)
     }
     else
     {
+        this->Mutex.Unlock();
         tlPrintf("Size (%d) > HeapSize (%d), return NULL\n", Size, this->HeapSize);
         return 0;
     }
@@ -688,6 +690,9 @@ void __cdecl jqAttachQueueToWorkers(jqQueue *Queue, unsigned int ProcessorMask)
 
     unsigned int remainingMask = jqProcessorsMask;
 
+    // jqWorkers is packed: one entry per set bit of jqProcessorsMask, in bit order.
+    int workerIndex = -1;
+
     // Iterate over each processor in the global mask
     while (remainingMask)
     {
@@ -698,18 +703,10 @@ void __cdecl jqAttachQueueToWorkers(jqQueue *Queue, unsigned int ProcessorMask)
             processorBit <<= 1;
 
         remainingMask ^= processorBit; // Mark processor as used
+        ++workerIndex;
 
         if ((processorBit & ProcessorMask) == 0)
             continue; // Skip if this processor is not in the requested mask
-
-        // Compute worker pointer from processorBit
-        int workerIndex = 0;
-        unsigned int mask = 1;
-        while (mask != processorBit)
-        {
-            mask <<= 1;
-            workerIndex++;
-        }
 
         jqWorker *worker = &jqWorkers[workerIndex];
 
@@ -740,7 +737,7 @@ void __cdecl jqAttachQueueToWorkers(jqQueue *Queue, unsigned int ProcessorMask)
         _InterlockedExchangeAdd(reinterpret_cast<volatile LONG *>(&worker->NumQueues), 1);
 
         // Add this worker's processor bit to the queue's ProcessorsMask
-        Queue->ProcessorsMask |= (1 << workerIndex);
+        Queue->ProcessorsMask |= worker->Processor;
     }
 #endif
 }
@@ -904,9 +901,21 @@ char __cdecl jqCanBatchExecute()
   return 1;
 }
 
+static void jqWakeWorkers(bool all)
+{
+  _InterlockedIncrement((volatile long *)&jqWakeEpoch);
+  if ( jqSleepingWorkersCount )
+  {
+    if ( all )
+      Sys_FutexWakeAll(&jqWakeEpoch);
+    else
+      Sys_FutexWakeOne(&jqWakeEpoch);
+  }
+}
+
 bool __cdecl jqWorkerSleep()
 {
-  volatile unsigned int Target; // [esp+0h] [ebp-4h] BYREF
+  unsigned int spins = 0;
 
   while ( !jqPool.group.QueuedBatchCount )
   {
@@ -914,13 +923,20 @@ bool __cdecl jqWorkerSleep()
       break;
     if ( jqKeepWorkersAwakeCount )
       break;
+    // Spin briefly first: frontend jobs arrive in bursts and parking costs a syscall round trip.
+    if ( spins < 128 )
+    {
+      Sys_SpinBackoff(spins);
+      continue;
+    }
+    // The epoch must be read before the final queue check so a concurrent jqWakeWorkers is never missed.
+    uint32_t epoch = jqWakeEpoch;
     _InterlockedExchangeAdd(&jqSleepingWorkersCount, 1u);
-    WaitForSingleObject(jqNewJobAdded, 1u);
+    if ( !jqPool.group.QueuedBatchCount && !jqStopSignal && !jqKeepWorkersAwakeCount )
+      Sys_FutexWait(&jqWakeEpoch, epoch, 100);
     _InterlockedExchangeAdd(&jqSleepingWorkersCount, 0xFFFFFFFF);
   }
-  SwitchToThread();
-  Target = 0;
-  InterlockedExchange(&Target, 0);
+  Sys_CpuRelax();
   return !jqStopSignal;
 }
 
@@ -1042,7 +1058,6 @@ void __cdecl _jqInit()
   int v2; // esi
   _SYSTEM_INFO SystemInfo; // [esp+0h] [ebp-24h] BYREF
 
-  jqNewJobAdded = CreateEventA(0, 1, 0, 0);
   jqProcessorsMask = 0;
   GetSystemInfo(&SystemInfo);
   v0 = 0;
@@ -1061,7 +1076,6 @@ void __cdecl _jqInit()
 
 void __cdecl _jqShutdown()
 {
-  CloseHandle(jqNewJobAdded);
 }
 
 void __cdecl _jqStop()
@@ -1071,7 +1085,7 @@ void __cdecl _jqStop()
   void *Thread; // eax
 
   jqStopSignal = 1;
-  SetEvent(jqNewJobAdded);
+  jqWakeWorkers(true);
   v0 = 0;
   if ( jqNWorkers > 0 )
   {
@@ -1090,7 +1104,6 @@ void __cdecl _jqStop()
     while ( v0 < jqNWorkers );
   }
   jqStopSignal = 0;
-  ResetEvent(jqNewJobAdded);
 }
 
 void __cdecl _jqAddBatch()
@@ -1100,19 +1113,14 @@ void __cdecl _jqAddBatch()
 
 void __cdecl jqAlertWorkers()
 {
-  PulseEvent(jqNewJobAdded);
+  jqWakeWorkers(true);
 }
 
 void jqLockBatchPoolInternal()
 {
-    // some bogus?
-  //int Target; // [esp+0h] [ebp-4h] BYREF
-  //
-  //Target = (int)this;
-  while ( _InterlockedCompareExchange(&jqPoolLock, 1, 0) )
-    SwitchToThread();
-  //Target = 0;
-  //InterlockedExchange(&Target, 0);
+  unsigned int spins = 0;
+  while ( jqPoolLock || _InterlockedCompareExchange(&jqPoolLock, 1, 0) )
+    Sys_SpinBackoff(spins);
 }
 
 void __cdecl jqUnlockBatchPoolInternal()
@@ -1129,7 +1137,7 @@ void __cdecl jqKeepWorkersAwake()
 {
   _InterlockedExchangeAdd(&jqKeepWorkersAwakeCount, 1u);
   if ( jqKeepWorkersAwakeCount > 0 )
-    PulseEvent(jqNewJobAdded);
+    jqWakeWorkers(true);
 }
 
 void jqLockBatchPool()
@@ -1151,7 +1159,7 @@ void __cdecl jqUnlockBatchPool()
   }
   _InterlockedExchangeAdd(&jqBatchPoolExternallyLockedCount, 0xFFFFFFFF);
   if ( !jqBatchPoolExternallyLockedCount )
-    PulseEvent(jqNewJobAdded);
+    jqWakeWorkers(true);
   jqUnlockBatchPoolInternal();
 }
 
@@ -1267,7 +1275,7 @@ void __cdecl jqAddBatchToQueue(jqBatch *Batch, jqQueue *Queue)
   _InterlockedExchangeAdd(&Queue->QueuedBatchCount, 1u);
   //jqAtomicQueue<jqBatch,32>::Push(&Queue->Queue, Batch);
   Queue->Queue.Push(Batch);
-  PulseEvent(jqNewJobAdded);
+  jqWakeWorkers(false);
 }
 
 void __cdecl jqAddBatch(jqBatch *Batch, jqQueue *Queue)
@@ -1290,7 +1298,9 @@ void __cdecl jqAddBatch(jqBatch *Batch, jqQueue *Queue)
   _InterlockedExchangeAdd(&p_queue->QueuedBatchCount, 1u);
   //jqAtomicQueue<jqBatch,32>::Push(&v2->Queue, Data);
   p_queue->Queue.Push(Batch);
-  PulseEvent(jqNewJobAdded);
+  // Worker-specific queues (no attached processors) can only be drained by their owner,
+  // so a single wake could land on the wrong worker.
+  jqWakeWorkers(p_queue->ProcessorsMask == 0);
 }
 
 void __cdecl jqAddBatch(
@@ -1877,7 +1887,7 @@ void __cdecl jqFlush(jqBatchGroup *GroupID, unsigned __int64 batchCount)
     unsigned __int64 zero; // [esp+Ch] [ebp-14h] BYREF
     unsigned __int64 *workerBatchCount; // [esp+18h] [ebp-8h]
 
-    PulseEvent(jqNewJobAdded);
+    jqWakeWorkers(true);
     if (GroupID)
     {
         p_group = GroupID;
@@ -1903,7 +1913,7 @@ void __cdecl jqFlush(jqBatchGroup *GroupID, unsigned __int64 batchCount)
     if (batchCount)
         workerBatchCount = &zero;
 
-    int  i = 0;
+    unsigned int spins = 0;
     while (1)
     {
         // Stop if nothing queued/executing
@@ -1921,9 +1931,7 @@ void __cdecl jqFlush(jqBatchGroup *GroupID, unsigned __int64 batchCount)
 
         jqWorkerLoop(jqWorkers, GroupID, true, workerBatchCount);
 
-        // blops2 added this
-        if (i++ > 1)
-            Sleep(0);
+        Sys_SpinBackoff(spins);
     }
 }
 
@@ -2019,7 +2027,6 @@ void __cdecl jqShutdown()
     NodeBlockListHead = NodeBlockListHead->Next;
     tlMemFree(Addr);
   }
-  CloseHandle(jqNewJobAdded);
   jqSleepingWorkersCount = 0;
 }
 
@@ -2300,13 +2307,13 @@ void __cdecl jqStart()
     jqGlobalQueue.QueuedBatchCount = 0;
     jqGlobalQueue.ProcessorsMask = 0;
     jqGlobalQueue.Queue.Init(&jqPool.BaseQueue.Queue);
-    jqAttachQueueToWorkers(&jqGlobalQueue, 0xFF);
+    jqAttachQueueToWorkers(&jqGlobalQueue, 0xFFFFFFFF);
 
     jqHighPriorityQueue.ThisPtr = &jqHighPriorityQueue;
     jqHighPriorityQueue.QueuedBatchCount = 0;
     jqHighPriorityQueue.ProcessorsMask = 0;
     jqHighPriorityQueue.Queue.Init(&jqPool.BaseQueue.Queue);
-    jqAttachQueueToWorkers(&jqHighPriorityQueue, 0xFF);
+    jqAttachQueueToWorkers(&jqHighPriorityQueue, 0xFFFFFFFF);
 
     // Call internal start routine
     _jqStart();

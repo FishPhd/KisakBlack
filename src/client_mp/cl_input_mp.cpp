@@ -1,3 +1,4 @@
+#include <live/live_offline_stats.h>
 #include "cl_input_mp.h"
 #include "cl_main_mp.h"
 #include <client/client.h>
@@ -87,6 +88,10 @@ bool __cdecl IN_IsTalkKeyHeld()
     return cl_talking->current.enabled || playersKb[0][46].active;
 }
 
+#ifdef KISAK_WEB
+#include <web/web_input.h>
+#endif
+
 int __cdecl CL_MouseEvent(int x, int y, int dx, int dy)
 {
     clientActive_t *LocalClientGlobals; // [esp+0h] [ebp-8h]
@@ -112,7 +117,13 @@ int __cdecl CL_MouseEvent(int x, int y, int dx, int dy)
             }
             else
             {
-                UI_MouseEvent(0, x, y);
+#ifdef KISAK_WEB
+                // Replaying stationary hover every frame overrides keyboard list
+                // selection and repeatedly runs focus scripts. Clicks explicitly
+                // enqueue a position event even when the coordinates are unchanged.
+                if (Web_HasMousePositionEvent())
+#endif
+                    UI_MouseEvent(0, x, y);
                 return 0;
             }
         }
@@ -228,6 +239,7 @@ void __cdecl CL_WritePacket(int localClientNum)
         //LargeLocal::~LargeLocal(&compressedBuf_large_local);
     }
 
+    LiveOffline_PumpClientStatsUpload(localClientNum);
     cl = CL_GetLocalClientGlobals(localClientNum);
     MSG_SetDefaultUserCmd(&cl->snap.ps, &nullcmd);
     oldcmd = &nullcmd;

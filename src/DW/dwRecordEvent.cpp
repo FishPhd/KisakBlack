@@ -69,7 +69,7 @@ void dwRecordEventFormat(overlappedTask *const task, unsigned int category, cons
 #ifdef KISAK_DEMON
     char event[68]; // [esp+10h] [ebp-50h] BYREF
     unsigned int MAX_EVENT_LEN; // [esp+58h] [ebp-8h]
-    char *args; // [esp+5Ch] [ebp-4h]
+    va_list args; // [esp+5Ch] [ebp-4h]
     va_list va; // [esp+74h] [ebp+14h] BYREF
 
     va_start(va, fmt);

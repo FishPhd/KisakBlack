@@ -407,6 +407,11 @@ bool __cdecl collide_missle_entity_filter(int entnum)
     return *(__int16 *)((char *)&sv.gentities->s.eType + entnum * sv.gentitySize) != 4;
 }
 
+static int __cdecl collide_missle_entity_filterEx(int entnum, col_context_t *)
+{
+    return collide_missle_entity_filter(entnum);
+}
+
 void __cdecl G_MissileTrace(
                 trace_t *results,
                 const float *start,
@@ -446,7 +451,7 @@ void __cdecl G_MissileTrace(
             passEntityNum,
             contentmask,
             bulletPriorityMap,
-            (int (__cdecl *)(int, col_context_t *))collide_missle_entity_filter);
+            collide_missle_entity_filterEx);
     }
     if ( results->startsolid )
     {
@@ -471,7 +476,7 @@ void    G_ExplodeMissile(gentity_s *ent)
     unsigned __int8 v5; // al
     unsigned __int8 v6; // al
     unsigned __int8 v7; // al
-    long double v8; // [esp+20h] [ebp-1ACh]
+    double v8; // [esp+20h] [ebp-1ACh]
     gentity_s *v9; // [esp+24h] [ebp-1A8h]
     gentity_s *v10; // [esp+28h] [ebp-1A4h]
     gentity_s *v11; // [esp+2Ch] [ebp-1A0h]
@@ -1484,7 +1489,7 @@ void    MissileImpact(gentity_s *ent, trace_t *trace, float *dir, float *endpos)
     unsigned __int16 z_up; // [esp+18h] [ebp-174h]
     int fRadiusSqrd; // [esp+1Ch] [ebp-170h]
     unsigned int fRadiusSqrda; // [esp+1Ch] [ebp-170h]
-    long double v35; // [esp+20h] [ebp-16Ch]
+    double v35; // [esp+20h] [ebp-16Ch]
     gentity_s *v36; // [esp+28h] [ebp-164h]
     float coneAngleCos; // [esp+30h] [ebp-15Ch]
     int splashMethodOfDeath; // [esp+3Ch] [ebp-150h]
@@ -1904,10 +1909,12 @@ void    MissileImpact(gentity_s *ent, trace_t *trace, float *dir, float *endpos)
                             if (other->client)
                             {
                                 MapHitLocationToRagdollBoneName(hitLocation, &boneName);
-                                if (other->client->ps.pm_type == 9
-                                    && *(int *)&g_scr_data.playerCorpseInfo[1504 * other->client->ps.corpseIndex + 4] >= 0)
+                                if (other->client->ps.pm_type == 9)
                                 {
-                                    entnum = *(int*)&g_scr_data.playerCorpseInfo[1504 * other->client->ps.corpseIndex + 4];
+                                    int corpseIndex = other->client->ps.corpseIndex;
+                                    if ((unsigned)corpseIndex < 4
+                                        && g_scr_data.playerCorpseInfo[corpseIndex].entnum >= 0)
+                                        entnum = g_scr_data.playerCorpseInfo[corpseIndex].entnum;
                                 }
                             }
                             else if (other->actor)
@@ -2162,8 +2169,8 @@ bool __cdecl CheckCrumpleMissile(gentity_s *ent, trace_t *trace)
 bool    BounceMissile(gentity_s *ent, trace_t *trace)
 {
     float v3; // xmm0_4
-    long double v5; // [esp+20h] [ebp-1CCh]
-    long double v6; // [esp+20h] [ebp-1CCh]
+    double v5; // [esp+20h] [ebp-1CCh]
+    double v6; // [esp+20h] [ebp-1CCh]
     int v7; // [esp+38h] [ebp-1B4h]
     float traceEnd[4]; // [esp+3Ch] [ebp-1B0h] BYREF
     float vDelta[3]; // [esp+4Ch] [ebp-1A0h]
@@ -2960,6 +2967,8 @@ void __cdecl AttachMissileToEntity(
 
     if ( !missile && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\g_missile.cpp", 974, 0, "%s", "missile") )
         __debugbreak();
+    if ( !missile )
+        return;
     if ( entnum >= 0x400
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_missile.cpp",
@@ -2970,6 +2979,8 @@ void __cdecl AttachMissileToEntity(
     {
         __debugbreak();
     }
+    if ( entnum >= 0x400 )
+        return;
     if ( entnum <= 0x3FE && boneName )
     {
         weapDef = BG_GetWeaponDef(missile->s.weapon);
@@ -3066,17 +3077,23 @@ int __cdecl StickMissile(
         if ( team == ent->missile.team && !weapDef->timedDetonation && team )
             return isStuck;
         entnum = other->s.number;
-        if ( other->client->ps.pm_type == 9
-            && (int)g_scr_data.actorXAnimTrees[376 * other->client->ps.corpseIndex - 1495] >= 0 )
+        if ( other->client->ps.pm_type == 9 )
         {
-            entnum = (int)g_scr_data.actorXAnimTrees[376 * other->client->ps.corpseIndex - 1495];
+            int corpseIndex = other->client->ps.corpseIndex;
+            // corpseInfo_t::entnum is the corpse entity. The old expression indexed
+            // actorXAnimTrees with a byte offset, so a stuck grenade used a pointer as an entnum.
+            if ( (unsigned)corpseIndex < 4 && g_scr_data.playerCorpseInfo[corpseIndex].entnum >= 0 )
+                entnum = g_scr_data.playerCorpseInfo[corpseIndex].entnum;
         }
         ent->flags |= 0x1000u;
         boneName = 0;
         MapHitLocationToRagdollBoneName(hitLocation, &boneName);
         AttachMissileToEntity(ent, entnum, boneName, hitLocation, velocity);
         if ( other->client->ps.pm_type == 9 )
-            G_EntLinkTo(ent, &g_entities[entnum], boneName);
+        {
+            if ( (unsigned)entnum < 0x400 )
+                G_EntLinkTo(ent, &g_entities[entnum], boneName);
+        }
         else
             G_EntLinkTo(ent, other, boneName);
         ent->s.lerp.pos.trType = 0;
@@ -3163,7 +3180,12 @@ void __cdecl createRetrieveableProjectile(
         {
             target_ent = other;
             if (other->client->ps.pm_type == 9)
-                target_ent = (gentity_s *)((char *)sv.gentities + *(_DWORD *)&g_scr_data.playerCorpseInfo[1504 * other->client->ps.corpseIndex + 4] * sv.gentitySize);
+            {
+                int corpseIndex = other->client->ps.corpseIndex;
+                int corpseEnt = (unsigned)corpseIndex < 4 ? g_scr_data.playerCorpseInfo[corpseIndex].entnum : -1;
+                if ((unsigned)corpseEnt < 1024)
+                    target_ent = &g_entities[corpseEnt];
+            }
         }
         else if ( other->actor )
         {
@@ -3429,7 +3451,7 @@ void    Missile_ApplyAttractorsRepulsors(gentity_s *missile)
     float v3; // xmm0_4
     float v4; // xmm0_4
     float v5; // xmm0_4
-    long double v6; // [esp-24h] [ebp-ACh]
+    double v6; // [esp-24h] [ebp-ACh]
     float iProjectileSpeed; // [esp-24h] [ebp-ACh]
     float angleToAttractor; // [esp+8h] [ebp-80h]
     float angleToAttractora; // [esp+8h] [ebp-80h]
@@ -4605,7 +4627,7 @@ bool __cdecl JavelinClimbEnd(gentity_s *ent, const float *targetPos)
 char JavelinClimbExceededAngle(gentity_s *ent, const float *targetPos)
 {
     double v3; // xmm0_8
-    long double v5; // [esp-10h] [ebp-3Ch]
+    double v5; // [esp-10h] [ebp-3Ch]
     float toTarget[3]; // [esp+Ch] [ebp-20h] BYREF
     float value; // [esp+18h] [ebp-14h]
     float currentHorzDir[2]; // [esp+1Ch] [ebp-10h]
@@ -5376,7 +5398,7 @@ gentity_s *__cdecl G_FireRocket(
                 const float *targetOffset)
 {
     int v7; // eax
-    long double v8; // st7
+    double v8; // st7
     char *Name; // eax
     int v10; // edx
     int Contents; // eax
@@ -5705,7 +5727,7 @@ gentity_s *__cdecl G_DropBomb(
                 const float *targetOffset)
 {
     int v7; // eax
-    long double v8; // st7
+    double v8; // st7
     int v9; // ecx
     //$0D33AF6AB483EB176B99DAC6E021D6CF *v11; // [esp+10h] [ebp-A4h]
     //$0D33AF6AB483EB176B99DAC6E021D6CF *v12; // [esp+18h] [ebp-9Ch]

@@ -1,5 +1,7 @@
 #include "assertive.h"
 
+#include <stdio.h>
+#include <stdarg.h>
 #include <Windows.h>
 #include "com_buildinfo.h"
 #include "q_shared.h"
@@ -581,6 +583,39 @@ void __cdecl Assert_SetMonkeyCallbackHandler(void (__cdecl *AssertCallbackFunc)(
     MonkeyAssertCallback = AssertCallbackFunc;
 }
 
+// A site that fires over and over (a decompiled call that passes too few varargs is hit once per item per
+// connecting bot) would cost a console line plus a log file open on every hit - several seconds in one
+// frame on the web build. Log the first few hits per site, then every 256th.
+static bool Assert_ShouldLogSite(const char *filename, int line)
+{
+    struct Site
+    {
+        const char *file;
+        int line;
+        unsigned int hits;
+    };
+    static Site sites[128];
+    static int siteCount;
+
+    for ( int i = 0; i < siteCount; ++i )
+    {
+        if ( sites[i].file == filename && sites[i].line == line )
+        {
+            const unsigned int hits = ++sites[i].hits;
+            return hits <= 3 || (hits & 255) == 0;
+        }
+    }
+    if ( siteCount < 128 )
+    {
+        sites[siteCount].file = filename;
+        sites[siteCount].line = line;
+        sites[siteCount].hits = 1;
+        ++siteCount;
+        return true;
+    }
+    return false;
+}
+
 bool Assert_MyHandler(const char *filename, int line, int type, const char *fmt, ...)
 {
 #if 0
@@ -623,7 +658,28 @@ bool Assert_MyHandler(const char *filename, int line, int type, const char *fmt,
     Sys_LeaveCriticalSection(CRITSECT_ASSERT);
     return shouldBreak == 0;
 #else
-    __debugbreak();
+    // The full assert dialog above is compiled out, and a bare __debugbreak() here
+    // kills the game (0x80000003) before the message is written anywhere. Log it and
+    // keep going; callers treat a non-zero return as "don't break again".
+    if ( !isHandlingAssert && Assert_ShouldLogSite(filename, line) )
+    {
+        char text[512];
+        va_list ap;
+
+        isHandlingAssert = 1;
+        va_start(ap, fmt);
+        _vsnprintf(text, sizeof(text) - 1, fmt ? fmt : "", ap);
+        va_end(ap);
+        text[sizeof(text) - 1] = 0;
+        Com_Printf(16, "ASSERT %s:%d %s\n", filename ? filename : "?", line, text);
+        FILE *out = fopen("main/kisak_assert.log", "a");
+        if ( out )
+        {
+            fprintf(out, "%s:%d %s\n", filename ? filename : "?", line, text);
+            fclose(out);
+        }
+        isHandlingAssert = 0;
+    }
     return 1;
 #endif
 }

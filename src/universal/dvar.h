@@ -311,18 +311,18 @@ const dvar_s *__cdecl _Dvar_RegisterColor(
                 const char *description);
 const dvar_s *__cdecl _Dvar_RegisterLinearRGB(
                 char *dvarName,
-                unsigned int x,
-                unsigned int y,
-                unsigned int z,
+                float x,
+                float y,
+                float z,
                 float min,
                 float max,
                 unsigned __int16 flags,
                 const char *description);
 const dvar_s *__cdecl _Dvar_RegisterColorXYZ(
                 const char *dvarName,
-                unsigned int x,
-                unsigned int y,
-                unsigned int z,
+                float x,
+                float y,
+                float z,
                 float min,
                 float max,
                 unsigned __int16 flags,

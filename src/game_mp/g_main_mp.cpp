@@ -5,6 +5,7 @@
 #include <game/teams.h>
 #include <demo/demo_common.h>
 #include <game/pathnode.h>
+#include <game/g_bsp.h>
 #include <universal/com_memory.h>
 #include <clientscript/cscr_stringlist.h>
 #include <bgame/bg_misc.h>
@@ -34,6 +35,7 @@
 #include <server/sv_game.h>
 #include <universal/com_shared.h>
 #include <server_mp/sv_main_mp.h>
+#include <server_mp/sv_ccmds_mp.h>
 #include <server_mp/sv_init_mp.h>
 #include <game/actor_script_cmd.h>
 #include <client_mp/cl_cgame_mp.h>
@@ -699,7 +701,14 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
     PROF_SCOPED("G_InitGame");
 
     Com_Printf(15, "------- Game Initialization -------\n");
-    Com_Printf(15, "gamename: %s\n", "Call of Duty�");
+    if (zombiemode->current.enabled)
+    {
+        // Shared actor navigation consumes this view of the loaded world.
+        gameWorldMp.name = gameWorldSp.name;
+        gameWorldMp.path = gameWorldSp.path;
+    }
+    GScr_DumpLoadedScripts();
+    Com_Printf(15, "gamename: %s\n", "Call of DutyÂ®");
     Com_Printf(15, "gamedate: %s\n", "Nov    5 2010");
     Rope_InitRopes();
     Swap_Init();
@@ -790,7 +799,8 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
         __debugbreak();
     }
 
-    Dog_CreateAnims(Hunk_AllocXAnimServer);
+    if (!zombiemode->current.enabled)
+        Dog_CreateAnims(Hunk_AllocXAnimServer);
     SpawnSystem_Init();
 
     VehAnim_Init();
@@ -2446,7 +2456,10 @@ void __cdecl ExitLevel()
 {
     int i; // [esp+0h] [ebp-4h]
 
-    Cbuf_AddText(0, "map_rotate\n");
+    // Offline private match / combat training (local listen server): save stats and return to the lobby
+    // instead of rotating maps. Dedicated servers (and anything else) keep map_rotate.
+    if ( !SV_ReturnToLobbyAfterMatch() )
+        Cbuf_AddText(0, "map_rotate\n");
     for ( i = 0; i < level.maxclients; ++i )
     {
         if ( level.clients[i].sess.connected == CON_CONNECTED )
@@ -2458,7 +2471,7 @@ void __cdecl ExitLevel()
 void G_LogPrintf(const char *fmt, ...)
 {
     char string[1024]; // [esp+10h] [ebp-818h] BYREF
-    char *argptr; // [esp+410h] [ebp-418h]
+    va_list argptr; // [esp+410h] [ebp-418h]
     int tens; // [esp+414h] [ebp-414h]
     char string2[1024]; // [esp+418h] [ebp-410h] BYREF
     int min; // [esp+81Ch] [ebp-Ch]

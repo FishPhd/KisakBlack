@@ -35,6 +35,7 @@
 #include <client/client.h>
 #include <cgame/cg_main.h>
 #include <server_mp/sv_init_mp.h>
+#include <server_mp/sv_main_pc_mp.h>
 #include <client_mp/cl_ui_pc_mp.h>
 #include <client_mp/cl_main_pc_mp.h>
 #include <ui/ui_server.h>
@@ -1597,8 +1598,11 @@ void __cdecl UI_DrawAttributeBar(
                 v12 = Dvar_GetString("ui_custom_name");
                 equippedAttachmentNum = BG_UnlockablesGetEquippedItemInSlot(controllerIndex, v12, v19);
                 ItemAttachmentRef = BG_UnlockablesGetItemAttachmentRef(currentWeaponIndex, equippedAttachmentNum);
-                v14 = StringTable_Lookup(attributesTable, 1, ItemAttachmentRef, 9, currentWeaponRef, attributeColumn);
-                attachmentEffectOnAttribute = (atoi(v14) / 10.0) + attachmentEffectOnAttribute;
+                if (ItemAttachmentRef && ItemAttachmentRef[0] && currentWeaponRef && currentWeaponRef[0])
+                {
+                    v14 = StringTable_Lookup(attributesTable, 1, ItemAttachmentRef, 9, currentWeaponRef, attributeColumn);
+                    attachmentEffectOnAttribute = (atoi(v14) / 10.0) + attachmentEffectOnAttribute;
+                }
             }
         }
         if (!selectingWeapon && selectingAttachments)
@@ -2324,6 +2328,40 @@ void __cdecl UI_Project_RunMenuScript(
     uiInfo_s *dc; // [esp+Ch] [ebp-34h]
 
     UI_UIContext_GetInfo(contextIndex);
+
+    if (!I_stricmp(name, "StartWagerMatch"))
+    {
+        Playlist_InitOfflineWagerDefaults();
+        const int categoryId = Playlist_GetCategoryIdForNum(wagerCategory->current.integer);
+        const int count = Playlist_GetPlaylistCount(categoryId);
+        if (count <= 0) return;
+        unsigned selected = wagerCategoryPlaylist->current.unsignedInt;
+        if (selected >= (unsigned)count) selected = 0;
+        const int id = Playlist_GetPlaylistIdForNum(0, selected, wagerCategory->current.integer);
+        Dvar_SetIntByName("playlist", Playlist_GetPlaylistNumFromId(0, id));
+        const int entryIndex = Playlist_ChooseEntry(0, -1);
+        playlistEntry *entry = Playlist_GetEntry(id, entryIndex);
+        if (!entry) return;
+        playlistGametype *gametype = Playlist_FindGametype(entry->gametype);
+        Dvar_SetStringByName("ui_gametype", (char *)gametype->scriptName);
+        Dvar_SetStringByName("ui_mapname", (char *)entry->mapname);
+        UI_RunMenuScript_StartListenServer();
+        return;
+    }
+
+    // Offline: scripts that only exist for the Live/Demonware server flow.
+    if ( !I_stricmp(name, "PopulateServers") )
+    {
+        // Rebuild the (possibly empty) LAN/favorites display list; no network access needed.
+        UI_UpdateDisplayServers(localClientNum, UI_UIContext_GetInfo(contextIndex));
+        return;
+    }
+    if ( !I_stricmp(name, "sendMenuNotify") )
+    {
+        // Notifications are only consumed by the online services; ignore offline.
+        return;
+    }
+
     if ( I_stricmp(name, "StartServer") )
     {
         if ( I_stricmp(name, "StartListenServer") )
@@ -2420,6 +2458,49 @@ void __cdecl UI_RunMenuScript_StartListenServer()
     parseInfo_t *value; // [esp+4h] [ebp-4h]
 
     String = (char *)Dvar_GetString("ui_gametype");
+    if (!I_stricmp(String, "oic") || !I_stricmp(String, "hlnd")
+        || !I_stricmp(String, "gun") || !I_stricmp(String, "shrp"))
+    {
+        char chosenMap[64], chosenMode[16];
+        I_strncpyz(chosenMap, Dvar_GetString("ui_mapname"), sizeof(chosenMap));
+        I_strncpyz(chosenMode, String, sizeof(chosenMode));
+        Dvar_SetBoolByName("onlinegame", true);
+        Dvar_SetBoolByName("xblive_privatematch", false);
+        Dvar_SetBoolByName("xblive_basictraining", false);
+        Dvar_SetBoolByName("xblive_rankedmatch", false);
+        Dvar_SetBoolByName("xblive_wagermatch", true);
+        Playlist_InitOfflineWagerDefaults();
+        const int categoryId = Playlist_GetCategoryIdForNum(wagerCategory->current.integer);
+        const int count = Playlist_GetPlaylistCount(categoryId);
+        for (int i = 0; i < count; ++i)
+        {
+            const int id = Playlist_GetPlaylistIdForNum(0, (unsigned)i, wagerCategory->current.integer);
+            playlistEntry *entry = Playlist_GetEntry(id, 0);
+            if (!entry) continue;
+            playlistGametype *gametype = Playlist_FindGametype(entry->gametype);
+            if (!gametype || I_stricmp(gametype->scriptName, chosenMode)) continue;
+            Dvar_SetIntByName("playlist", Playlist_GetPlaylistNumFromId(0, id));
+            Playlist_RunRules(0, 0);
+            Dvar_SetIntByName("scr_wagerBet", Playlist_GetWagerBet(0, id));
+            break;
+        }
+        int codPoints = 0;
+        if (!LiveStats_GetIntPlayerStatByKey(0, &codPoints, MP_PLAYERSTATSKEY_CODPOINTS)
+            || codPoints < Dvar_GetInt("scr_wagerBet"))
+        {
+            UI_OpenMenu(0, "WagerDeadBeat");
+            return;
+        }
+        Dvar_SetStringByName("ui_mapname", chosenMap);
+        Dvar_SetStringByName("ui_gametype", chosenMode);
+        Dvar_SetBoolByName("xblive_rankedmatch", false);
+        Dvar_SetBoolByName("xblive_privatematch", false);
+        Dvar_SetBoolByName("xblive_basictraining", false);
+        Dvar_SetBoolByName("xblive_wagermatch", true);
+        Dvar_SetBoolByName("g_pregame_enabled", false);
+        Dvar_SetBoolByName("party_teambased", false);
+        String = (char *)Dvar_GetString("ui_gametype");
+    }
     Dvar_SetStringByName("g_gametype", String);
     map = Dvar_GetString("ui_mapname");
     v1 = (char *)Dvar_GetString("sv_mapRotation");
@@ -2442,6 +2523,9 @@ void __cdecl UI_RunMenuScript_StartServer(int localClientNum)
     v2 = va("%i", ui_dedicated->current.integer);
     Dvar_SetFromStringByNameFromSource("dedicated", v2, DVAR_SOURCE_EXTERNAL, 0);
     Dvar_SetStringByName("g_gametype", sharedUiInfo.gameTypes[ui_netGameType->current.integer].gameType);
+    // The map list only holds installed maps now, so a stale saved index must not run past it.
+    if (ui_currentNetMap->current.integer < 0 || ui_currentNetMap->current.integer >= sharedUiInfo.mapCount)
+        Dvar_SetIntByName("ui_currentNetMap", 0);
     map = sharedUiInfo.mapList[ui_currentNetMap->current.integer].mapLoadName;
     Dvar_SetString((dvar_s*)sv_mapRotationCurrent, sv_mapRotation->current.string);
     for (value = UI_GetMapRotationToken(); value && I_strcmp(value->token, map); value = UI_GetMapRotationToken())
@@ -2484,7 +2568,7 @@ void __cdecl UI_RunMenuScript_WagerWarning(int localClientNum, int contextIndex)
     {
         ControllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
         LiveStats_GetIntPlayerStat(ControllerIndex, &codpoints, "CODPOINTS");
-        if (codpoints < wagerbet)
+        if (SV_IsServerRanked(SV_GetLicenseType()) && codpoints < wagerbet)
             Menus_OpenByName(localClientNum, &uiInfo->uiDC, "WagerDeadBeat");
         else
             Menus_OpenByName(localClientNum, &uiInfo->uiDC, "WagerConfirmation");

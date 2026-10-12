@@ -13,27 +13,27 @@ int g_bDObjInited;
 
 DObj *__cdecl Com_GetServerDObj(unsigned int handle)
 {
-    if ( handle >= 0x400
-        && !Assert_MyHandler(
+    if ( handle >= 0x400 )
+    {
+        Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
                     84,
                     0,
                     "%s\n\t(handle) = %i",
                     "((unsigned)handle < (sizeof( serverObjMap ) / (sizeof( serverObjMap[0] ) * (sizeof( serverObjMap ) != 4 || siz"
                     "eof( serverObjMap[0] ) <= 4))))",
-                    handle) )
-    {
-        __debugbreak();
+                    handle);
+        return 0;
     }
-    if ( (unsigned int)serverObjMap[handle] >= 0xC00
-        && !Assert_MyHandler(
+    if ( (unsigned int)serverObjMap[handle] >= 0xC00 )
+    {
+        Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
                     85,
                     0,
                     "%s",
-                    "(unsigned)serverObjMap[handle] < DOBJ_HANDLE_MAX") )
-    {
-        __debugbreak();
+                    "(unsigned)serverObjMap[handle] < DOBJ_HANDLE_MAX");
+        return 0;
     }
     if ( serverObjMap[handle] )
         return (DObj *)objBuf[serverObjMap[handle]];
@@ -57,6 +57,8 @@ DObj *__cdecl Com_ClientDObjCreate(
     {
         __debugbreak();
     }
+    if ( !dobjModels )
+        return 0;
     if ( handle >= 0x601
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -68,6 +70,8 @@ DObj *__cdecl Com_ClientDObjCreate(
     {
         __debugbreak();
     }
+    if ( handle >= 0x601 )
+        return 0;
     if ( Com_GetClientDObj(handle, localClientNum)
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -91,6 +95,8 @@ DObj *__cdecl Com_ClientDObjCreate(
     {
         __debugbreak();
     }
+    if ( handle >= 0x601 )
+        return 0;
     if ( (int)handle < 1537 * localClientNum
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -235,6 +241,8 @@ DObj *__cdecl Com_ServerDObjCreate(
     {
         __debugbreak();
     }
+    if ( !dobjModels )
+        return 0;
     if ( handle >= 0x400
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -246,6 +254,8 @@ DObj *__cdecl Com_ServerDObjCreate(
     {
         __debugbreak();
     }
+    if ( handle >= 0x400 )
+        return 0;
     if ( Com_GetServerDObj(handle)
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -267,6 +277,8 @@ DObj *__cdecl Com_ServerDObjCreate(
     {
         __debugbreak();
     }
+    if ( handle >= 0x400 )
+        return 0;
     serverObjMap[handle] = index;
     if ( index >= 0xC00
         && !Assert_MyHandler(
@@ -299,6 +311,8 @@ void __cdecl Com_SafeClientDObjFree(unsigned int handle, int localClientNum)
     {
         __debugbreak();
     }
+    if ( handle >= 0x601 )
+        return;
     if ( handle >= 0x601
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -359,6 +373,8 @@ void __cdecl Com_SafeServerDObjFree(unsigned int handle)
     {
         __debugbreak();
     }
+    if ( handle >= 0x400 )
+        return;
     index = serverObjMap[handle];
     if ( serverObjMap[handle] )
     {
@@ -526,6 +542,8 @@ DObj *__cdecl Com_GetClientDObj(unsigned int handle, int localClientNum)
     {
         __debugbreak();
     }
+    if ( handle > 0x600 )
+        return 0;
     if ( localClientNum
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
@@ -538,28 +556,28 @@ DObj *__cdecl Com_GetClientDObj(unsigned int handle, int localClientNum)
         __debugbreak();
     }
     handlea = handle + 1537 * localClientNum;
-    if ( handlea >= 0x601
-        && !Assert_MyHandler(
+    if ( handlea >= 0x601 )
+    {
+        Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
                     478,
                     0,
                     "%s\n\t(handle) = %i",
                     "((unsigned)handle < (sizeof( clientObjMap ) / (sizeof( clientObjMap[0] ) * (sizeof( clientObjMap ) != 4 || siz"
                     "eof( clientObjMap[0] ) <= 4))))",
-                    handlea) )
-    {
-        __debugbreak();
+                    handlea);
+        return 0;
     }
-    if ( (unsigned int)clientObjMap[handlea] >= 0xC00
-        && !Assert_MyHandler(
+    if ( (unsigned int)clientObjMap[handlea] >= 0xC00 )
+    {
+        Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\dobj_management.cpp",
                     479,
                     0,
                     "%s\n\t(clientObjMap[handle]) = %i",
                     "((unsigned)clientObjMap[handle] < (2048+1024))",
-                    clientObjMap[handlea]) )
-    {
-        __debugbreak();
+                    clientObjMap[handlea]);
+        return 0;
     }
     if ( clientObjMap[handlea] )
         return (DObj *)objBuf[clientObjMap[handlea]];

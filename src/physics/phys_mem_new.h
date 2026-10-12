@@ -39,9 +39,11 @@ struct alignas(8) phys_slot_pool // sizeof=0x18
         return size | (alignment << 16);
     }
 
+    bool slot_ptr_readable(const void *slot) const;
+    bool slot_is_owned(const void *slot) const;
     void  extra_info_init(char *slot);
-    void  extra_info_allocate(char *slot);
-    void  extra_info_free(unsigned __int8 *slot);
+    bool extra_info_allocate(char *slot);
+    bool extra_info_free(unsigned __int8 *slot);
     void  validate_slot(char *slot);
     void  free_slot(unsigned __int8 *slot);
     char *allocate_slot();
@@ -88,5 +90,6 @@ char *__cdecl PSP_ALLOC(phys_slot_pool *slot_pool);
 void __cdecl PSP_FREE(phys_slot_pool *slot_pool, unsigned __int8 *slot);
 phys_slot_pool *__cdecl GET_PHYS_SLOT_POOL(unsigned int size, unsigned int alignment);
 void __cdecl PMM_VALIDATE(char *ptr, unsigned int size, unsigned int alignment);
+bool __cdecl PMM_SLOT_OWNED(const void *ptr, unsigned int size, unsigned int alignment);
 
 void __cdecl phys_memory_manager_init(void *const memory_buffer, int memory_buffer_size);

@@ -15,6 +15,9 @@ int __cdecl G_GetPlayerCorpseIndex(gentity_s *ent, const char *error_msg)
     int i; // [esp+4h] [ebp-4h]
     int ia; // [esp+4h] [ebp-4h]
 
+    if ( !ent )
+        return -1;
+
     for ( i = 0; i < 4; ++i )
     {
         if (g_scr_data.playerCorpseInfo[i].entnum == ent->s.number)
@@ -30,8 +33,8 @@ int __cdecl G_GetPlayerCorpseIndex(gentity_s *ent, const char *error_msg)
             14,
             "Corpse %i entnum %i %i\n",
             ia,
-            g_scr_data.playerCorpseInfo[i].entnum,
-            g_scr_data.playerCorpseInfo[i].tree);
+            g_scr_data.playerCorpseInfo[ia].entnum,
+            g_scr_data.playerCorpseInfo[ia].tree);
 
     EntityTypeName = G_GetEntityTypeName(ent);
     v4 = va(
@@ -41,7 +44,7 @@ int __cdecl G_GetPlayerCorpseIndex(gentity_s *ent, const char *error_msg)
                  EntityTypeName);
     if ( !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\g_player_corpse.cpp", 111, 0, v4) )
         __debugbreak();
-    return 0;
+    return -1;
 }
 
 int __cdecl G_GetFreePlayerCorpseIndex()
@@ -58,14 +61,25 @@ int __cdecl G_GetFreePlayerCorpseIndex()
     ent = G_Find(0, 356, scr_const.player);
     if ( !ent && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\g_player_corpse.cpp", 135, 0, "%s", "ent") )
         __debugbreak();
-    playerPos[0] = ent->s.lerp.pos.trBase[0];
-    playerPos[1] = ent->s.lerp.pos.trBase[1];
-    playerPos[2] = ent->s.lerp.pos.trBase[2];
+    if ( ent )
+    {
+        playerPos[0] = ent->s.lerp.pos.trBase[0];
+        playerPos[1] = ent->s.lerp.pos.trBase[1];
+        playerPos[2] = ent->s.lerp.pos.trBase[2];
+    }
+    else
+    {
+        playerPos[0] = 0.0f;
+        playerPos[1] = 0.0f;
+        playerPos[2] = 0.0f;
+    }
     for ( i = 0; i < 4; ++i )
     {
         //if ( g_scr_data.actorXAnimTrees[376 * i - 1495] == (XAnimTree_s *)-1 )
         if (g_scr_data.playerCorpseInfo[i].entnum == -1)
             return i;
+        if ( (unsigned)g_scr_data.playerCorpseInfo[i].entnum >= 0x400 )
+            continue;
         ent = &level.gentities[g_scr_data.playerCorpseInfo[i].entnum];
         distSq = Vec3DistanceSq(ent->r.currentOrigin, playerPos);
         if ( distSq > bestDistSq )
@@ -78,13 +92,15 @@ int __cdecl G_GetFreePlayerCorpseIndex()
         14,
         "Freeing Corpse Entity %i entnum %i %i %i\n",
         bestIndex,
-        g_scr_data.playerCorpseInfo[i].entnum,
-        g_scr_data.playerCorpseInfo[i].tree,
+        g_scr_data.playerCorpseInfo[bestIndex].entnum,
+        g_scr_data.playerCorpseInfo[bestIndex].tree,
         level.time);
 
-    ent = &level.gentities[g_scr_data.playerCorpseInfo[bestIndex].entnum];
-
-    G_FreeEntity(ent);
+    if ( (unsigned)g_scr_data.playerCorpseInfo[bestIndex].entnum < 0x400 )
+    {
+        ent = &level.gentities[g_scr_data.playerCorpseInfo[bestIndex].entnum];
+        G_FreeEntity(ent);
+    }
 
     g_scr_data.playerCorpseInfo[bestIndex].entnum = -1;
 
@@ -96,6 +112,8 @@ void __cdecl PlayerCorpse_Free(gentity_s *ent)
     int playerCorpseIndex; // [esp+0h] [ebp-4h]
 
     playerCorpseIndex = G_GetPlayerCorpseIndex(ent, "PlayerCorpse_Free");
+    if ( playerCorpseIndex < 0 || playerCorpseIndex >= 4 )
+        return;
 
     iassert(g_scr_data.playerCorpseInfo[playerCorpseIndex].entnum == ent->s.number);
 
@@ -150,6 +168,8 @@ void __cdecl G_RunCorpseMove(gentity_s *ent)
         __debugbreak();
     }
     corpseIndex = G_GetPlayerCorpseIndex(ent, "G_RunCorpseMove");
+    if ( corpseIndex < 0 || corpseIndex >= 4 )
+        return;
     //corpseInfo = (corpseInfo_t *)&g_scr_data.actorXAnimTrees[376 * corpseIndex - 1496];
     corpseInfo = &g_scr_data.playerCorpseInfo[corpseIndex];
     haveDelta = G_GetAnimDeltaForCorpse(ent, deltaChange);
@@ -429,6 +449,8 @@ void __cdecl G_RunCorpseAnimate(gentity_s *ent)
     {
         __debugbreak();
     }
+    if ( corpseIndex < 0 || corpseIndex >= 4 )
+        return;
     ServerDObj = Com_GetServerDObj(ent->s.number);
     BG_UpdatePlayerDObj(-1, ServerDObj, &ent->s, &g_scr_data.playerCorpseInfo[corpseIndex].ci, 0);
     if ( Com_GetServerDObj(ent->s.number) )

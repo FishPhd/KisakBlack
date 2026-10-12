@@ -693,7 +693,13 @@ void __cdecl R_RegisterDvars()
                          3.4028235e38,
                          0x80u,
                          "Change the distance at which culling fog reaches 100% opacity; 0 is off");
+#ifdef KISAK_WEB
+    // Browser rendering defaults to clear skies; keep the native toggle so a
+    // developer match can still compare the shipped fog settings.
+    r_fog = _Dvar_RegisterBool("r_fog", 0, 0x80u, "Set to 0 to disable fog");
+#else
     r_fog = _Dvar_RegisterBool("r_fog", 1, 0x80u, "Set to 0 to disable fog");
+#endif
     r_polygonOffsetScale = _Dvar_RegisterFloat(
                                                      "r_polygonOffsetScale",
                                                      -1.0,
@@ -716,21 +722,22 @@ void __cdecl R_RegisterDvars()
     r_picmip = _Dvar_RegisterInt(
                              "r_picmip",
                              0,
-                             0,
+                             -1, // -1 is written by options_graphics_set.cfg; Image_PicmipForSemantic treats it as 0
+
                              3,
                              1u,
                              "Picmip level of color maps.    If r_picmip_manual is 0, this is read-only.");
     r_picmip_bump = _Dvar_RegisterInt(
                                         "r_picmip_bump",
                                         0,
-                                        0,
+                                        -1,
                                         3,
                                         1u,
                                         "Picmip level of normal maps.    If r_picmip_manual is 0, this is read-only.");
     r_picmip_spec = _Dvar_RegisterInt(
                                         "r_picmip_spec",
                                         0,
-                                        0,
+                                        -1,
                                         3,
                                         1u,
                                         "Picmip level of specular maps.    If r_picmip_manual is 0, this is read-only.");

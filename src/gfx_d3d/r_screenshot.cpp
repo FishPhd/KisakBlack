@@ -7,7 +7,7 @@
 #include "r_dvars.h"
 #include "rb_logfile.h"
 #include "r_utils.h"
-#include <d3dx9.h>
+#include "r_d3dx_compat.h" // <d3dx9.h>, or local replacements when KISAK_NO_D3DX
 #include <universal/com_files.h>
 #include <qcommon/cmd.h>
 #include "rb_resource.h"
@@ -406,6 +406,83 @@ LABEL_12:
     }
 }
 
+// Writes the A8R8G8B8 'surface' (cropped to 'rect') as JPG or TGA.
+// With D3DX available this is D3DXSaveSurfaceToFileA; otherwise (KISAK_NO_D3DX) the engine's own
+// libjpeg wrapper (R_SaveJpg) and a plain uncompressed 24-bit TGA writer are used.
+static void R_SaveScreenshotSurface(
+    const char *filename,
+    const char *ospath,
+    int format,
+    IDirect3DSurface9 *surface,
+    const RECT *rect)
+{
+#ifndef KISAK_NO_D3DX
+    D3DXSaveSurfaceToFileA(ospath, (D3DXIMAGE_FILEFORMAT)format, surface, 0, rect);
+#else
+    if ( format != D3DXIFF_JPG && format != D3DXIFF_TGA )
+        return;
+
+    const int w = rect->right - rect->left;
+    const int h = rect->bottom - rect->top;
+    if ( w <= 0 || h <= 0 )
+        return;
+
+    D3DLOCKED_RECT locked;
+    if ( FAILED(surface->LockRect(&locked, rect, D3DLOCK_READONLY)) )
+    {
+        Com_PrintError(8, "ERROR: cannot take screenshot: couldn't lock the surface\n");
+        return;
+    }
+
+    // Surface is D3DFMT_A8R8G8B8 (bytes: B G R A). JPG wants R G B, TGA wants B G R.
+    unsigned __int8 *rgb = (unsigned __int8 *)malloc((size_t)w * h * 3);
+    if ( rgb )
+    {
+        const bool wantRGB = (format == D3DXIFF_JPG);
+        for ( int y = 0; y < h; ++y )
+        {
+            const unsigned __int8 *src = (const unsigned __int8 *)locked.pBits + (size_t)y * locked.Pitch;
+            unsigned __int8 *dst = rgb + (size_t)y * w * 3;
+            for ( int x = 0; x < w; ++x )
+            {
+                dst[0] = wantRGB ? src[2] : src[0];
+                dst[1] = src[1];
+                dst[2] = wantRGB ? src[0] : src[2];
+                src += 4;
+                dst += 3;
+            }
+        }
+    }
+    surface->UnlockRect();
+    if ( !rgb )
+        return;
+
+    if ( format == D3DXIFF_JPG )
+    {
+        R_SaveJpg((char *)filename, 90, w, h, rgb, NULL);
+    }
+    else
+    {
+        FILE *f = fopen(ospath, "wb");
+        if ( f )
+        {
+            unsigned __int8 header[18] = {};
+            header[2] = 2;                    // uncompressed true-colour
+            header[12] = (unsigned __int8)(w & 0xFF);
+            header[13] = (unsigned __int8)((w >> 8) & 0xFF);
+            header[14] = (unsigned __int8)(h & 0xFF);
+            header[15] = (unsigned __int8)((h >> 8) & 0xFF);
+            header[16] = 24;                  // bits per pixel
+            header[17] = 0x20;                // top-left origin
+            fwrite(header, 1, sizeof(header), f);
+            fwrite(rgb, 1, (size_t)w * h * 3, f);
+            fclose(f);
+        }
+    }
+    free(rgb);
+#endif
+}
+
 void __cdecl R_TakeScreenshotJpgCallback(char *param)
 {
     R_TakeScreenshot(param, D3DXIFF_JPG);
@@ -507,7 +584,7 @@ LABEL_12:
     sourceRect.bottom = height + pt.y;
     FS_BuildOSPath(fs_gamedir, 0, filename, ospath);
     if ( !FS_CreatePath(ospath) )
-        D3DXSaveSurfaceToFileA(ospath, (D3DXIMAGE_FILEFORMAT)format, surface, 0, &sourceRect);
+        R_SaveScreenshotSurface(filename, ospath, format, surface, &sourceRect);
     do
     {
         if ( r_logFile && r_logFile->current.integer )
@@ -1562,14 +1639,14 @@ void __cdecl R_GetDirForCubemapPixel(int faceIndex, float x, float y, float *dir
 //                const float *baseColor,
 //                unsigned __int8 *pixel)
 //{
-//    long double v6; // [esp+Ch] [ebp-88h]
-//    long double v7; // [esp+Ch] [ebp-88h]
-//    long double v8; // [esp+Ch] [ebp-88h]
+//    double v6; // [esp+Ch] [ebp-88h]
+//    double v7; // [esp+Ch] [ebp-88h]
+//    double v8; // [esp+Ch] [ebp-88h]
 //    float v9; // [esp+Ch] [ebp-88h]
 //    float v10; // [esp+10h] [ebp-84h]
-//    long double v11; // [esp+14h] [ebp-80h]
-//    long double v12; // [esp+14h] [ebp-80h]
-//    long double v13; // [esp+14h] [ebp-80h]
+//    double v11; // [esp+14h] [ebp-80h]
+//    double v12; // [esp+14h] [ebp-80h]
+//    double v13; // [esp+14h] [ebp-80h]
 //    float v14; // [esp+14h] [ebp-80h]
 //    float *v15; // [esp+64h] [ebp-30h]
 //    int faceIndex; // [esp+68h] [ebp-2Ch]
@@ -1724,12 +1801,12 @@ void __cdecl R_CubemapLightingForDir(
 //    double v4; // xmm0_8
 //    double v5; // xmm0_8
 //    double v6; // xmm0_8
-//    long double v7; // [esp+0h] [ebp-28h]
-//    long double v8; // [esp+0h] [ebp-28h]
-//    long double v9; // [esp+0h] [ebp-28h]
-//    long double v10; // [esp+8h] [ebp-20h]
-//    long double v11; // [esp+8h] [ebp-20h]
-//    long double v12; // [esp+8h] [ebp-20h]
+//    double v7; // [esp+0h] [ebp-28h]
+//    double v8; // [esp+0h] [ebp-28h]
+//    double v9; // [esp+0h] [ebp-28h]
+//    double v10; // [esp+8h] [ebp-20h]
+//    double v11; // [esp+8h] [ebp-20h]
+//    double v12; // [esp+8h] [ebp-20h]
 //    int faceIndex; // [esp+18h] [ebp-10h]
 //    int x; // [esp+1Ch] [ebp-Ch]
 //    int y; // [esp+20h] [ebp-8h]

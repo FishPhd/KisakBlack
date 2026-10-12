@@ -4,6 +4,7 @@
 #include <universal/com_files.h>
 #include <qcommon/common.h>
 #include <universal/com_stringtable.h>
+#include <algorithm>
 
 char *ui_arenaInfos[128];
 int ui_numArenas;
@@ -386,6 +387,8 @@ void __cdecl UI_LoadMaps()
     char index[4]; // [esp+30h] [ebp-Ch] BYREF
     int mapPackCount; // [esp+34h] [ebp-8h]
     int count; // [esp+38h] [ebp-4h]
+    int onlyInstalled;
+    int installedCount;
 
     I_strncpyz(tableName, "mp/mapsTable.csv", 18);
     StringTable_GetAsset(tableName, &table);
@@ -405,10 +408,36 @@ void __cdecl UI_LoadMaps()
         v2 = StringTable_Lookup(table.stringTable, 1, packIndex, 0);
         I_strncpyz(sharedUiInfo.contentPackList[i].mapPackName, v2, 16);
     }
+    // Offline build: only list maps whose fastfile is actually installed (this also drops DLC maps that were not
+    // shipped). If nothing at all passes the check (unusual install layout) fall back to the full table so the
+    // map feeders are never empty.
+    onlyInstalled = (useFastFile && useFastFile->current.enabled) ? 1 : 0;
+    if (onlyInstalled)
+    {
+        installedCount = 0;
+        for (j = 0; j < sharedUiInfo.mapCount; ++j)
+        {
+            Com_sprintf(index, 4u, "%i", j);
+            v3 = StringTable_Lookup(table.stringTable, 5, index, 0);
+            if (v3 && *v3 && DB_FileExists(v3, FFD_DEFAULT))
+                ++installedCount;
+        }
+        if (!installedCount)
+        {
+            Com_PrintWarning(13, "UI_LoadMaps: no map fastfiles found, listing every map in mapsTable.csv\n");
+            onlyInstalled = 0;
+        }
+    }
     count = 0;
     for (j = 0; j < sharedUiInfo.mapCount; ++j)
     {
         Com_sprintf(index, 4u, "%i", j);
+        if (onlyInstalled)
+        {
+            v3 = StringTable_Lookup(table.stringTable, 5, index, 0);
+            if (!v3 || !*v3 || !DB_FileExists(v3, FFD_DEFAULT))
+                continue;
+        }
         dlcMapPackIndex = StringTable_Lookup(table.stringTable, 5, index, 11);
         mapPackIndex = atoi(dlcMapPackIndex);
         v3 = StringTable_Lookup(table.stringTable, 5, index, 0);
@@ -418,6 +447,8 @@ void __cdecl UI_LoadMaps()
         v5 = StringTable_Lookup(table.stringTable, 1, dlcMapPackIndex, 0);
         I_strncpyz(sharedUiInfo.mapList[count].mapPackType, v5, 16);
         sharedUiInfo.mapList[count].mapPackTypeIndex = mapPackIndex;
+        // Every listed map is valid for every game type, so the by-gametype feeder (UI_MapCountByGameType) sees them.
+        sharedUiInfo.mapList[count].typeBits = -1;
         Com_sprintf(sharedUiInfo.mapList[count].mapNameCaps, 0x20u, "%s%s", sharedUiInfo.mapList[count].mapName, "_CAPS");
         v6 = StringTable_Lookup(table.stringTable, 5, index, 10);
         if (I_strcmp(v6, "YES"))
@@ -428,6 +459,12 @@ void __cdecl UI_LoadMaps()
     }
     sharedUiInfo.mapCount = count;
     Dvar_SetIntByName("ui_mapCount", count);
+
+    // The map list was compacted, so map indices saved in the config (archived dvars) may now be out of range.
+    if (Dvar_FindVar("ui_currentNetMap") && (Dvar_GetInt("ui_currentNetMap") < 0 || Dvar_GetInt("ui_currentNetMap") >= count))
+        Dvar_SetIntByName("ui_currentNetMap", 0);
+    if (Dvar_FindVar("ui_currentMap") && (Dvar_GetInt("ui_currentMap") < 0 || Dvar_GetInt("ui_currentMap") >= count))
+        Dvar_SetIntByName("ui_currentMap", 0);
 }
 
 void __cdecl UI_LoadCustomMatchGameTypes()
@@ -450,7 +487,7 @@ void __cdecl UI_LoadCustomMatchGameTypes()
         __debugbreak();
     }
     v0 = StringTable_Lookup(table, 0, "maxnum_gametype", 1);
-    sharedUiInfo.numCustomMatchGameTypes = atoi(v0);
+    sharedUiInfo.numCustomMatchGameTypes = std::max(0, std::min(32, atoi(v0)));
     for ( i = 0; i < sharedUiInfo.numCustomMatchGameTypes; ++i )
     {
         Com_sprintf(index, 4u, "%i", i);
@@ -469,5 +506,20 @@ void __cdecl UI_LoadCustomMatchGameTypes()
         else
             sharedUiInfo.customMatchGameTypes[i].basictraining = 1;
     }
+#ifndef KISAK_LIVE_STUBS
+    const char *modes[] = {"oic", "hlnd", "gun", "shrp"};
+    const char *names[] = {"One in the Chamber", "Sticks and Stones", "Gun Game", "Sharpshooter"};
+    for (int mode = 0; mode < 4; ++mode)
+    {
+        bool found = false;
+        for (int type = 0; type < sharedUiInfo.numCustomMatchGameTypes; ++type)
+            found |= !I_stricmp(sharedUiInfo.customMatchGameTypes[type].gameType, modes[mode]);
+        if (found || sharedUiInfo.numCustomMatchGameTypes >= 32) continue;
+        gameTypeInfo &type = sharedUiInfo.customMatchGameTypes[sharedUiInfo.numCustomMatchGameTypes++];
+        memset(&type, 0, sizeof(type));
+        I_strncpyz(type.gameType, modes[mode], sizeof(type.gameType));
+        I_strncpyz(type.gameTypeName, names[mode], sizeof(type.gameTypeName));
+    }
+#endif
 }
 

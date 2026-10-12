@@ -1,0 +1,72 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "desktop",
+      "displayName": "Desktop (MSVC x86, D3D9) Debug",
+      "description": "Run from an x86 developer prompt (vcvarsamd64_x86.bat). Matches the existing build/ cache.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "KISAK_PLATFORM": "Desktop",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "desktop-release",
+      "displayName": "Desktop (MSVC x86, D3D9) Release",
+      "inherits": "desktop",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "web",
+      "displayName": "Web (Emscripten wasm32) Release",
+      "description": "Needs EMSDK set (tools/web/setup_emsdk.ps1 or .sh).",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-web",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "KISAK_PLATFORM": "Web",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "web-debug",
+      "displayName": "Web (Emscripten wasm32) Debug",
+      "inherits": "web",
+      "binaryDir": "${sourceDir}/build-web-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "web-m64",
+      "displayName": "Web Memory64 comparison (separate build-web-m64)",
+      "description": "wasm64, heap may grow to 16GB. Does not replace the wasm32 build-web client. Fastfile layout checks reject this until pointers stay 32-bit.",
+      "inherits": "web",
+      "binaryDir": "${sourceDir}/build-web-m64",
+      "cacheVariables": {
+        "KISAK_WEB_MEMORY64": "ON"
+      }
+    },
+    {
+      "name": "web-check",
+      "displayName": "Web quick compile check (-O0, no -g/-flto)",
+      "inherits": "web",
+      "binaryDir": "${sourceDir}/build-web-check",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "KISAK_WEB_FAST_COMPILE": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "desktop", "configurePreset": "desktop" },
+    { "name": "desktop-release", "configurePreset": "desktop-release" },
+    { "name": "web", "configurePreset": "web" },
+    { "name": "web-debug", "configurePreset": "web-debug" },
+    { "name": "web-m64", "configurePreset": "web-m64" },
+    { "name": "web-check", "configurePreset": "web-check" }
+  ]
+}

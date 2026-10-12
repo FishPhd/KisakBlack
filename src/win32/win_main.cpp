@@ -1,5 +1,6 @@
 #include "win_main.h"
 #include "win_net.h"
+#include <server_mp/sv_main_mp.h>
 #include <game_mp/g_main_mp.h>
 #include <sound/snd_driver_xaudio2.h>
 #include "win_localize.h"
@@ -30,8 +31,6 @@
 #include <qcommon/tl_support.h>
 #include "win_configure.h"
 #include <direct.h>
-#include "win_steam.h"
-
 const dvar_t *sys_configureGHz;
 const dvar_t *sys_sysMB;
 const dvar_t *sys_gpu;
@@ -903,10 +902,6 @@ int __stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, char *
                 __debugbreak();
             }
 
-            // LWSS ADD: Steam Init
-            Steam_Init();
-            // LWSS END
-
             Com_Init(sys_cmdline);
 
             if (!IsDedicatedServer())
@@ -922,7 +917,18 @@ int __stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, char *
             {
                 // if not running as a game client, sleep a bit
 #ifdef KISAK_MP
-                if (g_wv.isMinimized || IsDedicatedServer())
+                if (IsDedicatedServer())
+                {
+                    // Sleep until a packet arrives or the next server tick is due, whichever is first. The
+                    // fixed Sleep(5) quantized ticks to 5 ms and delayed every incoming packet by up to 5 ms.
+                    // Capped at 5 ms so console and event polling keep their old worst-case latency.
+                    const int msecUntilTick = SV_GetMsecUntilNextFrame();
+                    unsigned int idleMsec = 5;
+                    if (msecUntilTick >= 0 && msecUntilTick < 5)
+                        idleMsec = msecUntilTick > 0 ? msecUntilTick : 1;
+                    NET_SleepUntilPacket(idleMsec);
+                }
+                else if (g_wv.isMinimized)
 #elif KISAK_SP
                 if (g_wv.isMinimized)
 #endif

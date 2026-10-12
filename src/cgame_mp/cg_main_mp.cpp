@@ -3512,9 +3512,9 @@ void __cdecl CG_CreateDObj(
     ent = CG_GetEntity(localClientNum, handle);
     if ( ent && ent->pose.isRagdoll )
     {
-        if ( ent->pose.killcamRagdollHandle > 0 )
+        if ( ent->pose.killcamRagdollHandle != 0 )
             Ragdoll_RebindBody(ent->pose.killcamRagdollHandle);
-        if ( ent->pose.ragdollHandle > 0 )
+        if ( ent->pose.ragdollHandle != 0 )
             Ragdoll_RebindBody(ent->pose.ragdollHandle);
     }
     v6 = cg_entityOriginArray[localClientNum][ci->clientNum];
@@ -3710,7 +3710,7 @@ void __cdecl CG_Shutdown(int localClientNum)
     for ( entnum = 0; entnum < 1024; ++entnum )
     {
         cent = CG_GetEntity(localClientNum, entnum);
-        if ( cent->pose.ragdollHandle > 0 )
+        if ( cent->pose.ragdollHandle != 0 )
         {
             Ragdoll_Remove(cent->pose.ragdollHandle);
             cent->pose.ragdollHandle = 0;

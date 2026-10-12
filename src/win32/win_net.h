@@ -19,6 +19,8 @@ struct msg_t;
 
 
 void __cdecl NET_Sleep(unsigned int msec);
+// Sleeps for at most msec, returning as soon as a datagram is waiting on the game socket.
+void __cdecl NET_SleepUntilPacket(unsigned int msec);
 const char *__cdecl NET_ErrorString();
 int __cdecl Sys_StringToSockaddr(const char *s, sockaddr *sadr);
 void __cdecl SockadrToNetadr(sockaddr *s, netadr_t *a);

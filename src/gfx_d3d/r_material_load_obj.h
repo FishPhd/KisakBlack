@@ -3,7 +3,7 @@
 #include "r_material.h"
 
 struct _D3DXSHADER_CONSTANTTABLE;
-class ID3DXBuffer;
+struct ID3DXBuffer;
 struct _D3DXSEMANTIC;
 
 enum MtlParseSuccess : __int32

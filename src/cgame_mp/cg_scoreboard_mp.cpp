@@ -116,27 +116,25 @@ void __cdecl CG_UpdateMatchScoreboard(int localClientNum)
             break;
         if (cgameGlob->bgs.clientinfo[clientNum].infoValid)
         {
-            matchScoreBoardData[localClientNum].matchClientScoreData[i].clientNum = clientNum;
-            v1 = localClientNum;
-            v2 = i;
-            LODWORD(matchScoreBoardData[v1].matchClientScoreData[v2].xuid) = cgameGlob->bgs.clientinfo[clientNum].xuid;
-            HIDWORD(matchScoreBoardData[v1].matchClientScoreData[v2].xuid) = HIDWORD(cgameGlob->bgs.clientinfo[clientNum].xuid);
-            matchScoreBoardData[localClientNum].matchClientScoreData[i].rank = cgameGlob->bgs.clientinfo[clientNum].rank;
-            matchScoreBoardData[localClientNum].matchClientScoreData[i].hRankIcon = cgameGlob->bgs.clientinfo[clientNum].hRankIcon;
+            const int rowIndex = matchScoreBoardData[localClientNum].numClients;
+            matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].clientNum = clientNum;
+            matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].xuid = cgameGlob->bgs.clientinfo[clientNum].xuid;
+            matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].rank = cgameGlob->bgs.clientinfo[clientNum].rank;
+            matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].hRankIcon = cgameGlob->bgs.clientinfo[clientNum].hRankIcon;
             memcpy(
-                &matchScoreBoardData[localClientNum].matchClientScoreData[i].score,
+                &matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].score,
                 &cgameGlob->bgs.clientinfo[clientNum].score,
-                sizeof(matchScoreBoardData[localClientNum].matchClientScoreData[i].score));
-            matchScoreBoardData[localClientNum].matchClientScoreData[i].team = cgameGlob->bgs.clientinfo[clientNum].team;
+                sizeof(matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].score));
+            matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].team = cgameGlob->bgs.clientinfo[clientNum].team;
             I_strncpyz(
-                matchScoreBoardData[localClientNum].matchClientScoreData[i].name,
+                matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].name,
                 cgameGlob->bgs.clientinfo[clientNum].name,
                 32);
             I_strncpyz(
-                matchScoreBoardData[localClientNum].matchClientScoreData[i].clanAbbrev,
+                matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].clanAbbrev,
                 cgameGlob->bgs.clientinfo[clientNum].clanAbbrev,
                 8);
-            if (matchScoreBoardData[localClientNum].matchClientScoreData[i].team == TEAM_ALLIES)
+            if (matchScoreBoardData[localClientNum].matchClientScoreData[rowIndex].team == TEAM_ALLIES)
                 ++matchScoreBoardData[localClientNum].numAllies;
             ++matchScoreBoardData[localClientNum].numClients;
         }
@@ -652,6 +650,7 @@ int __cdecl CG_GetIndexIntoMatchScoreboard(int localClientNum, int controllerInd
 {
     int i; // [esp+18h] [ebp-4h]
 
+    if (!matchScoreBoardData[localClientNum].numClients) return -1;
     for (i = 0; i < matchScoreBoardData[localClientNum].numClients; ++i)
     {
         if (__PAIR64__(

@@ -1000,9 +1000,11 @@ double __cdecl CG_GetVehicleCrossHairAlpha(int localClientNum)
             angleDiff_4 = (float)vehicle->currentState.u.vehicle.gunYaw * 0.0054931641;
             angleDiff = (float)vehicle->currentState.u.vehicle.gunPitch * 0.0054931641;
         }
-        if ( (float)(angleDiff_4 + s_arcEpsilon) < weapDef->leftArc
+        // NOTE: the "&&" before the negated rightArc was lost in decompilation, so this parses as
+        // ((a < left - right) < b). Parenthesised to keep exactly that behaviour (clang warns on the chain).
+        if ( ((float)(angleDiff_4 + s_arcEpsilon) < weapDef->leftArc
             //&& COERCE_FLOAT(LODWORD(weapDef->rightArc) ^ _mask__NegFloat_) < (float)(angleDiff_4 - s_arcEpsilon) )
-            -(weapDef->rightArc) < (float)(angleDiff_4 - s_arcEpsilon) )
+            -(weapDef->rightArc)) < (float)(angleDiff_4 - s_arcEpsilon) )
         {
             if ( (float)(angleDiff + s_arcEpsilon) < weapDef->bottomArc
                 //&& COERCE_FLOAT(LODWORD(weapDef->topArc) ^ _mask__NegFloat_) < (float)(angleDiff - s_arcEpsilon) )
@@ -1135,7 +1137,7 @@ void __cdecl CG_TransitionToAds(
                 float *transShift)
 {
     double v5; // xmm0_8
-    long double v6; // [esp+8h] [ebp-Ch]
+    double v6; // [esp+8h] [ebp-Ch]
     float f; // [esp+10h] [ebp-4h]
     float fa; // [esp+10h] [ebp-4h]
     float fb; // [esp+10h] [ebp-4h]
@@ -1396,7 +1398,7 @@ void __cdecl CG_CalcReticleSpread(
                 float *spread)
 {
     double v5; // xmm0_8
-    long double v6; // [esp+0h] [ebp-14h]
+    double v6; // [esp+0h] [ebp-14h]
     float maxSpread; // [esp+8h] [ebp-Ch] BYREF
     float f; // [esp+Ch] [ebp-8h] BYREF
     float scale; // [esp+10h] [ebp-4h]

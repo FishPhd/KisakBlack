@@ -19,7 +19,7 @@
 #include "r_state.h"
 #include "r_image.h"
 
-#include <d3dx9.h>
+#include "r_d3dx_compat.h" // <d3dx9.h>, or local replacements when KISAK_NO_D3DX
 
 MaterialTypeInfo g_materialTypeInfo[5] =
 {

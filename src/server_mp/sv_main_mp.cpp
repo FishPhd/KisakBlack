@@ -826,10 +826,6 @@ void __cdecl SV_ConnectionlessPacket(netadr_t from, msg_t *msg)
         SV_HandleDWChallengeResponse(from, msg);
     }
 #endif
-    else if (!I_stricmp(c, "steamauth"))
-    {
-        SV_SteamAuthClient(from, msg);
-    }
     else if (!I_stricmp(c, "rcon"))
     {
         NET_DeferPacketToClient(&from, msg);
@@ -1445,12 +1441,22 @@ int __cdecl SV_Frame(int controllerIndex, int msec)
             SV_WaitServer();
         else
             SV_FrameInternal(controllerIndex, msec);
+        SV_PrivateMatchBotsTick();
         return msec;
     }
     else
     {
         return msec;
     }
+}
+
+int __cdecl SV_GetMsecUntilNextFrame()
+{
+    if ( !com_sv_running || !com_sv_running->current.enabled || !sv_fps || sv_fps->current.integer <= 0 )
+        return -1;
+
+    const int remaining = 1000 / sv_fps->current.integer - sv.timeResidual;
+    return remaining > 0 ? remaining : 0;
 }
 
 void __cdecl SV_FrameInternal(int controllerIndex, int msec)

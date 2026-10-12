@@ -1190,7 +1190,7 @@ void __cdecl HELI_CmdScale(char *move, float *outFracs)
             *outFracs = (float)((float)max / total) * *outFracs;
             outFracs[1] = (float)((float)max / total) * outFracs[1];
         }
-        if ( vehHelicopterStrafeDeadzone->current.value > fabs((unsigned int)outFracs[1]) )
+        if ( vehHelicopterStrafeDeadzone->current.value > fabsf(outFracs[1]) )
             outFracs[1] = 0.0f;
         if ( vehHelicopterScaleMovement->current.enabled )
         {
@@ -1222,10 +1222,10 @@ void __cdecl HELI_CmdScale(char *move, float *outFracs)
                 outFracs[1] = outFracs[1] * (float)(1.0 - (float)(absAxis - absAxis_4));
         }
     }
-    if ( vehHelicopterRightStickDeadzone->current.value > fabs((unsigned int)outFracs[2]) )
+    if ( vehHelicopterRightStickDeadzone->current.value > fabsf(outFracs[2]) )
         outFracs[2] = 0.0f;
     if ( !vehHelicopterAlwaysFaceCamera->current.enabled
-        && vehHelicopterRightStickDeadzone->current.value > fabs((unsigned int)outFracs[3]) )
+        && vehHelicopterRightStickDeadzone->current.value > fabsf(outFracs[3]) )
     {
         outFracs[3] = 0.0f;
     }
@@ -1441,9 +1441,9 @@ double __cdecl Vehicle_AdjustRollForInputDeadZone(float rollPercent)
 
 void __cdecl Vehicle_AddRotate(vehicle_physic_t *phys, float fRoll, float fPitch, float fYaw)
 {
-    long double v4; // st7
-    long double v5; // st7
-    long double v6; // st7
+    double v4; // st7
+    double v5; // st7
+    double v6; // st7
     int n; // [esp+38h] [ebp-8Ch]
     int m; // [esp+3Ch] [ebp-88h]
     int k; // [esp+40h] [ebp-84h]

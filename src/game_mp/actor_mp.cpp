@@ -4752,7 +4752,7 @@ void Path_UpdateMovementDelta(actor_s *self, float fMoveDist)
     // kcod4
     path_t *pPath; // r30
     int iHitEntnum; // r4
-    long double lookAheadLen; // fp2
+    double lookAheadLen; // fp2
     double calculatedLen; // fp12
     int moveHistoryIndex; // r29
     float vWishDir[3];

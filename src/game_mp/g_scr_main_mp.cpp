@@ -163,6 +163,28 @@ void __cdecl GScr_LoadGameTypeScript()
 {
     char filename[68]; // [esp+0h] [ebp-48h] BYREF
 
+    if (zombiemode->current.enabled)
+    {
+        const auto callback = [](const char *label, bool required = true) {
+            return GScr_LoadScriptAndLabel(SCRIPTINSTANCE_SERVER, "maps/_callbacksetup", label, required);
+        };
+        g_scr_data.gametype.main = 0; // The Zombies level's main owns game initialization.
+        g_scr_data.gametype.startupgametype = callback("CodeCallback_StartGameType");
+        g_scr_data.gametype.playerconnect = callback("CodeCallback_PlayerConnect");
+        g_scr_data.gametype.playerdisconnect = callback("CodeCallback_PlayerDisconnect");
+        g_scr_data.gametype.playerdamage = callback("CodeCallback_PlayerDamage");
+        g_scr_data.gametype.playerkilled = callback("CodeCallback_PlayerKilled");
+        g_scr_data.gametype.actordamage = callback("CodeCallback_ActorDamage");
+        g_scr_data.gametype.actorkilled = callback("CodeCallback_ActorKilled");
+        g_scr_data.gametype.vehicledamage = callback("CodeCallback_VehicleDamage");
+        g_scr_data.gametype.vehicleradiusdamage = callback("CodeCallback_VehicleRadiusDamage", false);
+        g_scr_data.gametype.playerlaststand = callback("CodeCallback_PlayerLastStand");
+        g_scr_data.levelnotify = callback("CodeCallback_LevelNotify");
+        g_scr_data.faceeventnotify = callback("CodeCallback_FaceEventNotify", false);
+        g_scr_data.glassSmash = callback("CodeCallback_GlassSmash", false);
+        return;
+    }
+
     Com_sprintf(filename, 0x40u, "maps/mp/gametypes/%s", g_gametype->current.string);
     g_scr_data.gametype.main = GScr_LoadScriptAndLabel(SCRIPTINSTANCE_SERVER, filename, "main", 1);
     g_scr_data.gametype.startupgametype = GScr_LoadScriptAndLabel(
@@ -250,6 +272,22 @@ int __cdecl GScr_LoadScriptAndLabel(scriptInstance_t inst, const char *filename,
     return func;
 }
 
+void GScr_DumpLoadedScripts()
+{
+    const dvar_t *dumpScripts = _Dvar_RegisterBool("web_dumpScripts", false, 0, "Export loaded scripts for local runtime integration diagnostics");
+    if (dumpScripts->current.enabled)
+    {
+        DB_EnumXAssets_FastFile(ASSET_TYPE_RAWFILE, [](XAssetHeader header, void *) {
+            const RawFile *file = header.rawfile;
+            if (!file || !file->name || !file->buffer || file->len <= 0) return;
+            if (strstr(file->name, "..") || strchr(file->name, ':') || file->name[0] == '/') return;
+            char path[256];
+            Com_sprintf(path, sizeof(path), "web_scripts/%s", file->name);
+            FS_WriteFile(path, (char *)file->buffer, file->len);
+        }, nullptr, false);
+    }
+}
+
 void __cdecl    GScr_LoadScripts(scriptInstance_t inst)
 {
     Scr_BeginLoadScripts(inst, 1);
@@ -260,18 +298,18 @@ void __cdecl    GScr_LoadScripts(scriptInstance_t inst)
     g_scr_data.findstruct = GScr_LoadScriptAndLabel(inst, "codescripts/struct", "findstruct", 1);
     g_scr_data.destructible_callback = GScr_LoadScriptAndLabel(
         inst,
-        "maps/mp/_destructible",
+        zombiemode->current.enabled ? "maps/_destructible" : "maps/mp/_destructible",
         "CodeCallback_DestructibleEvent",
         1);
-    g_scr_data.updatespawnpoints = GScr_LoadScriptAndLabel(
+    g_scr_data.updatespawnpoints = zombiemode->current.enabled ? 0 : GScr_LoadScriptAndLabel(
         inst,
         "maps/mp/gametypes/_spawning",
         "CodeCallback_UpdateSpawnPoints",
         1);
-    GScr_LoadDogAnimScripts(inst);
+    if (!zombiemode->current.enabled) GScr_LoadDogAnimScripts(inst);
 
     GScr_SetScriptsForPathNodes();
-    GScr_LoadPreGameScript();
+    if (!zombiemode->current.enabled) GScr_LoadPreGameScript();
     GScr_LoadGameTypeScript();
     GScr_LoadLevelScript();
     Scr_PostCompileScripts(inst);
@@ -396,7 +434,7 @@ int GScr_LoadLevelScript()
     const dvar_s *mapname; // [esp+44h] [ebp-4h]
 
     mapname = _Dvar_RegisterString("mapname", (char *)"", 0x44u, "The current map name");
-    Com_sprintf(filename, 0x40u, "maps/mp/%s", mapname->current.string);
+    Com_sprintf(filename, 0x40u, zombiemode->current.enabled ? "maps/%s" : "maps/mp/%s", mapname->current.string);
     result = GScr_LoadScriptAndLabel(SCRIPTINSTANCE_SERVER, filename, "main", 0);
     g_scr_data.levelscript = result;
     return result;
@@ -1313,6 +1351,16 @@ void GScr_GetDvarInt()
         VariantString = SV_Archived_Dvar_GetVariantString(dvarName);
     }
     dvarValue = atoi(VariantString);
+#ifdef KISAK_WEB
+    // Private rooms use the shipped ranked progression rules, while the UI
+    // remains a private lobby. Limit this compatibility view to server scripts.
+    const dvar_t *requested = Scr_GetType(0, SCRIPTINSTANCE_SERVER) == 6
+        ? Dvar_FindVar(Scr_GetInt(0, SCRIPTINSTANCE_SERVER))
+        : Dvar_FindVar(Scr_GetString(0, SCRIPTINSTANCE_SERVER));
+    if (requested && !I_stricmp(requested->name, "xblive_privatematch")
+        && Dvar_GetBool("onlinegame") && !Dvar_GetBool("xblive_basictraining") && !Dvar_GetBool("xblive_theater"))
+        dvarValue = 0;
+#endif
     Scr_AddInt(dvarValue, SCRIPTINSTANCE_SERVER);
 }
 
@@ -3068,7 +3116,25 @@ void __cdecl ScrCmd_IsTouching(scr_entref_t entref)
 // LWSS ADD
 void ScrCmd_IsTouchingVolume(scr_entref_t entref)
 {
-    iassert(0); // KISAKTODO :)
+    // ent IsTouchingVolume( origin, mins, maxs ) -> bool: does this entity touch the box origin+mins .. origin+maxs
+    float origin[3];
+    float mins[3];
+    float maxs[3];
+    float vMins[3];
+    float vMaxs[3];
+    gentity_s *pEnt = GetEntity(entref);
+
+    Scr_GetVector(0, origin, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(1u, mins, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(2u, maxs, SCRIPTINSTANCE_SERVER);
+
+    for (int i = 0; i < 3; ++i)
+    {
+        vMins[i] = origin[i] + mins[i];
+        vMaxs[i] = origin[i] + maxs[i];
+    }
+
+    Scr_AddInt(SV_EntityContact(vMins, vMaxs, pEnt), SCRIPTINSTANCE_SERVER);
 }
 // LWSS END
 
@@ -3226,6 +3292,19 @@ void __cdecl ScrCmd_PlaySound(scr_entref_t entref)
     AliasId = SND_FindAliasId(String);
     Entity = GetEntity(entref);
     G_PlaySoundAlias(Entity, AliasId, 0, 0);
+}
+
+static void ScrCmd_StopSound(scr_entref_t entref)
+{
+    if (Scr_GetNumParam(SCRIPTINSTANCE_SERVER) != 1)
+        Scr_Error("stopsound requires one sound alias", 0);
+    gentity_s *ent = GetEntity(entref);
+    const unsigned int alias = SND_FindAliasId(Scr_GetString(0, SCRIPTINSTANCE_SERVER));
+    if (!alias) return;
+    gentity_s *event = G_TempEntity(ent->r.currentOrigin, EV_STOP_SOUND_ALIAS);
+    event->r.svFlags |= 8u;
+    event->s.loopSoundId = alias;
+    event->s.otherEntityNum = ent->s.number;
 }
 
 void __cdecl ScrCmd_PlaySoundOnTag(scr_entref_t entref)
@@ -5667,6 +5746,7 @@ void GScr_AddDemoBookmark()
 void __cdecl Scr_UpdateSpawnPoints()
 {
     unsigned __int16 callback; // [esp+0h] [ebp-4h]
+    if (zombiemode->current.enabled && !g_scr_data.updatespawnpoints) return;
 
     callback = Scr_ExecThread(SCRIPTINSTANCE_SERVER, g_scr_data.updatespawnpoints, 0);
     Scr_FreeThread(callback, SCRIPTINSTANCE_SERVER);
@@ -6603,7 +6683,8 @@ $LN11_33:
 // LWSS ADD
 void Scr_PlayerBulletTrace()
 {
-    iassert(0); // KISAKTODO :)
+    // Not referenced by any shipped script; behave like BulletTrace(start, end, hitCharacters, ignoreEnt).
+    Scr_BulletTrace();
 }
 // LWSS END
 
@@ -6689,7 +6770,7 @@ void GScr_log()
 {
 #if 0
     double value; // xmm0_8
-    long double v1; // [esp+4h] [ebp-8h]
+    double v1; // [esp+4h] [ebp-8h]
     scriptInstance_t v2; // [esp+4h] [ebp-8h]
 
     *((float *)&v1 + 1) = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER);
@@ -6709,7 +6790,7 @@ void GScr_sin()
 {
 #if 0
     double value; // xmm0_8
-    long double v1; // [esp+4h] [ebp-8h]
+    double v1; // [esp+4h] [ebp-8h]
     scriptInstance_t v2; // [esp+4h] [ebp-8h]
 
     *((float *)&v1 + 1) = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER) * 0.017453292;
@@ -6729,7 +6810,7 @@ void GScr_cos()
 {
 #if 0
     double value; // xmm0_8
-    long double v1; // [esp+4h] [ebp-8h]
+    double v1; // [esp+4h] [ebp-8h]
     scriptInstance_t v2; // [esp+4h] [ebp-8h]
 
     *((float *)&v1 + 1) = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER) * 0.017453292;
@@ -6764,7 +6845,7 @@ void GScr_asin()
 #if 0
     const char *v0; // eax
     double v1; // xmm0_8
-    long double v2; // [esp+8h] [ebp-8h]
+    double v2; // [esp+8h] [ebp-8h]
     scriptInstance_t v3; // [esp+8h] [ebp-8h]
 
     *((float *)&v2 + 1) = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER);
@@ -6790,7 +6871,7 @@ void GScr_acos()
 #if 0
     const char *v0; // eax
     double v1; // xmm0_8
-    long double v2; // [esp+8h] [ebp-8h]
+    double v2; // [esp+8h] [ebp-8h]
     scriptInstance_t v3; // [esp+8h] [ebp-8h]
 
     *((float *)&v2 + 1) = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER);
@@ -6814,7 +6895,7 @@ void GScr_atan()
 {
 #if 0
     double v0; // xmm0_8
-    long double v1; // [esp+4h] [ebp-8h]
+    double v1; // [esp+4h] [ebp-8h]
     scriptInstance_t v2; // [esp+4h] [ebp-8h]
 
     *((float *)&v1 + 1) = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER);
@@ -8260,7 +8341,7 @@ void __cdecl GScr_DamageConeTraceInternal(scr_entref_t entref, int contentMask)
 {
     double v2; // xmm0_8
     unsigned int NumParam; // eax
-    long double v4; // [esp+Ch] [ebp-38h]
+    double v4; // [esp+Ch] [ebp-38h]
     float v5; // [esp+Ch] [ebp-38h]
     gentity_s *Entity; // [esp+14h] [ebp-30h]
     float damageAngles[3]; // [esp+18h] [ebp-2Ch] BYREF
@@ -11229,6 +11310,13 @@ void Scr_IsGlobalStatsServer()
 {
     int LicenseType; // eax
 
+#ifdef KISAK_WEB
+    if (Dvar_GetBool("onlinegame") && !Dvar_GetBool("xblive_basictraining") && !Dvar_GetBool("xblive_theater"))
+    {
+        Scr_AddInt(1, SCRIPTINSTANCE_SERVER);
+        return;
+    }
+#endif
     LicenseType = SV_GetLicenseType();
     if ( SV_IsServerRanked(LicenseType) )
         Scr_AddInt(1, SCRIPTINSTANCE_SERVER);
@@ -11533,7 +11621,11 @@ void __cdecl GScr_GetLoadoutItemFromProfile(scr_entref_t entref)
 
 void __cdecl GScr_GetDStat(scr_entref_t entref)
 {
-#ifdef KISAK_LIVE
+// KISAK_STATS = server-side DDL stats path is active (see server/server.h). Without it getdstat can only
+// error out, which kills the calling script thread (class loadouts, persistence...).
+// Offline builds: the server fills client stats from the local stats files (LiveOffline_FillServerClientStats),
+// so the DDL stats path is active in every configuration.
+#if defined(KISAK_LIVE) || defined(KISAK_STATS) || 1
     char *String; // eax
     char *v2; // eax
     const char *v3; // eax
@@ -11609,7 +11701,7 @@ void __cdecl GScr_GetDStat(scr_entref_t entref)
                 Scr_AddInt(ClientDIntStat, SCRIPTINSTANCE_SERVER);
                 break;
             case 3:
-                LODWORD(v7) = SV_GetClientDInt64Stat(playerEnt->s.number, &searchState);
+                v7 = (unsigned int)SV_GetClientDInt64Stat(playerEnt->s.number, &searchState);
                 v8 = va("%llu", v7);
                 Scr_AddString(v8, SCRIPTINSTANCE_SERVER);
                 break;
@@ -11629,7 +11721,8 @@ void __cdecl GScr_GetDStat(scr_entref_t entref)
         Scr_AddInt(0, SCRIPTINSTANCE_SERVER);
     }
 #else
-    Scr_Error("Stats not implemented in Kisak Black.", 0);
+    // Server-side DDL stats are not active in this build. Do NOT Scr_Error here: that terminates the script thread
+    // (e.g. giveLoadout) and breaks spawning. Return 0 so scripts fall through to their defaults.
     Scr_AddInt(0, SCRIPTINSTANCE_SERVER);
 #endif
 }
@@ -13201,8 +13294,8 @@ void __cdecl GScr_GetLightFovOuter(scr_entref_t entref)
 void __cdecl GScr_SetLightFovRange(scr_entref_t entref)
 {
     const char *v1; // eax
-    long double v2; // [esp+10h] [ebp-3Ch]
-    long double v3; // [esp+10h] [ebp-3Ch]
+    double v2; // [esp+10h] [ebp-3Ch]
+    double v3; // [esp+10h] [ebp-3Ch]
     float v4; // [esp+10h] [ebp-3Ch]
     float v5; // [esp+14h] [ebp-38h]
     float v6; // [esp+18h] [ebp-34h]
@@ -13635,7 +13728,13 @@ void __cdecl GScr_GetCorpseAnim(scr_entref_t entref)
     ent = GetEntity(entref);
     if ( ent->s.eType == 2 )
     {
-        corpseInfo = &g_scr_data.playerCorpseInfo[G_GetPlayerCorpseIndex(ent, "GScr_GetCorpseAnim")];
+        int corpseIndex = G_GetPlayerCorpseIndex(ent, "GScr_GetCorpseAnim");
+        if ( corpseIndex < 0 || corpseIndex >= 4 )
+        {
+            Scr_Error("Only valid on player corpses", 0);
+            return;
+        }
+        corpseInfo = &g_scr_data.playerCorpseInfo[corpseIndex];
         anim.index = ent->s.animState.state & 0xFBFF;
         treeAnims = XAnimGetAnims(corpseInfo->tree);
         anim.tree = Scr_GetAnimsIndex(treeAnims, SCRIPTINSTANCE_SERVER);
@@ -16425,6 +16524,20 @@ void __cdecl GScr_SetAnim(scr_entref_t entref)
     GScr_SetAnimInternal(entref, 1);
 }
 
+static void GScr_SetAnimTime(scr_entref_t entref)
+{
+    if (Scr_GetNumParam(SCRIPTINSTANCE_SERVER) != 2)
+        Scr_Error("setanimtime requires an animation and a normalized time", 0);
+    gentity_s *ent = GetEntity(entref);
+    XAnimTree_s *tree = GScr_GetEntAnimTree(ent);
+    const scr_anim_s anim = Scr_GetAnim(0, tree, SCRIPTINSTANCE_SERVER);
+    const float time = Scr_GetFloat(1, SCRIPTINSTANCE_SERVER);
+    if (!(time >= 0.0f && time <= 1.0f))
+        Scr_ParamError(1, "animation time must be between 0 and 1", SCRIPTINSTANCE_SERVER);
+    XAnimSetTime(tree, anim.index, time, 0);
+    G_FlagAnimForUpdate(ent);
+}
+
 void __cdecl GScr_SetAnimInternal(scr_entref_t entref, char flags)
 {
     unsigned int v2; // [esp+1Ch] [ebp-38h]
@@ -16669,6 +16782,7 @@ BuiltinMethodDef methods_3[] =
   { "istouchingvolume", ScrCmd_IsTouchingVolume, 0 },
   // LWSS END
   { "playsound", ScrCmd_PlaySound, 0 },
+  { "stopsound", ScrCmd_StopSound, 0 },
   { "playsoundontag", ScrCmd_PlaySoundOnTag, 0 },
   { "playsoundasmaster", ScrCmd_PlaySound, 0 },
   { "playsoundtoteam", ScrCmd_PlaySoundToTeam, 0 },
@@ -16788,6 +16902,7 @@ BuiltinMethodDef methods_3[] =
   { "getgroundent", GScr_GetGroundEnt, 0 },
   // LWSS END
   { "setanim", GScr_SetAnim, 0 },
+  { "setanimtime", GScr_SetAnimTime, 0 },
   { "useanimtree", GScr_UseAnimTree, 0 },
   { "ismartyrdomgrenade", GScr_IsMartyrdomGrenade, 0 },
   { "getentitynumber", GScr_GetEntityNumber, 0 },
@@ -17161,6 +17276,7 @@ bool __cdecl Scr_IsValidGameType(const char *pszGameType)
 void __cdecl Scr_LoadGameType()
 {
     unsigned __int16 t; // [esp+0h] [ebp-4h]
+    if (zombiemode->current.enabled) return;
 
     if ( !g_scr_data.gametype.main
         && !Assert_MyHandler(

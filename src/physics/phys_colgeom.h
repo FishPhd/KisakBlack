@@ -492,7 +492,11 @@ struct __declspec(align(16)) gjk_partition_t : gjk_base_t // sizeof=0x70
         virtual bool is_walkable(const phys_vec3 *hit_point, const phys_vec3 *up) override;
         // get_brush() - gjk_base_t
 };
+// Itanium ABI (Emscripten) reuses the tail padding of a non-POD base, MS ABI does not, so
+// the derived layout is smaller there. Nothing serialises this class.
+#ifndef KISAK_WEB
 static_assert(sizeof(gjk_partition_t) == 112);
+#endif
 
 struct gjk_double_sphere_t : gjk_base_t // sizeof=0x90
 {

@@ -3,6 +3,20 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Local rebuild output. Covers build/, build_dllfree/, build_dllfree_rel/,
+# build_dllfree_run/, build_agent/ and any future build* directory: the exe,
+# CMake/Ninja files, logs and copied game data. None of it is source.
+# Kept (not matched here, and still tracked): the source tree, headers, and the
+# prebuilt libraries the link step needs (src/binklib/*.lib, src/libs, src/nvapi).
+/build*/
+# Scratch at the repo root: agent dumps, one-off scripts, extracted assets,
+# and the Chrome profile used to debug the web port (tmp_agent/, tmp_chrome/, tmp_*).
+/tmp_*
+
+# Editor and agent scratch (machine-specific paths, plans, transcripts)
+/.cursor/
+/.vscode/
+
 # User-specific files
 *.rsuser
 *.suo

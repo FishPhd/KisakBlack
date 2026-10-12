@@ -107,3 +107,7 @@ void __cdecl Sys_InitializeCriticalSections();
 void __cdecl Sys_EnterCriticalSection(CriticalSection critSect);
 bool __cdecl Sys_TryEnterCriticalSection(CriticalSection critSect);
 void __cdecl Sys_LeaveCriticalSection(CriticalSection critSect);
+// Read-only access: only CRITSECT_DBHASH has a real shared mode, every other section is exclusive.
+// Never write to the protected data, and never take it again (shared or exclusive) while holding it shared.
+void __cdecl Sys_EnterCriticalSectionShared(CriticalSection critSect);
+void __cdecl Sys_LeaveCriticalSectionShared(CriticalSection critSect);

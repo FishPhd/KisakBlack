@@ -74,12 +74,12 @@ void __cdecl CG_ShutdownEntity(int localClientNum, centity_s *cent, bool shutdow
     if ( cent->pose.isRagdoll || Com_IsRagdollTrajectory(&cent->currentState.pos) )
     {
         cent->pose.isRagdoll = 0;
-        if ( cent->pose.ragdollHandle > 0 )
+        if ( cent->pose.ragdollHandle != 0 )
         {
             Ragdoll_Remove(cent->pose.ragdollHandle);
             cent->pose.ragdollHandle = 0;
         }
-        if ( cent->pose.killcamRagdollHandle > 0 )
+        if ( cent->pose.killcamRagdollHandle != 0 )
         {
             Ragdoll_Remove(cent->pose.killcamRagdollHandle);
             cent->pose.killcamRagdollHandle = 0;

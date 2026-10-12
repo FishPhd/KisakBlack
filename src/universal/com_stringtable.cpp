@@ -15,7 +15,7 @@ int __cdecl StringTable_LookupRowNumForValue(const StringTable *table, int compa
     int idx; // [esp+18h] [ebp-8h]
     int valueCount; // [esp+1Ch] [ebp-4h]
 
-    if ( !table->columnCount )
+    if ( !table || !value || !table->columnCount )
         return -1;
     if ( comparisonColumn < table->columnCount )
     {
@@ -126,8 +126,10 @@ int __cdecl StringTable_LookupRowNumForValue(
     int hash2; // [esp+34h] [ebp-8h]
     int valueCount; // [esp+38h] [ebp-4h]
 
-    if ( !table->columnCount )
+    if ( !table || !table->columnCount || !value1 )
         return -1;
+    if ( comparisonColumn3 < 0 )
+        comparisonColumn3 = 0;
     if ( comparisonColumn1 < table->columnCount
         && comparisonColumn2 < table->columnCount
         && comparisonColumn3 < table->columnCount )

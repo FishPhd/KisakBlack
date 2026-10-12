@@ -256,7 +256,7 @@ double __cdecl randomhash(int value)
 
 void __cdecl PointInCircleFromUniformDeviates(float radiusDeviate, float yawDeviate, float *point)
 {
-    long double v3; // st7
+    double v3; // st7
     float r; // [esp+8h] [ebp-14h]
     float sinYaw; // [esp+14h] [ebp-8h]
     float cosYaw; // [esp+18h] [ebp-4h]
@@ -1428,7 +1428,7 @@ void __cdecl MatrixTransformVector43Equals(float *out, const float *in)
 
 void __cdecl VectorAngleMultiply(float *vec, float angle)
 {
-    long double v2; // st7
+    double v2; // st7
     float temp; // [esp+Ch] [ebp-Ch]
     float x; // [esp+10h] [ebp-8h]
     float y; // [esp+14h] [ebp-4h]
@@ -1704,7 +1704,7 @@ void SpotLightViewMatrix(const float *direction, float rotation, float (*mtx)[4]
 
     // Get any vector perpendicular to forward
     // PerpendicularVector expects a source and writes the result into dst.
-    // We pass 'forward' (not normalized) � PerpendicularVector should handle that, but we will normalize afterwards.
+    // We pass 'forward' (not normalized) Â PerpendicularVector should handle that, but we will normalize afterwards.
     PerpendicularVector(forward, up);
 
     // right = cross(up, forward)
@@ -1913,36 +1913,10 @@ void __cdecl ExpandBoundsToWidth(float *mins, float *maxs)
     float diff; // [esp+4h] [ebp-14h]
     float size_8; // [esp+14h] [ebp-4h]
 
-    if ( *maxs < *mins
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
-                    2489,
-                    0,
-                    "%s",
-                    "maxs[0] >= mins[0]") )
-    {
-        __debugbreak();
-    }
-    if ( maxs[1] < mins[1]
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
-                    2490,
-                    0,
-                    "%s",
-                    "maxs[1] >= mins[1]") )
-    {
-        __debugbreak();
-    }
-    if ( maxs[2] < mins[2]
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
-                    2491,
-                    0,
-                    "%s",
-                    "maxs[2] >= mins[2]") )
-    {
-        __debugbreak();
-    }
+    // Cleared bounds are mins > maxs. Expanding them asserted and could grow
+    // an empty box. Leave them unchanged.
+    if ( *maxs < *mins || maxs[1] < mins[1] || maxs[2] < mins[2] )
+        return;
     size_8 = maxs[2] - mins[2];
     if ( (float)((float)(*maxs - *mins) - (float)(maxs[1] - mins[1])) < 0.0 )
         v2 = maxs[1] - mins[1];

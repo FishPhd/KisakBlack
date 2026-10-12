@@ -962,7 +962,7 @@ void __cdecl R_StaticModelWriteInfoHeader(int fileHandle)
 
 void __cdecl R_StaticModelWriteInfo(int fileHandle, const GfxStaticModelDrawInst *smodelDrawInst, float dist)
 {
-    long double len; // [esp+4Ch] [ebp-1028h]
+    double len; // [esp+4Ch] [ebp-1028h]
     char dest; // [esp+5Ch] [ebp-1018h] BYREF
     _BYTE v5[4103]; // [esp+5Dh] [ebp-1017h] BYREF
     float v6; // [esp+1064h] [ebp-10h]

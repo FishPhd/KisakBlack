@@ -120,6 +120,33 @@ void __cdecl NET_Sleep(unsigned int msec)
     Sleep(msec);
 }
 
+void __cdecl NET_SleepUntilPacket(unsigned int msec)
+{
+    if (!msec)
+    {
+        Sleep(0);
+        return;
+    }
+
+    if (ip_socket == INVALID_SOCKET || ip_socket == 0)
+    {
+        Sleep(msec);
+        return;
+    }
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(ip_socket, &readfds);
+
+    timeval timeout;
+    timeout.tv_sec = msec / 1000;
+    timeout.tv_usec = (msec % 1000) * 1000;
+
+    // A socket error returns immediately, which would turn the caller's loop into a busy spin.
+    if (select(0, &readfds, NULL, NULL, &timeout) == SOCKET_ERROR)
+        Sleep(msec);
+}
+
 const char *__cdecl NET_ErrorString()
 {
     const char *result; // eax
@@ -632,7 +659,9 @@ int NET_GetLocalAddress()
 
 void __cdecl NET_OpenIP()
 {
-    ip = _Dvar_RegisterString("net_ip", "localhost", 0x20u, "Network IP Address");
+    // NOTE: the literal "localhost" means INADDR_ANY (all interfaces) in NET_IPSocket, so the default must be
+    // the loopback address. Set net_ip to 0.0.0.0 (or a LAN address) to opt in to listening on the network.
+    ip = _Dvar_RegisterString("net_ip", "127.0.0.1", 0x20u, "Network IP Address");
     port = _Dvar_RegisterInt("net_port", 3074, 0, 0xFFFF, 0x20u, "Network port");
 
     // LWSS ADD - network augmentation to replace demonware net (cod4)
@@ -643,6 +672,16 @@ void __cdecl NET_OpenIP()
         {
             Dvar_SetInt((dvar_s *)port, i + port->current.integer);
             NET_GetLocalAddress();
+            if (I_stricmp(ip->current.string, "127.0.0.1"))
+            {
+                for (int n = 0; n < numIP; ++n)
+                {
+                    if (localIP[n][0] == 127)
+                        continue;
+                    Com_Printf(16, "LAN: players can join with  connect %i.%i.%i.%i:%i\n",
+                        localIP[n][0], localIP[n][1], localIP[n][2], localIP[n][3], port->current.integer);
+                }
+            }
             return;
         }
     }

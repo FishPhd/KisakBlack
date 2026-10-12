@@ -482,6 +482,9 @@ void __cdecl SV_InitSnapshot();
 void __cdecl SV_KillLocalServer();
 void __cdecl SV_PreFrame();
 int __cdecl SV_Frame(int controllerIndex, int msec);
+// Milliseconds until the server accumulates enough time for its next simulation frame, or -1 when no
+// server is running. Used by the dedicated main loop to sleep exactly until the tick is due.
+int __cdecl SV_GetMsecUntilNextFrame();
 void __cdecl SV_FrameInternal(int controllerIndex, int msec);
 void SV_WakeServer();
 char __cdecl SV_CheckOverflow();

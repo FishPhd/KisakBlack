@@ -104,7 +104,9 @@ void __cdecl Ragdoll_BodyRootOrigin(RagdollBody *body, float *origin)
 bool __cdecl Ragdoll_BodyPoseValid(RagdollBody *body)
 {
     iassert(body);
-    return body->state >= BS_TUNNEL_TEST;
+    // The tunnel-test entry initializes the root offset and physics pose. Until it
+    // succeeds, continue using the captured animation instead of an empty body.
+    return body->state == BS_RUNNING || body->state == BS_IDLE;
 }
 
 void __cdecl Ragdoll_GetRootOrigin(int ragdollHandle, float *origin)
@@ -155,9 +157,6 @@ const RagdollBody *__cdecl Ragdoll_CreateRagdollForDObj(
     if ( !Ragdoll_BindDef(1u) )
         return 0;
 
-    if ( Ragdoll_CountPhysicsBodies() >= ragdoll_max_simulating->current.integer )
-        return 0;
-
     if ( share )
     {
         ragdoll = Ragdoll_ReferenceDObjBody(dobj);
@@ -193,6 +192,9 @@ const RagdollBody *__cdecl Ragdoll_CreateRagdollForDObj(
 RagdollBody *__cdecl Ragdoll_GetUnusedBody()
 {
     RagdollBody *body; // [esp+1Ch] [ebp-4h]
+
+    if ( Ragdoll_CountPhysicsBodies() >= ragdoll_max_simulating->current.integer )
+        return 0;
 
     if ( g_ragdoll_body_pool.m_list_count >= 32 )
         return 0;

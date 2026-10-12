@@ -124,7 +124,7 @@ const dvar_t *emblem_scroll_delay_first;
 const dvar_t *emblem_scroll_delay_rest;
 
 uiInfo_s uiInfoArray[1];
-const serverFilter_s serverFilters[1];
+const serverFilter_s serverFilters[1] = {};
 
 bool g_ingameMenusLoaded[1];
 
@@ -730,6 +730,7 @@ void __cdecl UI_UpdateTime(int localClientNum, int realtime)
     }
 }
 
+void UI_KisakAutoTest(int lc);
 void __cdecl UI_Refresh(int localClientNum)
 {
     int closeSlideSpeed; // [esp+20h] [ebp-2Ch]
@@ -740,6 +741,7 @@ void __cdecl UI_Refresh(int localClientNum)
     int savedregs; // [esp+4Ch] [ebp+0h] BYREF
 
     UI_Project_Refresh(localClientNum);
+    UI_KisakAutoTest(localClientNum);
     uiInfo = UI_GetInfo(localClientNum);
     contextIndex = uiInfo->uiDC.contextIndex;
     if ( Menu_Count(&uiInfo->uiDC) > 0 )
@@ -3245,6 +3247,13 @@ bool __cdecl UI_OwnerDrawVisible(__int16 flags)
 
 int __cdecl UI_OwnerDrawHandleKey(int ownerDraw, int flags, int key)
 {
+    // Option-style ownerdraw items (gametype, net source, ...) only understood mouse/enter. Let the keyboard / numpad
+    // arrows cycle them too: left (156, 185) goes back like right-click (201), right (157, 187) goes forward (200).
+    if ( key == 156 || key == 185 )
+        key = 201;
+    else if ( key == 157 || key == 187 )
+        key = 200;
+
     switch ( ownerDraw )
     {
         case 206:
@@ -3266,6 +3275,8 @@ int __cdecl UI_OwnerDrawHandleKey(int ownerDraw, int flags, int key)
     }
 }
 
+void UI_KisakRegisterDebugCommands();
+
 void __cdecl UI_InitOnceForAllClients()
 {
     const char *v0; // eax
@@ -3273,6 +3284,7 @@ void __cdecl UI_InitOnceForAllClients()
     Font_s *FontHandleDefault; // eax
 
     UI_InitUIInfos();
+    UI_KisakRegisterDebugCommands();
     if ( useFastFile->current.enabled )
         DB_ResetZoneSize(0);
     //if ( !G_ExitAfterConnectPaths() && !useFastFile->current.enabled )
@@ -3985,3 +3997,542 @@ char *__cdecl UI_ToUpper(const char *sourceString)
     return va("%s", upperString);
 }
 
+
+// ---------------------------------------------------------------------------------------------------------------
+// kisak_dumpmenu [name|*|substring]: developer diagnostic. Lists menus, or dumps the items of a menu.
+// ---------------------------------------------------------------------------------------------------------------
+static cmd_function_s UI_KisakDumpMenu_f_VAR;
+static cmd_function_s UI_KisakWager_f_VAR;
+
+static void __cdecl UI_KisakWager_f()
+{
+    const char *mode = Cmd_Argc() > 1 ? Cmd_Argv(1) : "gun";
+    if (I_stricmp(mode, "oic") && I_stricmp(mode, "hlnd") && I_stricmp(mode, "gun") && I_stricmp(mode, "shrp"))
+    {
+        Com_Printf(0, "Usage: kisak_wager oic|hlnd|gun|shrp [map]\n");
+        return;
+    }
+    Dvar_SetStringByName("ui_gametype", (char *)mode);
+    if (Cmd_Argc() > 2) Dvar_SetStringByName("ui_mapname", (char *)Cmd_Argv(2));
+    UI_RunMenuScript_StartListenServer();
+}
+
+static void __cdecl UI_KisakDumpMenu_f()
+{
+    UiContext *dc = &UI_UIContext_GetInfo(0)->uiDC;
+    const char *filter = Cmd_Argc() > 1 ? Cmd_Argv(1) : "*";
+    bool listOnly = (Cmd_Argc() < 3 || I_stricmp(Cmd_Argv(2), "items") != 0);
+
+    for ( int m = 0; m < dc->menuCount; ++m )
+    {
+        menuDef_t *menu = dc->Menus[m];
+        const char *mname = menu->window.name ? menu->window.name : "(null)";
+        if ( I_stricmp(filter, "*") && !strstr(mname, filter) )
+            continue;
+        Com_Printf(0, "MENU %d '%s' items=%d rect=(%g %g %g %g h%d v%d) full=%d\n", m, mname, menu->itemCount,
+            menu->window.rect.x, menu->window.rect.y, menu->window.rect.w, menu->window.rect.h,
+            menu->window.rect.horzAlign, menu->window.rect.vertAlign, menu->fullScreen);
+        if ( listOnly )
+            continue;
+        for ( int i = 0; i < menu->itemCount; ++i )
+        {
+            itemDef_s *it = menu->items[i];
+            const char *text = "";
+            if ( Item_IsTextDefType(it) && it->typeData.textDef && it->typeData.textDef->text )
+                text = it->typeData.textDef->text;
+            Com_Printf(0, "  [%d] %p name='%s' grp='%s' type=%d dtype=%d style=%d dvar='%s' dvarTest='%s' enableDvar='%s' dvarFlags=%d text='%s' od=%d "
+                "rc=(%g %g %g %g h%d v%d) vis=%d showBits=%llx hideBits=%llx onEvent=%d\n",
+                i, it, it->window.name ? it->window.name : "", it->window.group ? it->window.group : "", it->type, it->dataType,
+                it->window.style, it->dvar ? it->dvar : "", it->dvarTest ? it->dvarTest : "", it->enableDvar ? it->enableDvar : "",
+                it->dvarFlags, text, it->window.ownerDraw, it->window.rectClient.x, it->window.rectClient.y,
+                it->window.rectClient.w, it->window.rectClient.h, it->window.rectClient.horzAlign, it->window.rectClient.vertAlign,
+                it->visibleExp.numRpn, it->showBits, it->hideBits, it->onEvent != 0);
+            if ( it->dataType == 10 )
+            {
+                multiDef_s *mu = Item_GetMultiDef(it);
+                Com_Printf(0, "      multi count=%d strDef=%d actionOnEnterPressOnly=%d:", mu->count, mu->strDef, mu->actionOnEnterPressOnly);
+                for ( int k = 0; k < mu->count; ++k )
+                    Com_Printf(0, " [%s=%s]", mu->dvarList[k], mu->strDef ? mu->dvarStr[k] : va("%g", mu->dvarValue[k]));
+                Com_Printf(0, "\n");
+            }
+            for ( GenericEventHandler *h = it->onEvent; h; h = h->next )
+            {
+                Com_Printf(0, "      onEvent '%s'\n", h->name ? h->name : "?");
+                for (GenericEventScript *script = h->eventScript; script; script = script->next)
+                    if (script->action) Com_Printf(0, "        script: %s\n", script->action);
+            }
+        }
+    }
+}
+
+void UI_KisakRegisterDebugCommands()
+{
+    Cmd_AddCommandInternal("kisak_dumpmenu", UI_KisakDumpMenu_f, &UI_KisakDumpMenu_f_VAR);
+    Cmd_AddCommandInternal("kisak_wager", UI_KisakWager_f, &UI_KisakWager_f_VAR);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Offline private match: "BOTS: n" row in the Private Match lobby (menu_xboxlive_privatelobby).
+//
+// The menu is a compiled asset in ui_mp.ff, so the row is built at runtime the first time the lobby is opened:
+//  - template: the "Change Map" button row (a focusable type-3 button plus its highlight bar, found by script text)
+//  - the button is cloned into a multi-value item (type 10) bound to the archived int dvar kisak_pm_bots whose
+//    entries read "BOTS: OFF", "BOTS: 1" ... "BOTS: 17"; the item then gets the stock arrows + left/right/click handling
+//  - the row goes into the unused slot of the button column (the one gap that is two rows tall) and into the
+//    items array right before the first lower row, so up/down keyboard focus order follows the screen order
+// All storage is static (the menu itself is zone memory that is never freed), and the injection is idempotent.
+// The Combat Training lobby is a different menu (menu_xboxlive_basictraining) and is not touched.
+// ---------------------------------------------------------------------------------------------------------------
+#define KISAK_PM_BOTS_MAX     17
+#define KISAK_LOBBY_MAX_ITEMS 256
+#define KISAK_RPN_MAX         96
+
+static const char s_kisakBotsDvar[] = "kisak_pm_bots";
+static const char s_kisakBotsHint[] = "Add computer controlled bots to this private match. OFF means no bots. They join about 10 seconds after the match starts.";
+
+static itemDef_s s_kisakBotBar;
+static itemDef_s s_kisakBotMulti;
+static itemDef_s s_kisakBotOverlay;
+static textDef_s s_kisakBotOverlayText;
+static focusItemDef_s s_kisakBotOverlayFocus;
+static textDef_s s_kisakBotTextDef;
+static focusItemDef_s s_kisakBotFocus;
+static multiDef_s s_kisakBotMultiDef;
+static char s_kisakBotLabels[KISAK_PM_BOTS_MAX + 1][24];
+static expressionRpn s_kisakBotBarRpn[KISAK_RPN_MAX];
+static GenericEventHandler s_kisakBotHandlers[2];
+static GenericEventScript s_kisakBotScripts[2];
+static char s_kisakBotFocusScript[640];
+static itemDef_s *s_kisakLobbyItems[KISAK_LOBBY_MAX_ITEMS];
+
+static GenericEventHandler *UI_KisakFindHandler(const itemDef_s *it, const char *name)
+{
+    for ( GenericEventHandler *h = it->onEvent; h; h = h->next )
+    {
+        if ( h->name && !I_stricmp(h->name, name) )
+            return h;
+    }
+    return 0;
+}
+
+static bool UI_KisakSameRect(const rectDef_s *a, const rectDef_s *b)
+{
+    return a->x == b->x && a->y == b->y && a->w == b->w && a->h == b->h;
+}
+
+// The row index a lobby button writes to ui_highlight when it gets focus (-1 = none).
+static int UI_KisakHighlightIndex(const itemDef_s *it)
+{
+    GenericEventHandler *h = UI_KisakFindHandler(it, "onFocus");
+    if ( !h || !h->eventScript || !h->eventScript->action )
+        return -1;
+    const char *p = strstr(h->eventScript->action, "ui_highlight ");
+    if ( !p )
+        return -1;
+    return atoi(p + 13);
+}
+
+static bool UI_KisakRpnHasIntConstant(const itemDef_s *it, int value)
+{
+    const ExpressionStatement *e = &it->visibleExp;
+    if ( !e->rpn )
+        return false;
+    for ( int i = 0; i < e->numRpn; ++i )
+    {
+        if ( e->rpn[i].type == 0 && e->rpn[i].data.constant.dataType == VAL_INT && e->rpn[i].data.constant.internals.intVal == value )
+            return true;
+    }
+    return false;
+}
+
+void UI_KisakEnsurePrivateLobbyBotsRow(menuDef_t *menu)
+{
+    int i;
+
+    if ( !menu || !menu->items || menu->itemCount <= 0 )
+        return;
+
+    for ( i = 0; i < menu->itemCount; ++i )
+    {
+        if ( menu->items[i] == &s_kisakBotMulti )
+            return; // already injected
+    }
+
+    // 1. template button: "Change Map" (its click script opens select_map)
+    int tIdx = -1;
+    for ( i = 0; i < menu->itemCount; ++i )
+    {
+        itemDef_s *it = menu->items[i];
+        if ( it->type != 3 || it->dataType != 3 )
+            continue;
+        GenericEventHandler *act = UI_KisakFindHandler(it, "action");
+        if ( act && act->eventScript && act->eventScript->action && strstr(act->eventScript->action, "open select_map") )
+        {
+            tIdx = i;
+            break;
+        }
+    }
+    if ( tIdx < 0 )
+    {
+        Com_PrintWarning(13, "kisak: private lobby bots row skipped: template button not found\n");
+        return;
+    }
+    itemDef_s *btn = menu->items[tIdx];
+    const int tHighlight = UI_KisakHighlightIndex(btn);
+    GenericEventHandler *tFocus = UI_KisakFindHandler(btn, "onFocus");
+    GenericEventHandler *tLeave = UI_KisakFindHandler(btn, "leaveFocus");
+    if ( tHighlight < 0 || !tFocus || !tFocus->eventScript || !tLeave || !tLeave->eventScript
+        || !btn->typeData.textDef || !btn->typeData.textDef->textTypeData.focusItemDef )
+    {
+        Com_PrintWarning(13, "kisak: private lobby bots row skipped: unexpected template layout\n");
+        return;
+    }
+
+    // 2. the highlight bar of that row: closest preceding plain item with the same rect that tests the row index
+    itemDef_s *bar = 0;
+    for ( i = tIdx - 1; i >= 0 && i >= tIdx - 4; --i )
+    {
+        itemDef_s *it = menu->items[i];
+        if ( it->type == 0 && UI_KisakSameRect(&it->window.rectClient, &btn->window.rectClient)
+            && it->visibleExp.numRpn > 0 && it->visibleExp.numRpn <= KISAK_RPN_MAX && UI_KisakRpnHasIntConstant(it, tHighlight) )
+        {
+            bar = it;
+            break;
+        }
+    }
+    if ( !bar )
+    {
+        Com_PrintWarning(13, "kisak: private lobby bots row skipped: highlight bar not found\n");
+        return;
+    }
+    // dark text overlay shown while the row is highlighted (stock rows: white text, bar, black text on top)
+    itemDef_s *ovl = 0;
+    if ( tIdx + 1 < menu->itemCount )
+    {
+        itemDef_s *it = menu->items[tIdx + 1];
+        if ( it->type == 1 && it->dataType == 1 && UI_KisakSameRect(&it->window.rectClient, &btn->window.rectClient)
+            && it->typeData.textDef && it->typeData.textDef->textTypeData.focusItemDef && UI_KisakRpnHasIntConstant(it, tHighlight) )
+            ovl = it;
+    }
+
+    // 3. a free highlight index and the free slot in the button column
+    unsigned int usedMask = 0;
+    float ys[64];
+    int yCount = 0;
+    for ( i = 0; i < menu->itemCount; ++i )
+    {
+        itemDef_s *it = menu->items[i];
+        int idx = UI_KisakHighlightIndex(it);
+        if ( idx >= 0 && idx < 32 )
+            usedMask |= 1u << idx;
+        if ( it->type == 3 && it->window.rectClient.x == btn->window.rectClient.x && it->window.rectClient.w == btn->window.rectClient.w
+            && it->window.rectClient.h == btn->window.rectClient.h && yCount < 64 )
+        {
+            bool dup = false;
+            for ( int k = 0; k < yCount; ++k )
+                dup = dup || ys[k] == it->window.rectClient.y;
+            if ( !dup )
+                ys[yCount++] = it->window.rectClient.y;
+        }
+    }
+    int newIdx = -1;
+    for ( i = 1; i < 32; ++i )
+    {
+        if ( !(usedMask & (1u << i)) )
+        {
+            newIdx = i;
+            break;
+        }
+    }
+    for ( i = 0; i < yCount; ++i ) // sort ascending
+        for ( int k = i + 1; k < yCount; ++k )
+            if ( ys[k] < ys[i] )
+            {
+                float t = ys[i];
+                ys[i] = ys[k];
+                ys[k] = t;
+            }
+    const float pitch = btn->window.rectClient.h;
+    float slotY = 0.0f;
+    bool haveSlot = false;
+    for ( i = 0; i + 1 < yCount; ++i )
+    {
+        if ( ys[i + 1] - ys[i] >= pitch * 2.0f - 0.5f )
+        {
+            slotY = ys[i] + pitch;
+            haveSlot = true;
+            break;
+        }
+    }
+    if ( newIdx < 0 || !haveSlot || menu->itemCount + 3 > KISAK_LOBBY_MAX_ITEMS )
+    {
+        Com_PrintWarning(13, "kisak: private lobby bots row skipped: no free slot (idx %d slot %d)\n", newIdx, (int)haveSlot);
+        return;
+    }
+
+    // insertion point: before the first row-group item that sits below the new slot
+    int insAt = menu->itemCount;
+    for ( i = 0; i < menu->itemCount; ++i )
+    {
+        const itemDef_s *it = menu->items[i];
+        if ( it->window.rectClient.x == btn->window.rectClient.x && it->window.rectClient.y > slotY + 0.5f )
+        {
+            insAt = i;
+            break;
+        }
+    }
+
+    // 4. highlight bar clone (own copy of the visibility rpn with the row index patched)
+    s_kisakBotBar = *bar;
+    memcpy(s_kisakBotBarRpn, bar->visibleExp.rpn, sizeof(expressionRpn) * bar->visibleExp.numRpn);
+    for ( i = 0; i < bar->visibleExp.numRpn; ++i )
+    {
+        expressionRpn *r = &s_kisakBotBarRpn[i];
+        if ( r->type == 0 && r->data.constant.dataType == VAL_INT && r->data.constant.internals.intVal == tHighlight )
+            r->data.constant.internals.intVal = newIdx;
+    }
+    s_kisakBotBar.visibleExp.rpn = s_kisakBotBarRpn;
+    s_kisakBotBar.window.rectClient.y = slotY;
+    s_kisakBotBar.window.dynamicFlags[0] = 4; // WINDOWDYNAMIC_VISIBLE only (no focus / fade state)
+    s_kisakBotBar.window.ownerDrawFlags = 0; // a copied ownerdraw would clear the visible flag every frame
+    s_kisakBotBar.parent = menu;
+
+    // 5. the multi-value item (clone of the button)
+    s_kisakBotMulti = *btn;
+    s_kisakBotMulti.type = 10;
+    s_kisakBotMulti.dataType = 10;
+    s_kisakBotMulti.dvar = s_kisakBotsDvar;
+    s_kisakBotMulti.window.name = 0;
+    s_kisakBotMulti.window.group = 0;
+    s_kisakBotMulti.window.rectClient.y = slotY;
+    s_kisakBotMulti.window.dynamicFlags[0] = 4; // WINDOWDYNAMIC_VISIBLE only (no focus / fade state)
+    s_kisakBotMulti.window.ownerDrawFlags = 0;
+    s_kisakBotMulti.parent = menu;
+
+    s_kisakBotTextDef = *btn->typeData.textDef;
+    memset(s_kisakBotTextDef.textRect, 0, sizeof(s_kisakBotTextDef.textRect)); // text rect is recomputed on first paint
+    s_kisakBotTextDef.textExpData = 0;
+    s_kisakBotTextDef.text = 0;
+    s_kisakBotFocus = *btn->typeData.textDef->textTypeData.focusItemDef;
+    s_kisakBotFocus.onKey = 0;
+    memset(&s_kisakBotMultiDef, 0, sizeof(s_kisakBotMultiDef));
+    for ( i = 0; i <= KISAK_PM_BOTS_MAX; ++i )
+    {
+        if ( i == 0 )
+            Com_sprintf(s_kisakBotLabels[i], sizeof(s_kisakBotLabels[i]), "BOTS: OFF");
+        else
+            Com_sprintf(s_kisakBotLabels[i], sizeof(s_kisakBotLabels[i]), "BOTS: %d", i);
+        s_kisakBotMultiDef.dvarList[i] = s_kisakBotLabels[i];
+        s_kisakBotMultiDef.dvarStr[i] = s_kisakBotLabels[i];
+        s_kisakBotMultiDef.dvarValue[i] = (float)i;
+    }
+    s_kisakBotMultiDef.count = KISAK_PM_BOTS_MAX + 1;
+    s_kisakBotMultiDef.actionOnEnterPressOnly = 0;
+    s_kisakBotMultiDef.strDef = 0;
+    s_kisakBotFocus.focusTypeData.multi = &s_kisakBotMultiDef;
+    s_kisakBotTextDef.textTypeData.focusItemDef = &s_kisakBotFocus;
+    s_kisakBotMulti.typeData.textDef = &s_kisakBotTextDef;
+
+    // events: onFocus (highlight + hint) and leaveFocus (shared with the other rows). No click action: the multi
+    // item itself handles click / enter / left / right.
+    Com_sprintf(s_kisakBotFocusScript, sizeof(s_kisakBotFocusScript),
+        "play \"uin_navigation_over\" ; setLocalVarInt ui_highlight %d ; setLocalVarString ui_choicegroup \"%s\" ; "
+        "execNow set ui_hint_text \"%s\" ; execNow set ui_show_arrow 1 ;",
+        newIdx, menu->window.name, s_kisakBotsHint);
+    s_kisakBotScripts[0] = *tFocus->eventScript;
+    s_kisakBotScripts[0].next = 0;
+    s_kisakBotScripts[0].action = s_kisakBotFocusScript;
+    s_kisakBotScripts[1] = *tLeave->eventScript;
+    s_kisakBotScripts[1].next = 0;
+    s_kisakBotHandlers[0].name = tFocus->name;
+    s_kisakBotHandlers[0].eventScript = &s_kisakBotScripts[0];
+    s_kisakBotHandlers[0].next = &s_kisakBotHandlers[1];
+    s_kisakBotHandlers[1].name = tLeave->name;
+    s_kisakBotHandlers[1].eventScript = &s_kisakBotScripts[1];
+    s_kisakBotHandlers[1].next = 0;
+    s_kisakBotMulti.onEvent = &s_kisakBotHandlers[0];
+    s_kisakBotMulti.animInfo = 0;
+
+    int added = 2;
+    if ( ovl )
+    {
+        s_kisakBotOverlay = *ovl;
+        s_kisakBotOverlay.type = 10;
+        s_kisakBotOverlay.dataType = 10;
+        s_kisakBotOverlay.dvar = s_kisakBotsDvar;
+        s_kisakBotOverlay.window.name = 0;
+        s_kisakBotOverlay.window.group = 0;
+        s_kisakBotOverlay.window.rectClient.y = slotY;
+        s_kisakBotOverlay.window.dynamicFlags[0] = 4; // WINDOWDYNAMIC_VISIBLE only (no focus / fade state)
+        s_kisakBotOverlay.window.ownerDrawFlags = 0;
+        s_kisakBotOverlay.window.staticFlags |= 0x100000; // never takes focus
+        s_kisakBotOverlay.parent = menu;
+        s_kisakBotOverlay.visibleExp.rpn = s_kisakBotBarRpn; // same condition as the bar (row highlighted)
+        s_kisakBotOverlay.visibleExp.numRpn = bar->visibleExp.numRpn;
+        s_kisakBotOverlay.onEvent = 0;
+        s_kisakBotOverlay.animInfo = 0;
+        s_kisakBotOverlayText = *ovl->typeData.textDef;
+        memset(s_kisakBotOverlayText.textRect, 0, sizeof(s_kisakBotOverlayText.textRect));
+        s_kisakBotOverlayText.textExpData = 0;
+        s_kisakBotOverlayText.text = 0;
+        s_kisakBotOverlayFocus = *ovl->typeData.textDef->textTypeData.focusItemDef;
+        s_kisakBotOverlayFocus.onKey = 0;
+        s_kisakBotOverlayFocus.focusTypeData.multi = &s_kisakBotMultiDef;
+        s_kisakBotOverlayText.textTypeData.focusItemDef = &s_kisakBotOverlayFocus;
+        s_kisakBotOverlay.typeData.textDef = &s_kisakBotOverlayText;
+        added = 3;
+    }
+
+    // 6. new items array (static storage): old items with the new ones inserted (bar, button, dark overlay)
+    for ( i = 0; i < insAt; ++i )
+        s_kisakLobbyItems[i] = menu->items[i];
+    s_kisakLobbyItems[insAt] = &s_kisakBotBar;
+    s_kisakLobbyItems[insAt + 1] = &s_kisakBotMulti;
+    if ( ovl )
+        s_kisakLobbyItems[insAt + 2] = &s_kisakBotOverlay;
+    for ( i = insAt; i < menu->itemCount; ++i )
+        s_kisakLobbyItems[i + added] = menu->items[i];
+    if ( menu->cursorItem[0] >= insAt )
+        menu->cursorItem[0] += added;
+    menu->items = s_kisakLobbyItems;
+    menu->itemCount += added;
+
+    Com_Printf(13, "kisak: added BOTS row to %s (slot y=%g, highlight %d, inserted at item %d)\n", menu->window.name, slotY, newIdx, insAt);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// TEMPORARY automated UI test (only active when the environment variable KISAK_UITEST is set). Opens the private
+// lobby, focuses the BOTS row, drives it with key/mouse events and prints the dvar. Writes marker files so an
+// external script can screenshot each stage.
+// ---------------------------------------------------------------------------------------------------------------
+static void UI_KisakOut(const char *fmt, ...)
+{
+    char buf[512];
+    va_list ap;
+    va_start(ap, fmt);
+    _vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+    va_end(ap);
+    buf[sizeof(buf) - 1] = 0;
+    Com_Printf(0, "%s", buf);
+    FILE *f = fopen("d:\\GitHub\\KisakBlack\\tmp_agent\\uitest_out.txt", "a");
+    if ( f )
+    {
+        fputs(buf, f);
+        fclose(f);
+    }
+}
+
+static void UI_KisakMark(int n, const char *what)
+{
+    char path[128];
+    sprintf(path, "d:\\GitHub\\KisakBlack\\tmp_agent\\mark_%d.txt", n);
+    FILE *f = fopen(path, "w");
+    if ( f )
+    {
+        fputs(what, f);
+        fclose(f);
+    }
+    UI_KisakOut("UITEST mark %d: %s\n", n, what);
+}
+
+static itemDef_s *UI_KisakFindBotsItem(menuDef_t *lobby)
+{
+    for ( int i = 0; i < lobby->itemCount; ++i )
+    {
+        if ( lobby->items[i]->type == 10 && lobby->items[i]->dvar && !I_stricmp(lobby->items[i]->dvar, "kisak_pm_bots")
+            && (lobby->items[i]->window.staticFlags & 0x100000) == 0 )
+            return lobby->items[i];
+    }
+    return 0;
+}
+
+void UI_KisakAutoTest(int lc)
+{
+    static int t0, step, tNext;
+    if ( !getenv("KISAK_UITEST") )
+        return;
+    UiContext *dc = &UI_UIContext_GetInfo(0)->uiDC;
+    if ( Menu_Count(dc) <= 0 )
+        return;
+    int now = Sys_Milliseconds();
+    if ( !Menu_GetFocused(dc) )
+        return; // main menu not up yet (still loading)
+    if ( !t0 )
+        t0 = now;
+    if ( now < tNext || now - t0 < 4000 )
+        return;
+    menuDef_t *lobby = Menus_FindByName(dc, "menu_xboxlive_privatelobby");
+    itemDef_s *it = lobby ? UI_KisakFindBotsItem(lobby) : 0;
+    int before = Dvar_GetInt("kisak_pm_bots");
+    switch ( step++ )
+    {
+    case 0:
+        Cbuf_AddText(lc, "set onlinegame 1\nset xblive_privatematch 1\nopenmenu menu_xboxlive_privatelobby\n");
+        tNext = now + 3500;
+        break;
+    case 1:
+        UI_KisakMark(1, "lobby open, nothing focused");
+        tNext = now + 1500;
+        break;
+    case 2:
+        if ( !it )
+        {
+            UI_KisakOut("UITEST FAIL: bots item not found (lobby %p)\n", lobby);
+            step = 99;
+            break;
+        }
+        Item_SetFocus(lc, dc, it, it->window.rect.x + 20.0f, it->window.rect.y + 8.0f);
+        UI_KisakOut("UITEST item=%p focus=%d rect=(%g %g %g %g) dvar=%d\n", it, (int)Window_HasFocus(0, &it->window),
+            it->window.rect.x, it->window.rect.y, it->window.rect.w, it->window.rect.h, before);
+        tNext = now + 2000;
+        break;
+    case 3:
+        UI_KisakMark(2, "bots row focused");
+        tNext = now + 1000;
+        break;
+    case 4:
+        Item_HandleKey(lc, dc, it, 163, 1); // right arrow
+        UI_KisakOut("UITEST key RIGHT: %d -> %d\n", before, Dvar_GetInt("kisak_pm_bots"));
+        tNext = now + 1500;
+        break;
+    case 5:
+        UI_KisakMark(3, "after RIGHT");
+        Item_HandleKey(lc, dc, it, 163, 1);
+        Item_HandleKey(lc, dc, it, 163, 1);
+        UI_KisakOut("UITEST key RIGHT x2: %d -> %d\n", before, Dvar_GetInt("kisak_pm_bots"));
+        tNext = now + 1500;
+        break;
+    case 6:
+        Item_HandleKey(lc, dc, it, 164, 1); // left arrow
+        UI_KisakOut("UITEST key LEFT: %d -> %d\n", before, Dvar_GetInt("kisak_pm_bots"));
+        Dvar_SetIntByName("kisak_pm_bots", 0);
+        Item_HandleKey(lc, dc, it, 164, 1);
+        UI_KisakOut("UITEST key LEFT from 0 (wrap): 0 -> %d\n", Dvar_GetInt("kisak_pm_bots"));
+        Dvar_SetIntByName("kisak_pm_bots", 17);
+        Item_HandleKey(lc, dc, it, 163, 1);
+        UI_KisakOut("UITEST key RIGHT from 17 (wrap): 17 -> %d\n", Dvar_GetInt("kisak_pm_bots"));
+        Dvar_SetIntByName("kisak_pm_bots", 5);
+        tNext = now + 2000;
+        break;
+    case 7:
+        UI_KisakMark(4, "value 5");
+        // mouse: left half of the value text must decrement, right half increment (K_MOUSE1 = 200)
+        dc->isCursorVisible = 1;
+        dc->cursor.x = it->window.rect.x + 18.0f;
+        dc->cursor.y = it->window.rect.y + 8.0f;
+        Item_HandleKey(lc, dc, it, 200, 1);
+        UI_KisakOut("UITEST mouse LEFT part (x=%g): 5 -> %d\n", dc->cursor.x, Dvar_GetInt("kisak_pm_bots"));
+        Dvar_SetIntByName("kisak_pm_bots", 5);
+        dc->cursor.x = it->window.rect.x + 17.0f + 70.0f;
+        Item_HandleKey(lc, dc, it, 200, 1);
+        UI_KisakOut("UITEST mouse RIGHT part (x=%g): 5 -> %d\n", dc->cursor.x, Dvar_GetInt("kisak_pm_bots"));
+        Dvar_SetIntByName("kisak_pm_bots", 4);
+        tNext = now + 2000;
+        break;
+    case 8:
+        UI_KisakMark(5, "value 4 (set for match)");
+        break;
+    default:
+        break;
+    }
+}

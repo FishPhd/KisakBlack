@@ -4,12 +4,33 @@
 #include "assertive.h"
 #include "q_shared.h"
 
+#ifdef KISAK_WEB
+#include <web/web_assets.h> // Web_FixPath: '\' to '/', case-insensitive retry
+#endif
+
+#ifdef KISAK_WEB
+#include <emscripten.h>
+#include <atomic>
+static std::atomic<unsigned int> webReadCalls{0}, webReadMicros{0};
+extern "C" EMSCRIPTEN_KEEPALIVE unsigned int Kisak_ReadCalls() { return webReadCalls.load(); }
+extern "C" EMSCRIPTEN_KEEPALIVE double Kisak_ReadMs() { return webReadMicros.load() / 1000.0; }
+#endif
+
 unsigned int __cdecl FS_FileRead(void *ptr, unsigned int len, FILE *stream)
 {
     unsigned int read_size; // [esp+0h] [ebp-4h]
 
+    if (!stream) // the Win32 CRT returned 0 for a null stream; other libcs crash
+        return 0;
     ProfLoad_BeginTrackedValue(MAP_PROFILE_FILE_READ);
+#ifdef KISAK_WEB
+    const double readStart = emscripten_get_now();
+#endif
     read_size = fread(ptr, 1u, len, stream);
+#ifdef KISAK_WEB
+    webReadCalls.fetch_add(1, std::memory_order_relaxed);
+    webReadMicros.fetch_add((unsigned int)((emscripten_get_now() - readStart) * 1000), std::memory_order_relaxed);
+#endif
     ProfLoad_EndTrackedValue(MAP_PROFILE_FILE_READ);
     return read_size;
 }
@@ -27,6 +48,11 @@ FILE *__cdecl FileWrapper_Open(const char *ospath, const char *mode)
     FILE *file; // [esp+0h] [ebp-4h]
 
     *_errno() = 0;
+#ifdef KISAK_WEB
+    char fixedPath[512];
+    ospath = Web_FixPath(ospath, fixedPath, sizeof(fixedPath));
+    if (FILE *cached = Web_OpenCachedArchive(ospath, mode)) return cached;
+#endif
     file = fopen(ospath, mode);
     if ( file != (FILE *)-1 )
         return file;
@@ -94,7 +120,8 @@ FILE *__cdecl FS_FileOpenWriteText(const char *filename)
 
 void __cdecl FS_FileClose(FILE *stream)
 {
-    fclose(stream);
+    if (stream)
+        fclose(stream);
 }
 
 int __cdecl FS_FileSeek(FILE *file, int offset, int whence)
@@ -140,6 +167,8 @@ int __cdecl FileWrapper_GetFileSize(FILE *h)
     int startPos; // [esp+0h] [ebp-8h]
     int fileSize; // [esp+4h] [ebp-4h]
 
+    if (!h) // the Win32 CRT returned -1 for a null stream; other libcs crash
+        return 0;
     startPos = ftell(h);
     fseek(h, 0, 2);
     fileSize = ftell(h);

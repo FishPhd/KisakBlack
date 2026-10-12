@@ -122,11 +122,12 @@ int __cdecl Item_IsVisible(int localClientNum, int contextIndex, itemDef_s *item
         return 0;
     if ( (item->dvarFlags & 0xC) != 0 && !Item_EnableShowViaDvar(item, 4) )
         return 0;
-    if ((sharedUiInfo.visibilityBits[localClientNum] & LODWORD(item->showBits)) != LODWORD(item->showBits)
+    if (__PAIR64__(
+            HIDWORD(sharedUiInfo.visibilityBits[localClientNum]) & HIDWORD(item->showBits),
+            sharedUiInfo.visibilityBits[localClientNum] & LODWORD(item->showBits)) != item->showBits
         || __PAIR64__(
-            LODWORD(sharedUiInfo.visibilityBits[localClientNum]) | LODWORD(item->hideBits),
-            HIDWORD(sharedUiInfo.visibilityBits[localClientNum]) & HIDWORD(item->showBits)) != *(unsigned __int64 *)((char *)&item->showBits + 4)
-        || (HIDWORD(sharedUiInfo.visibilityBits[localClientNum]) | HIDWORD(item->hideBits)) != HIDWORD(item->hideBits))
+            HIDWORD(sharedUiInfo.visibilityBits[localClientNum]) | HIDWORD(item->hideBits),
+            LODWORD(sharedUiInfo.visibilityBits[localClientNum]) | LODWORD(item->hideBits)) != item->hideBits)
     {
         return 0;
     }
@@ -685,6 +686,22 @@ void __cdecl UI_GetGameTypesList()
         UI_GetGameTypesList_FastFile();
     else
         UI_GetGameTypesList_LoadObj();
+    // Offline hosts can use the shipped wager scripts through the existing gametype picker.
+    static const char *wagerModes[] = {"oic", "hlnd", "gun", "shrp"};
+    static const char *wagerNames[] = {"One in the Chamber", "Sticks and Stones", "Gun Game", "Sharpshooter"};
+    for (int mode = 0; mode < 4; ++mode)
+    {
+        bool found = false;
+        for (int i = 0; i < sharedUiInfo.numGameTypes; ++i)
+            found |= !I_stricmp(sharedUiInfo.gameTypes[i].gameType, wagerModes[mode]);
+        if (found || sharedUiInfo.numGameTypes >= 32 || sharedUiInfo.numJoinGameTypes >= 32) continue;
+        gameTypeInfo &type = sharedUiInfo.gameTypes[sharedUiInfo.numGameTypes++];
+        I_strncpyz(type.gameType, wagerModes[mode], sizeof(type.gameType));
+        I_strncpyz(type.gameTypeName, wagerNames[mode], sizeof(type.gameTypeName));
+        I_strncpyz(type.gameTypeShortName, wagerNames[mode], sizeof(type.gameTypeShortName));
+        I_strncpyz(type.gameTypeNameCaps, wagerNames[mode], sizeof(type.gameTypeNameCaps));
+        sharedUiInfo.joinGameTypes[sharedUiInfo.numJoinGameTypes++] = type;
+    }
     if (!sharedUiInfo.numGameTypes)
         Com_Error(ERR_FATAL, "No game type scripts found in %sgametypes folder", "maps/mp/");
 }

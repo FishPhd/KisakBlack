@@ -940,7 +940,7 @@ void __cdecl Material_ReleasePassResources(MaterialPass *pass)
 
 void __cdecl Material_FreeAllTechniqueSets()
 {
-    DB_EnumXAssets(ASSET_TYPE_TECHNIQUE_SET, (void (__cdecl *)(XAssetHeader, void *))Material_FreeTechniqueSet, 0, 1);
+    DB_EnumXAssets(ASSET_TYPE_TECHNIQUE_SET, AssetEnumFn<Material_FreeTechniqueSet>, 0, 1);
     if ( !useFastFile->current.enabled )
         memset(materialGlobals.techniqueSetHashTable, 0, sizeof(materialGlobals.techniqueSetHashTable));
 }
@@ -1207,7 +1207,7 @@ void __cdecl R_MaterialList_f()
     v3 = 0;
     Com_Printf(8, "-----------------------\n");
     inData = 0;
-    DB_EnumXAssets(ASSET_TYPE_MATERIAL, (void (__cdecl *)(XAssetHeader, void *))R_GetMaterialList, &inData, 0);
+    DB_EnumXAssets(ASSET_TYPE_MATERIAL, AssetEnumFn<R_GetMaterialList>, &inData, 0);
 
     //std::_Sort<RagdollSortStruct *,int,bool (__cdecl *)(RagdollSortStruct const &,RagdollSortStruct const &)>(
     //    v6,
@@ -1759,7 +1759,7 @@ void __cdecl Material_UpdatePicmipAll()
 {
     R_SyncRenderThread();
     R_SetPicmip();
-    DB_EnumXAssets(ASSET_TYPE_MATERIAL, (void (__cdecl *)(XAssetHeader, void *))Material_UpdatePicmipSingle, 0, 1);
+    DB_EnumXAssets(ASSET_TYPE_MATERIAL, AssetEnumFn<Material_UpdatePicmipSingle>, 0, 1);
 }
 
 void __cdecl Material_UpdatePicmipSingle(XAssetHeader header)

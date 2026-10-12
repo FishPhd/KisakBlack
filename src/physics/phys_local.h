@@ -4,6 +4,10 @@
 
 #include <Windows.h> // interlockedxchg
 #include <cmath>
+#ifdef __EMSCRIPTEN__
+#include <cstdint>
+#include <emscripten/heap.h>
+#endif
 
 struct phys_vec2 // sizeof=0x8
 {                                                                             // XREF: contact_manifold_mesh_point/r
@@ -716,6 +720,7 @@ struct minspec_hash_table//<phys_slot_pool,64> // sizeof=0x10C
 char *__cdecl PMM_ALLOC(unsigned int size, unsigned int alignment);
 void __cdecl PMM_VALIDATE(char *ptr, unsigned int size, unsigned int alignment);
 void __cdecl PMM_FREE(unsigned __int8 *ptr, unsigned int size, unsigned int alignment);
+bool __cdecl PMM_SLOT_OWNED(const void *ptr, unsigned int size, unsigned int alignment);
 
 template <typename T>
 struct phys_simple_allocator//<phys_heap_gjk_cache_system_avl_tree::phys_gjk_cache_info_internal> // sizeof=0x4
@@ -748,10 +753,14 @@ struct phys_simple_allocator//<phys_heap_gjk_cache_system_avl_tree::phys_gjk_cac
         {
             if (slot)
             {
-                PMM_VALIDATE((char *)slot, sizeof(T), sizeof(T) % 16 == 0 ? 16 : 4);
+                unsigned int alignment = sizeof(T) % 16 == 0 ? 16 : 4;
+                PMM_VALIDATE((char *)slot, sizeof(T), alignment);
+                // A slot that is not this pool's is leaked. Recycling it plants a bad free-list pointer.
+                if (!PMM_SLOT_OWNED(slot, sizeof(T), alignment))
+                    return;
                 --this->m_count;
                 slot->~T(); // disgusting
-                PMM_FREE((unsigned __int8 *)slot, sizeof(T), sizeof(T) % 16 == 0 ? 16 : 4);
+                PMM_FREE((unsigned __int8 *)slot, sizeof(T), alignment);
             }
         }
 
@@ -1113,6 +1122,26 @@ inline phys_vec3 *__cdecl phys_AbsValue(phys_vec3 *result, const phys_vec3 *a)
     return result;
 }
 
+// Pointer-chain walks stop instead of trapping. Desktop keeps the walk, aside from this cap.
+enum { PHYS_PTR_WALK_LIMIT = 8192 };
+
+inline bool phys_walk_ptr_ok(const void *p, unsigned int bytes)
+{
+    if (!p)
+        return false;
+#ifdef __EMSCRIPTEN__
+    uintptr_t addr = (uintptr_t)p;
+    uintptr_t heap = (uintptr_t)emscripten_get_heap_size();
+    if ((addr & 3u) != 0)
+        return false;
+    if (bytes == 0 || bytes >= heap || addr > heap - bytes)
+        return false;
+#else
+    (void)bytes;
+#endif
+    return true;
+}
+
 template <typename T>
 struct phys_inplace_avl_tree_node // sizeof=0xC
 {                                       // XREF: auto_rigid_body/r
@@ -1142,22 +1171,48 @@ struct phys_inplace_avl_tree
         int  m_child;
     };
 
-    T2 *m_tree_root;
+    mutable T2 *m_tree_root;
 
     phys_inplace_avl_tree() { m_tree_root = nullptr; }
 
     // Shorthand � routes all node pointer access through the specializable accessor
     static phys_inplace_avl_tree_node<T2> *ni(T2 *n) { return phys_avl_node_accessor<T2>::get(n); }
 
+    void drop_tree() const
+    {
+        m_tree_root = nullptr;
+    }
+
+    bool node_ok(const T2 *n) const
+    {
+        return phys_walk_ptr_ok(n, (unsigned)sizeof(T2));
+    }
+
     /* ------------------------------------------------------------ */
     /* rotations                                                     */
     /* ------------------------------------------------------------ */
 
-    inline void rotate_left(T2 **root)
+    inline bool rotate_left(T2 **root)
     {
+        if (!root || !node_ok(*root))
+        {
+            drop_tree();
+            return false;
+        }
         T2 *save_right = ni(*root)->m_right;
+        if (!node_ok(save_right))
+        {
+            drop_tree();
+            return false;
+        }
+        T2 *right_left = ni(save_right)->m_left;
+        if (right_left && !node_ok(right_left))
+        {
+            drop_tree();
+            return false;
+        }
 
-        ni(*root)->m_right = ni(save_right)->m_left;
+        ni(*root)->m_right = right_left;
         ni(save_right)->m_left = *root;
 
         int bal = ni(save_right)->m_balance;
@@ -1167,13 +1222,30 @@ struct phys_inplace_avl_tree
         ni(save_right)->m_balance -= adj + 1;
 
         *root = save_right;
+        return true;
     }
 
-    inline void rotate_right(T2 **root)
+    inline bool rotate_right(T2 **root)
     {
+        if (!root || !node_ok(*root))
+        {
+            drop_tree();
+            return false;
+        }
         T2 *save_left = ni(*root)->m_left;
+        if (!node_ok(save_left))
+        {
+            drop_tree();
+            return false;
+        }
+        T2 *left_right = ni(save_left)->m_right;
+        if (left_right && !node_ok(left_right))
+        {
+            drop_tree();
+            return false;
+        }
 
-        ni(*root)->m_left = ni(save_left)->m_right;
+        ni(*root)->m_left = left_right;
         ni(save_left)->m_right = *root;
 
         int bal = ni(save_left)->m_balance;
@@ -1183,6 +1255,7 @@ struct phys_inplace_avl_tree
         ni(save_left)->m_balance += adj + 1;
 
         *root = save_left;
+        return true;
     }
 
     /* ------------------------------------------------------------ */
@@ -1192,8 +1265,14 @@ struct phys_inplace_avl_tree
     inline T2 *find(const T1 &key) const
     {
         T2 *cur = m_tree_root;
+        unsigned hops = 0;
         while (cur)
         {
+            if (!node_ok(cur) || ++hops > PHYS_PTR_WALK_LIMIT)
+            {
+                drop_tree();
+                return nullptr;
+            }
             if (Accessor::equals(cur, key))
                 break;
             if (Accessor::less(key, cur))
@@ -1212,12 +1291,22 @@ struct phys_inplace_avl_tree
     {
         stack_item the_stack[32];
         stack_item *cur_item = the_stack;
+        unsigned hops = 0;
+
+        if (!node_ok(data))
+            return;
 
         cur_item->m_node = &m_tree_root;
 
         while (*cur_item->m_node)
         {
             T2 *root = *cur_item->m_node;
+
+            if (!node_ok(root) || ++hops > PHYS_PTR_WALK_LIMIT || cur_item + 1 >= the_stack + 32)
+            {
+                drop_tree();
+                return;
+            }
 
             iassert(cur_item + 1 - the_stack < 32,
                 "phys_avl_tree.h", 103, "cur_item + 1 - the_stack < 32");
@@ -1256,37 +1345,65 @@ struct phys_inplace_avl_tree
 
             --cur_item;
             T2 **m_node = cur_item->m_node;
+            if (!node_ok(*m_node))
+            {
+                drop_tree();
+                return;
+            }
             ni(*m_node)->m_balance += cur_item->m_child;
 
             if (ni(*m_node)->m_balance == -2)
             {
-                iassert(ni(ni(*m_node)->m_left)->m_balance == -1
-                    || ni(ni(*m_node)->m_left)->m_balance == +1,
+                T2 *left = ni(*m_node)->m_left;
+                if (!node_ok(left))
+                {
+                    drop_tree();
+                    return;
+                }
+                iassert(ni(left)->m_balance == -1
+                    || ni(left)->m_balance == +1,
                     "phys_avl_tree.h", 130,
                     "accessor::get_avl_node(accessor::get_avl_node(root)->m_left)->m_balance == -1 || ...== 1");
 
-                if (ni(ni(*m_node)->m_left)->m_balance == 1)
-                    rotate_left(&ni(*m_node)->m_left);
-                rotate_right(m_node);
+                if (ni(left)->m_balance == 1)
+                {
+                    if (!rotate_left(&ni(*m_node)->m_left))
+                        return;
+                }
+                if (!rotate_right(m_node))
+                    return;
 
                 iassert(ni(*m_node)->m_balance == 0,
                     "phys_avl_tree.h", 134, "accessor::get_avl_node(root)->m_balance == 0");
             }
             else if (ni(*m_node)->m_balance == 2)
             {
-                iassert(ni(ni(*m_node)->m_right)->m_balance == -1
-                    || ni(ni(*m_node)->m_right)->m_balance == +1,
+                T2 *right = ni(*m_node)->m_right;
+                if (!node_ok(right))
+                {
+                    drop_tree();
+                    return;
+                }
+                iassert(ni(right)->m_balance == -1
+                    || ni(right)->m_balance == +1,
                     "phys_avl_tree.h", 138,
                     "accessor::get_avl_node(accessor::get_avl_node(root)->m_right)->m_balance == -1 || ...== 1");
 
-                if (ni(ni(*m_node)->m_right)->m_balance == -1)
-                    rotate_right(&ni(*m_node)->m_right);
-                rotate_left(m_node);
+                if (ni(right)->m_balance == -1)
+                {
+                    if (!rotate_right(&ni(*m_node)->m_right))
+                        return;
+                }
+                if (!rotate_left(m_node))
+                    return;
 
                 iassert(ni(*m_node)->m_balance == 0,
                     "phys_avl_tree.h", 142, "accessor::get_avl_node(root)->m_balance == 0");
             }
-        } while (ni(*cur_item->m_node)->m_balance != 0);
+        } while (node_ok(*cur_item->m_node) && ni(*cur_item->m_node)->m_balance != 0);
+
+        if (!node_ok(*cur_item->m_node))
+            drop_tree();
     }
 
     /* ------------------------------------------------------------ */
@@ -1297,6 +1414,7 @@ struct phys_inplace_avl_tree
     {
         stack_item the_stack[32];
         stack_item *cur_item = the_stack;
+        unsigned hops = 0;
 
         cur_item->m_node = &m_tree_root;
 
@@ -1304,6 +1422,14 @@ struct phys_inplace_avl_tree
         while (true)
         {
             T2 *root = *cur_item->m_node;
+
+            if (!root)
+                return;
+            if (!node_ok(root) || ++hops > PHYS_PTR_WALK_LIMIT || cur_item + 1 >= the_stack + 32)
+            {
+                drop_tree();
+                return;
+            }
 
             iassert(root != nullptr,
                 "phys_avl_tree.h", 161, "root");
@@ -1333,11 +1459,23 @@ struct phys_inplace_avl_tree
         }
 
         T2 **node_to_be_removed = cur_item->m_node;
+        T2 *right = ni(*node_to_be_removed)->m_right;
+        T2 *left = ni(*node_to_be_removed)->m_left;
+        if ((right && !node_ok(right)) || (left && !node_ok(left)))
+        {
+            drop_tree();
+            return;
+        }
 
-        if (ni(*node_to_be_removed)->m_right)
+        if (right)
         {
             // Replace with in-order successor
             cur_item->m_child = +1;
+            if (cur_item + 1 >= the_stack + 32)
+            {
+                drop_tree();
+                return;
+            }
             ++cur_item;
             cur_item->m_node = &ni(*node_to_be_removed)->m_right;
 
@@ -1345,6 +1483,13 @@ struct phys_inplace_avl_tree
 
             while (ni(*cur_item->m_node)->m_left)
             {
+                T2 *spine = ni(*cur_item->m_node)->m_left;
+                if (!node_ok(spine) || ++hops > PHYS_PTR_WALK_LIMIT || cur_item + 1 >= the_stack + 32)
+                {
+                    drop_tree();
+                    return;
+                }
+
                 iassert(cur_item + 1 - the_stack < 32,
                     "phys_avl_tree.h", 191, "cur_item + 1 - the_stack < 32");
 
@@ -1355,9 +1500,20 @@ struct phys_inplace_avl_tree
             }
 
             T2 *replace_node = *cur_item->m_node;
+            if (!node_ok(replace_node))
+            {
+                drop_tree();
+                return;
+            }
+            T2 *replace_right = ni(replace_node)->m_right;
+            if (replace_right && !node_ok(replace_right))
+            {
+                drop_tree();
+                return;
+            }
 
             // Unlink successor � splice out replace_node, promoting its right child
-            *cur_item->m_node = ni(replace_node)->m_right;
+            *cur_item->m_node = replace_right;
 
             // Copy victim's linkage to replace_node
             ni(replace_node)->m_left = ni(*node_to_be_removed)->m_left;
@@ -1384,13 +1540,28 @@ struct phys_inplace_avl_tree
 
             --cur_item;
             T2 **m_node = cur_item->m_node;
+            if (!node_ok(*m_node))
+            {
+                drop_tree();
+                return;
+            }
             ni(*m_node)->m_balance -= cur_item->m_child;
 
             if (ni(*m_node)->m_balance == -2)
             {
-                if (ni(ni(*m_node)->m_left)->m_balance == 1)
-                    rotate_left(&ni(*m_node)->m_left);
-                rotate_right(m_node);
+                T2 *reb_left = ni(*m_node)->m_left;
+                if (!node_ok(reb_left))
+                {
+                    drop_tree();
+                    return;
+                }
+                if (ni(reb_left)->m_balance == 1)
+                {
+                    if (!rotate_left(&ni(*m_node)->m_left))
+                        return;
+                }
+                if (!rotate_right(m_node))
+                    return;
 
                 iassert((unsigned int)ni(*m_node)->m_balance < 2u,
                     "phys_avl_tree.h", 218,
@@ -1401,9 +1572,19 @@ struct phys_inplace_avl_tree
             }
             else if (ni(*m_node)->m_balance == 2)
             {
-                if (ni(ni(*m_node)->m_right)->m_balance == -1)
-                    rotate_right(&ni(*m_node)->m_right);
-                rotate_left(m_node);
+                T2 *reb_right = ni(*m_node)->m_right;
+                if (!node_ok(reb_right))
+                {
+                    drop_tree();
+                    return;
+                }
+                if (ni(reb_right)->m_balance == -1)
+                {
+                    if (!rotate_right(&ni(*m_node)->m_right))
+                        return;
+                }
+                if (!rotate_left(m_node))
+                    return;
 
                 iassert(ni(*m_node)->m_balance == 0 || ni(*m_node)->m_balance == -1,
                     "phys_avl_tree.h", 225,
@@ -1414,10 +1595,13 @@ struct phys_inplace_avl_tree
             }
             else if (ni(*m_node)->m_balance != 0)
             {
-                break; // �1, height unchanged
+                break; // balance +/-1, height unchanged
             }
             // 0 � subtree shrank, continue up
-        } while (ni(*cur_item->m_node)->m_balance == 0);
+        } while (node_ok(*cur_item->m_node) && ni(*cur_item->m_node)->m_balance == 0);
+
+        if (cur_item >= the_stack && !node_ok(*cur_item->m_node))
+            drop_tree();
     }
 };
 

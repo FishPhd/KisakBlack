@@ -1380,7 +1380,30 @@ void PlayerCmd_IsFiring(scr_entref_t entref)
 
 void PlayerCmd_IsInMoveMode(scr_entref_t entref)
 {
-    iassert(0); // KISAKTODO
+    // True when the player is under normal player movement (pm_type 0 = normal, 1 = normal linked),
+    // false for noclip / ufo / spectator / frozen / dead / intermission movement types.
+    gentity_s *pSelf;
+
+    if (entref.classnum)
+    {
+        Scr_ObjectError("not an entity", SCRIPTINSTANCE_SERVER);
+        pSelf = 0;
+    }
+    else
+    {
+        iassert(entref.entnum < MAX_GENTITIES);
+        pSelf = &g_entities[entref.entnum];
+        if (!pSelf->client)
+        {
+            Scr_ObjectError(va("entity %i is not a player", entref.entnum), SCRIPTINSTANCE_SERVER);
+        }
+    }
+
+    iassert(pSelf);
+    iassert(pSelf->client);
+
+    const int pmType = pSelf->client->ps.pm_type;
+    Scr_AddInt(pmType == 0 || pmType == 1, SCRIPTINSTANCE_SERVER);
 }
 
 void PlayerCmd_IsMeleeing(scr_entref_t entref)
@@ -5339,7 +5362,9 @@ void __cdecl PlayerCmd_ClonePlayer(scr_entref_t entref)
     Com_Printf(14, "Cloning Player entnum %i %i\n", body->s.clientNum, level.time);
     body->item[0].ammoCount = level.time;
     corpseIndex = G_GetFreePlayerCorpseIndex();
-    corpseInfo = &g_scr_data.playerCorpseInfo[G_GetFreePlayerCorpseIndex()];
+    if ( corpseIndex < 0 || corpseIndex >= 4 )
+        return;
+    corpseInfo = &g_scr_data.playerCorpseInfo[corpseIndex];
     corpseInfo->entnum = body->s.number;
     corpseInfo->time = level.time;
     corpseInfo->falling = 1;
@@ -8212,7 +8237,8 @@ void __cdecl PlayerCmd_isCarryingTurret(scr_entref_t entref)
 // LWSS ADD
 void PlayerCmd_SetTurrentHint(scr_entref_t entref)
 {
-    iassert(0);
+    // player SetTurretHint( canBePlaced ) - HUD hint only; there is no playerState field for it in this build.
+    // Must not assert: turret_killstreak.gsc calls this every frame while a turret is being placed.
 }
 // LWSS END
 

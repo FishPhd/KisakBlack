@@ -19,7 +19,7 @@
 #include <cmath>
 
 //======================= WIN32 DEFINES =================================
-#ifdef WIN32
+#if defined(WIN32) || defined(KISAK_WEB)
 
 #define	MAC_STATIC
 
@@ -110,6 +110,13 @@ typedef unsigned long long ull;
 #define __int32 int
 #define __int16 short
 #define __int8    char
+#define MAKELL(num) num ## LL
+#define FMT_64 "ll"
+#elif defined(KISAK_WEB)
+// clang -fms-compatibility defines neither __GNUC__ nor _MSC_VER; __int8..__int64 are
+// already keywords under -fms-extensions, so only the aliases are needed.
+typedef                    long long ll;
+typedef unsigned long long ull;
 #define MAKELL(num) num ## LL
 #define FMT_64 "ll"
 #elif defined(_MSC_VER)

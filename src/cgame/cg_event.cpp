@@ -1782,7 +1782,7 @@ void __cdecl CG_EntityEvent(int localClientNum, centity_s *cent, int event)
                                 {
                                     CG_CreateRagdollObject(localClientNum, attachedCorpse);
                                 }
-                                if (attachedCorpse->pose.isRagdoll && attachedCorpse->pose.ragdollHandle > 0)
+                                if (attachedCorpse->pose.isRagdoll && attachedCorpse->pose.ragdollHandle != 0)
                                     Ragdoll_Attach(
                                         localClientNum,
                                         attachedCorpse->pose.ragdollHandle,
@@ -2443,7 +2443,7 @@ void __cdecl CG_PhysLaunch(int localClientNum, centity_s *cent, const entityStat
         {
             if ( !cent->pose.isRagdoll && Com_IsRagdollTrajectory(&cent->nextState.lerp.pos) && !cent->pose.ragdollHandle )
                 CG_CreateRagdollObject(localClientNum, cent);
-            if ( cent->pose.isRagdoll && cent->pose.ragdollHandle > 0 )
+            if ( cent->pose.isRagdoll && cent->pose.ragdollHandle != 0 )
                 Ragdoll_Launch(
                     localClientNum,
                     cent->pose.ragdollHandle,

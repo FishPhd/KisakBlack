@@ -1,3 +1,4 @@
+#include <live/live_offline_stats.h>
 #include "cl_parse_mp.h"
 #include "cl_main_mp.h"
 #include <qcommon/common.h>
@@ -533,6 +534,7 @@ void __cdecl CL_ParseGamestate(int localClientNum, msg_t *msg)
     if ( UI_Gametype_Custom_ReadClientData(msg) && !UI_Gametype_CanUseCustom() )
         Com_Error(ERR_DROP, "EXE_TRANSMITERROR");
 
+    LiveOffline_ResetClientStatsUpload();
     Dvar_SetInt((dvar_s *)cl_paused, 0);
 }
 

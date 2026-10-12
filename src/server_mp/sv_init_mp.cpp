@@ -1,3 +1,4 @@
+#include <live/live_offline_stats.h>
 #include "sv_init_mp.h"
 #include <server/server.h>
 #include <qcommon/common.h>
@@ -15,7 +16,6 @@
 #include <qcommon/com_profilemapload.h>
 #include <server/sv_game.h>
 #include <win32/win_net.h>
-#include <live/live_steam_server.h>
 #include <win32/win_shared.h>
 #include <client_mp/cl_cgame_mp.h>
 #include <qcommon/com_clients.h>
@@ -506,6 +506,11 @@ void __cdecl SV_SetServerDvarsBeforeScriptsInit()
     v1 = SV_GetLicenseType();
     if ( SV_IsServerRanked(v1) )
         Dvar_SetBoolByName("g_allowvote", 0);
+
+    // Offline: testclients default to inert (move/attack/melee dvars are 0). Turn them on whenever bots are expected.
+    if ( SV_BotsExpected() )
+        SV_BotEnableAI();
+    SV_ApplyPrivateMatchBots();
 }
 
 void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPreloaded, int savegame)
@@ -538,8 +543,13 @@ void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPrelo
     }
 
     CL_AllocatePerLocalClientMemory();
-    Scr_ParseGameTypeList();
-    SV_SetGametype();
+    if (zombiemode->current.enabled)
+        Dvar_SetString((dvar_s *)sv_gametype, "zclassic");
+    else
+    {
+        Scr_ParseGameTypeList();
+        SV_SetGametype();
+    }
 
     if ( !mapIsPreloaded )
         CL_InitLoad(server, sv_gametype->current.string);
@@ -581,7 +591,6 @@ void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPrelo
     iassert(!strstr(server, "\\"));
 
     Dvar_SetString((dvar_s*)sv_mapname, server);
-    LiveSteam_Server_Init();
     R_EndRemoteScreenUpdate(0);
 
     if ( !mapIsPreloaded )
@@ -592,6 +601,7 @@ void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPrelo
         CL_ShutdownAll();
     }
 
+    LiveOffline_SaveServerStats();
     SV_ShutdownGameProgs();
     Com_Printf(15, "------ Server Initialization ------\n");
     Com_Printf(15, "Server: %s\n", server);
@@ -1236,9 +1246,9 @@ void __cdecl SV_Shutdown(const char *finalmsg)
             SV_SysLog_LogMessage(5, va("shutting down: %s", finalmsg));
         }
         //BLOPS_NULLSUB();
+        LiveOffline_SaveServerStats();
         SV_ShutdownGameProgs();
         SV_DropAllClients();
-        LiveSteam_Server_Shutdown();
         SV_FreeClients();
         SV_ClearServer();
         Dvar_SetBool((dvar_s *)com_sv_running, 0);

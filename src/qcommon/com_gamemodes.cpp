@@ -78,9 +78,9 @@ char ValidateGameModes()
     result = G_ExitAfterToolComplete();
     if ( !result )
     {
-        anySet = xblive_privatematch->current.enabled;
+        anySet = xblive_privatematch && xblive_privatematch->current.enabled;
         if ( anySet
-            && xblive_basictraining->current.enabled
+            && xblive_basictraining && xblive_basictraining->current.enabled
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\com_gamemodes.cpp",
                         38,
@@ -90,9 +90,9 @@ char ValidateGameModes()
         {
             __debugbreak();
         }
-        anySeta = xblive_basictraining->current.enabled || anySet;
+        anySeta = (xblive_basictraining && xblive_basictraining->current.enabled) || anySet;
         if ( anySeta
-            && xblive_theater->current.enabled
+            && xblive_theater && xblive_theater->current.enabled
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\com_gamemodes.cpp",
                         42,
@@ -102,9 +102,9 @@ char ValidateGameModes()
         {
             __debugbreak();
         }
-        anySetb = xblive_theater->current.enabled || anySeta;
+        anySetb = (xblive_theater && xblive_theater->current.enabled) || anySeta;
         if ( anySetb
-            && xblive_wagermatch->current.enabled
+            && xblive_wagermatch && xblive_wagermatch->current.enabled
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\qcommon\\com_gamemodes.cpp",
                         45,

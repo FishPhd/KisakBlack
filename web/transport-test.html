@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Game transport integration test</title>
+<pre id="result">Testing WebRTC and relay…</pre>
+<script type="module">
+import { GameTransport } from './transport.js';
+const result = document.querySelector('#result');
+const lines = [];
+const report = text => { lines.push(text); result.textContent = lines.join('\n'); };
+const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/relay';
+const wait = async predicate => {
+  const deadline = performance.now() + 15000;
+  while (!predicate()) {
+    if (performance.now() > deadline) throw Error('Timed out');
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+};
+const assert = (ok, text) => { if (!ok) throw Error(text); report('PASS ' + text); };
+const packet = (id, tag) => new Uint8Array([127, 0, 0, id, 12, 2, tag]);
+const transports = [];
+try {
+  for (const rtc of [true, false]) {
+    let room = '';
+    const hostPackets = [], firstPackets = [], secondPackets = [];
+    const host = new GameTransport({ url, rtc, receive: p => hostPackets.push(p), ready: id => room = id });
+    transports.push(host);
+    await wait(() => room);
+    const first = new GameTransport({ url, room, rtc, receive: p => firstPackets.push(p) });
+    const second = new GameTransport({ url, room, rtc, receive: p => secondPackets.push(p) });
+    transports.push(first, second);
+    await wait(() => host.peers.size === 2 && first.peers.size === 1 && second.peers.size === 1);
+    if (rtc) {
+      await wait(() => [...host.peers.values(), ...first.peers.values(), ...second.peers.values()]
+        .every(p => p.channel?.readyState === 'open'));
+      assert([...host.peers.values()].every(p => !p.channel.ordered && p.channel.maxRetransmits === 0),
+        'unordered, unretransmitted engine datagrams');
+    }
+    const mode = rtc ? 'WebRTC' : 'relay';
+    host.send(packet(3, 11)); host.send(packet(4, 22));
+    first.send(packet(2, 33)); second.send(packet(2, 44));
+    await wait(() => hostPackets.length === 2 && firstPackets.length === 1 && secondPackets.length === 1);
+    assert(firstPackets[0][6] === 11 && secondPackets[0][6] === 22, mode + ' routes to distinct guests');
+    assert(hostPackets.some(p => p[3] === 3 && p[6] === 33) && hostPackets.some(p => p[3] === 4 && p[6] === 44),
+      mode + ' preserves sender virtual IP');
+    assert([...hostPackets, ...firstPackets, ...secondPackets].every(p => p[4] === 12 && p[5] === 2),
+      mode + ' preserves network-order port');
+    first.close(); second.close(); host.close();
+    report(mode + ' complete');
+  }
+  report('ALL TRANSPORT TESTS PASSED');
+} catch (error) { report('FAIL ' + error.message); }
+finally { for (const transport of transports) transport.close(); }
+</script>

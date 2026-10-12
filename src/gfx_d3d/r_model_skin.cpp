@@ -6,6 +6,20 @@
 #include <EffectsCore/fx_marks.h>
 #include <win32/win_main.h>
 
+// r_model_skin_sse.cpp uses MMX (__m64). That does not compile to wasm SIMD, so the
+// web build keeps this file. Weight and rigid vertices use SSE2 intrinsics below,
+// which -msimd128 -msse2 lower to wasm SIMD128. Tension stays on the scalar path.
+#ifdef KISAK_WEB
+#define KISAK_SKIN_SSE 0
+// src/web/compat/intrin.h already defines _mm_mfence. Rename it for the duration
+// of this include so emmintrin's copy does not collide.
+#define _mm_mfence kisak_emmintrin_mfence
+#include <emmintrin.h>
+#undef _mm_mfence
+#else
+#define KISAK_SKIN_SSE 1
+#endif
+
 bool TensionUsage[4];
 float TensionBuffer[4][4000];
 
@@ -119,6 +133,171 @@ void __cdecl R_SkinXSurfaceWeight(
     }
 }
 
+#ifdef KISAK_WEB
+// SSE2, not MMX. Position blends match the scalar loops, including the double
+// rounding of the 1/65536 weight literal and of (v * 127.0 + 127.5). Normal and
+// tangent bytes use the same unpack (byte + 192) / 32385 and the same pack
+// (trunc toward zero, w byte 63). Tension is not handled here.
+
+static __m128 SkinSplatX(__m128 v) { return _mm_shuffle_ps(v, v, 0x00); }
+static __m128 SkinSplatY(__m128 v) { return _mm_shuffle_ps(v, v, 0x55); }
+static __m128 SkinSplatZ(__m128 v) { return _mm_shuffle_ps(v, v, 0xAA); }
+
+static const DObjSkelMat *SkinBoneAt(const DObjSkelMat *boneMatrix, unsigned byteOffset)
+{
+    return (const DObjSkelMat *)((const char *)boneMatrix + byteOffset);
+}
+
+static __m128 SkinTransformPoint(const DObjSkelMat *m, __m128 p)
+{
+    __m128 r = _mm_mul_ps(_mm_loadu_ps(m->axis[0]), SkinSplatX(p));
+    r = _mm_add_ps(r, _mm_mul_ps(_mm_loadu_ps(m->axis[1]), SkinSplatY(p)));
+    r = _mm_add_ps(r, _mm_mul_ps(_mm_loadu_ps(m->axis[2]), SkinSplatZ(p)));
+    return _mm_add_ps(r, _mm_loadu_ps(m->origin));
+}
+
+static __m128 SkinTransformDir(const DObjSkelMat *m, __m128 d)
+{
+    __m128 r = _mm_mul_ps(_mm_loadu_ps(m->axis[0]), SkinSplatX(d));
+    r = _mm_add_ps(r, _mm_mul_ps(_mm_loadu_ps(m->axis[1]), SkinSplatY(d)));
+    return _mm_add_ps(r, _mm_mul_ps(_mm_loadu_ps(m->axis[2]), SkinSplatZ(d)));
+}
+
+static void SkinStoreXyz(float *dst, __m128 xyz, __m128 binormalSource)
+{
+    // xyz from the transform, w from the source so binormalSign is a bit copy.
+    __m128 out = _mm_shuffle_ps(xyz, _mm_unpackhi_ps(xyz, binormalSource), 0xC4);
+    _mm_storeu_ps(dst, out);
+}
+
+static __m128 SkinUnpackUnit(unsigned packed, __m128 k127, __m128 k192, __m128 k32385)
+{
+    __m128i zero = _mm_setzero_si128();
+    __m128i bytes = _mm_cvtsi32_si128((int)packed);
+    __m128i u16 = _mm_unpacklo_epi8(bytes, zero);
+    __m128i u32 = _mm_unpacklo_epi16(u16, zero);
+    __m128 f = _mm_cvtepi32_ps(u32);
+    __m128 scale = _mm_div_ps(_mm_add_ps(_mm_shuffle_ps(f, f, 0xFF), k192), k32385);
+    return _mm_mul_ps(_mm_sub_ps(f, k127), scale);
+}
+
+static unsigned SkinBasisByte(float v)
+{
+    return (unsigned)(int)(float)((float)(v * 127.0) + 127.5) & 0xFFu;
+}
+
+static unsigned SkinPackBasis(__m128 rotated)
+{
+    const float x = _mm_cvtss_f32(rotated);
+    const float y = _mm_cvtss_f32(_mm_shuffle_ps(rotated, rotated, 0x55));
+    const float z = _mm_cvtss_f32(_mm_shuffle_ps(rotated, rotated, 0xAA));
+    return SkinBasisByte(x) | (SkinBasisByte(y) << 8) | (SkinBasisByte(z) << 16) | (63u << 24);
+}
+
+static void SkinVertexWasm(const GfxPackedVertex *in, const DObjSkelMat *bone, GfxPackedVertex *out,
+                            __m128 k127, __m128 k192, __m128 k32385)
+{
+    __m128 pos = _mm_loadu_ps(in->xyz);
+    SkinStoreXyz(out->xyz, SkinTransformPoint(bone, pos), pos);
+    out->color.packed = in->color.packed;
+    out->texCoord.packed = in->texCoord.packed;
+    out->normal.packed = SkinPackBasis(SkinTransformDir(bone, SkinUnpackUnit(in->normal.packed, k127, k192, k32385)));
+    out->tangent.packed = SkinPackBasis(SkinTransformDir(bone, SkinUnpackUnit(in->tangent.packed, k127, k192, k32385)));
+}
+
+static float SkinBlendWeight(unsigned w)
+{
+    return (float)((double)(float)w * 0.000015258789);
+}
+
+static __m128 SkinWeightedPoint(const float *xyz, const DObjSkelMat *bone, float weight)
+{
+    return _mm_mul_ps(_mm_set1_ps(weight), SkinTransformPoint(bone, _mm_loadu_ps(xyz)));
+}
+
+static void SkinApplyBlend(GfxPackedVertex *out, __m128 weightedSum, float totalWeight)
+{
+    const float inv = (float)(1.0 - (double)totalWeight);
+    __m128 primary = _mm_loadu_ps(out->xyz);
+    __m128 blended = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(inv), primary), weightedSum);
+    SkinStoreXyz(out->xyz, blended, primary);
+}
+
+static void SkinWeight0Wasm(const GfxPackedVertex *vertsIn, const unsigned __int16 *vertexBlend, int vertCount,
+                             const DObjSkelMat *boneMatrix, GfxPackedVertex *vertsOut)
+{
+    const __m128 k127 = _mm_set1_ps(127.0f);
+    const __m128 k192 = _mm_set1_ps(192.0f);
+    const __m128 k32385 = _mm_set1_ps(32385.0f);
+    for (int i = 0; i < vertCount; ++i)
+    {
+        SkinVertexWasm(vertsIn, SkinBoneAt(boneMatrix, vertexBlend[0]), vertsOut, k127, k192, k32385);
+        ++vertsIn;
+        ++vertexBlend;
+        ++vertsOut;
+    }
+}
+
+static void SkinWeight1Wasm(const GfxPackedVertex *vertsIn, const unsigned __int16 *vertexBlend, int vertCount,
+                             const DObjSkelMat *boneMatrix, GfxPackedVertex *vertsOut)
+{
+    const __m128 k127 = _mm_set1_ps(127.0f);
+    const __m128 k192 = _mm_set1_ps(192.0f);
+    const __m128 k32385 = _mm_set1_ps(32385.0f);
+    for (int i = 0; i < vertCount; ++i)
+    {
+        SkinVertexWasm(vertsIn, SkinBoneAt(boneMatrix, vertexBlend[0]), vertsOut, k127, k192, k32385);
+        const float w = SkinBlendWeight(vertexBlend[2]);
+        SkinApplyBlend(vertsOut, SkinWeightedPoint(vertsIn->xyz, SkinBoneAt(boneMatrix, vertexBlend[1]), w), w);
+        ++vertsIn;
+        vertexBlend += 3;
+        ++vertsOut;
+    }
+}
+
+static void SkinWeight2Wasm(const GfxPackedVertex *vertsIn, const unsigned __int16 *vertexBlend, int vertCount,
+                             const DObjSkelMat *boneMatrix, GfxPackedVertex *vertsOut)
+{
+    const __m128 k127 = _mm_set1_ps(127.0f);
+    const __m128 k192 = _mm_set1_ps(192.0f);
+    const __m128 k32385 = _mm_set1_ps(32385.0f);
+    for (int i = 0; i < vertCount; ++i)
+    {
+        SkinVertexWasm(vertsIn, SkinBoneAt(boneMatrix, vertexBlend[0]), vertsOut, k127, k192, k32385);
+        const float w2 = SkinBlendWeight(vertexBlend[2]);
+        const float w4 = SkinBlendWeight(vertexBlend[4]);
+        __m128 sum = SkinWeightedPoint(vertsIn->xyz, SkinBoneAt(boneMatrix, vertexBlend[1]), w2);
+        sum = _mm_add_ps(SkinWeightedPoint(vertsIn->xyz, SkinBoneAt(boneMatrix, vertexBlend[3]), w4), sum);
+        SkinApplyBlend(vertsOut, sum, w2 + w4);
+        ++vertsIn;
+        vertexBlend += 5;
+        ++vertsOut;
+    }
+}
+
+static void SkinWeight3Wasm(const GfxPackedVertex *vertsIn, const unsigned __int16 *vertexBlend, int vertCount,
+                             const DObjSkelMat *boneMatrix, GfxPackedVertex *vertsOut)
+{
+    const __m128 k127 = _mm_set1_ps(127.0f);
+    const __m128 k192 = _mm_set1_ps(192.0f);
+    const __m128 k32385 = _mm_set1_ps(32385.0f);
+    for (int i = 0; i < vertCount; ++i)
+    {
+        SkinVertexWasm(vertsIn, SkinBoneAt(boneMatrix, vertexBlend[0]), vertsOut, k127, k192, k32385);
+        const float w2 = SkinBlendWeight(vertexBlend[2]);
+        const float w4 = SkinBlendWeight(vertexBlend[4]);
+        const float w6 = SkinBlendWeight(vertexBlend[6]);
+        __m128 sum = SkinWeightedPoint(vertsIn->xyz, SkinBoneAt(boneMatrix, vertexBlend[1]), w2);
+        sum = _mm_add_ps(SkinWeightedPoint(vertsIn->xyz, SkinBoneAt(boneMatrix, vertexBlend[3]), w4), sum);
+        sum = _mm_add_ps(SkinWeightedPoint(vertsIn->xyz, SkinBoneAt(boneMatrix, vertexBlend[5]), w6), sum);
+        SkinApplyBlend(vertsOut, sum, (w2 + w4) + w6);
+        ++vertsIn;
+        vertexBlend += 7;
+        ++vertsOut;
+    }
+}
+#endif
+
 void __cdecl R_SkinXSurfaceWeight0(
                 const GfxPackedVertex *vertsIn,
                 const unsigned __int16 *vertexBlend,
@@ -133,6 +312,10 @@ void __cdecl R_SkinXSurfaceWeight0(
     {
         __debugbreak();
     }
+#ifdef KISAK_WEB
+    SkinWeight0Wasm(vertsIn, vertexBlend, vertCount, boneMatrix, vertsOut);
+    return;
+#endif
     vertIndex = 0;
     while ( vertIndex < vertCount )
     {
@@ -248,6 +431,10 @@ void __cdecl R_SkinXSurfaceWeight1(
     {
         __debugbreak();
     }
+#ifdef KISAK_WEB
+    SkinWeight1Wasm(vertsIn, vertexBlend, vertCount, boneMatrix, vertsOut);
+    return;
+#endif
     vertIndex = 0;
     while ( vertIndex < vertCount )
     {
@@ -297,6 +484,10 @@ void __cdecl R_SkinXSurfaceWeight2(
     {
         __debugbreak();
     }
+#ifdef KISAK_WEB
+    SkinWeight2Wasm(vertsIn, vertexBlend, vertCount, boneMatrix, vertsOut);
+    return;
+#endif
     vertIndex = 0;
     while ( vertIndex < vertCount )
     {
@@ -354,6 +545,10 @@ void __cdecl R_SkinXSurfaceWeight3(
     {
         __debugbreak();
     }
+#ifdef KISAK_WEB
+    SkinWeight3Wasm(vertsIn, vertexBlend, vertCount, boneMatrix, vertsOut);
+    return;
+#endif
     vertIndex = 0;
     while ( vertIndex < vertCount )
     {
@@ -436,6 +631,11 @@ void __cdecl R_SkinXSurfaceRigid(
     {
         __debugbreak();
     }
+#ifdef KISAK_WEB
+    const __m128 k127 = _mm_set1_ps(127.0f);
+    const __m128 k192 = _mm_set1_ps(192.0f);
+    const __m128 k32385 = _mm_set1_ps(32385.0f);
+#endif
     v = surf->verts0;
     vertex = vertices;
     for ( i = 0; i < surf->vertListCount; ++i )
@@ -445,9 +645,13 @@ void __cdecl R_SkinXSurfaceRigid(
         bone = (const DObjSkelMat *)((char *)boneMatrix + vertList->boneOffset);
         for ( vertIndex = 0; vertIndex < vertCount; ++vertIndex )
         {
+#ifdef KISAK_WEB
+            SkinVertexWasm(v, bone, vertex, k127, k192, k32385);
+#else
             MatrixTransformVertexAndBasis(v->xyz, v->binormalSign, v->normal, v->tangent, bone, vertex);
             vertex->color.packed = v->color.packed;
             vertex->texCoord.packed = v->texCoord.packed;
+#endif
             ++v;
             ++vertex;
         }
@@ -470,7 +674,7 @@ void R_SkinXModelCmd(SkinXModelCmd *data)
     GfxPackedVertexNormal *normalIn; // [esp-28CCh] [ebp-28D8h]
     GfxPackedVertex *skinVerticesOut; // [esp-28C8h] [ebp-28D4h]
     const XSurface *xsurf; // [esp-28C4h] [ebp-28D0h]
-    DObjSkelMat alignas(16) boneSkelMats[DOBJ_MAX_PARTS]; // [esp-28C0h] [ebp-28CCh] BYREF
+    alignas(16) DObjSkelMat boneSkelMats[DOBJ_MAX_PARTS]; // [esp-28C0h] [ebp-28CCh] BYREF
     int j; // [esp-30h] [ebp-3Ch]
     GfxModelSkinnedSurface *skinnedSurf; // [esp-24h] [ebp-30h]
     unsigned int i; // [esp-20h] [ebp-2Ch]
@@ -491,7 +695,11 @@ void R_SkinXModelCmd(SkinXModelCmd *data)
 
     PROF_SCOPED("R_SkinXModelCmd");
 
+#if KISAK_SKIN_SSE
     useSSE = sys_SSE->current.enabled && r_sse_skinning->current.enabled;
+#else
+    useSSE = 0; // MMX file stays out; weight and rigid verts use the wasm SIMD loops above
+#endif
     useSSE_ = useSSE;
     sseStateUsed = 0;
     fastSkin = gfxBuf.fastSkin;
@@ -523,11 +731,13 @@ void R_SkinXModelCmd(SkinXModelCmd *data)
                 if ((skinCmd->surfacePartBits[j >> 5] & (0x80000000 >> (j & 0x1F))) == 0)
                     continue;
 
+#if KISAK_SKIN_SSE
                 if (sseStateUsed)
                 {
                     sseStateUsed = 0;
                     _m_empty();
                 }
+#endif
 
                 DObjSkelMat mat0, mat1;
 
@@ -570,6 +780,7 @@ void R_SkinXModelCmd(SkinXModelCmd *data)
             skinVerticesOut = (GfxPackedVertex *)&gfxBuf.skinnedCacheLockAddr[skinnedSurf->skinnedCachedOffset];
         }
 
+#if KISAK_SKIN_SSE
         if (useSSE_)
         {
             if (!sseStateUsed)
@@ -589,13 +800,16 @@ void R_SkinXModelCmd(SkinXModelCmd *data)
             R_SkinXSurfaceSkinnedSse(xsurf, &boneSkelMats[boneIndex], normalIn, normalOut, skinVerticesOut);
         }
         else
+#endif
         {
             R_SkinXSurfaceSkinned(xsurf, &boneSkelMats[boneIndex], skinVerticesOut);
         }
     }
 
+#if KISAK_SKIN_SSE
     if (sseStateUsed)
         _m_empty();
+#endif
 }
 
 void __cdecl R_MultiplySkelMat(const DObjSkelMat *mat0, const DObjSkelMat *mat1, DObjSkelMat *out)

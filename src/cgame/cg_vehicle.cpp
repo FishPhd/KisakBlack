@@ -156,8 +156,8 @@ void    CG_Vehicle_PreControllers(
 {
     const XModel *Model; // eax
     float v6; // xmm0_4
-    long double v7; // [esp+8h] [ebp-5BCh]
-    long double v8; // [esp+10h] [ebp-5B4h]
+    double v7; // [esp+8h] [ebp-5BCh]
+    double v8; // [esp+10h] [ebp-5B4h]
     float *v9; // [esp+1Ch] [ebp-5A8h]
     float *v10; // [esp+24h] [ebp-5A0h]
     col_context_t context; // [esp+2Ch] [ebp-598h] BYREF
@@ -410,8 +410,8 @@ void    CG_Vehicle_PreControllers(
         //p_proximity_data = &cent->vehicle->vehicle_cache->proximity_data;
         //p_proximity_data->__vftable = dummy.__vftable;
 
-        //colgeom_visitor_inlined_t<500>::reset(&cent->vehicle->vehicle_cache->proximity_data);
-        cent->vehicle->vehicle_cache->proximity_data.reset();
+        // MT_Alloc memory has no vptr. Construct the visitor before any virtual visit().
+        new (&cent->vehicle->vehicle_cache->proximity_data) colgeom_visitor_inlined_t<200>();
 
         for (i = 0; i < 6; ++i)
         {
@@ -1290,8 +1290,8 @@ void    CG_UpdateWheeledSurfaceSounds(
 {
     double v4; // xmm0_8
     float v5; // xmm0_4
-    long double v6; // [esp+8h] [ebp-4Ch]
-    long double v7; // [esp+8h] [ebp-4Ch]
+    double v6; // [esp+8h] [ebp-4Ch]
+    double v7; // [esp+8h] [ebp-4Ch]
     float v8; // [esp+10h] [ebp-44h]
     float v9; // [esp+14h] [ebp-40h]
     float v10; // [esp+18h] [ebp-3Ch]
@@ -1429,7 +1429,7 @@ void    CG_UpdateTankSurfaceSounds(
     float clacksCurveMaxOmitted; // xmm0_4
     const char *v5; // eax
     char *v6; // eax
-    long double v7; // [esp+8h] [ebp-13Ch]
+    double v7; // [esp+8h] [ebp-13Ch]
     float v8; // [esp+18h] [ebp-12Ch]
     int v9; // [esp+1Ch] [ebp-128h]
     int _rand; // [esp+20h] [ebp-124h]
@@ -1883,7 +1883,7 @@ void    CG_UpdateVehicleEngineSounds(
                 bool isLocalPlayersVehicle)
 {
     float v5; // xmm0_4
-    long double v6; // [esp+Ch] [ebp-9Ch]
+    double v6; // [esp+Ch] [ebp-9Ch]
     float v7; // [esp+14h] [ebp-94h] BYREF
     VehicleSound sndLoadNameIndex; // [esp+18h] [ebp-90h] BYREF
     VehicleSound sndNoLoadNameIndex; // [esp+1Ch] [ebp-8Ch]

@@ -82,7 +82,7 @@ void __cdecl R_GetImageList(ImageList *imageList)
         __debugbreak();
     }
     imageList->count = 0;
-    DB_EnumXAssets(ASSET_TYPE_IMAGE, (void (__cdecl *)(XAssetHeader, void *))R_AddImageToList, imageList, 1);
+    DB_EnumXAssets(ASSET_TYPE_IMAGE, AssetEnumFn<R_AddImageToList>, imageList, 1);
 }
 
 void __cdecl R_AddImageToList(XAssetHeader header, XAssetHeader *data)
@@ -853,7 +853,19 @@ void __cdecl Load_Texture(GfxTexture *remoteLoadDef, GfxImage *image)
                 image->cardMemory.platform[0] = 0;
                 image->cardMemory.platform[1] = 0;
                 if ( !Image_LoadFromFile(image, 0) )
+                {
+#ifdef KISAK_WEB
+                    // The browser client does not ship every IWI. A missing loadscreen or menu image
+                    // must not abort startup before the multiplayer home screen can draw.
+                    Com_PrintWarning(8, "Couldn't load image '%s'; using a default texture\n", image->name);
+                    if ( !Image_AssignDefaultTexture(image) && rgp.whiteImage )
+                        R_DuplicateTexture(image, rgp.whiteImage);
+                    if ( !image->texture.basemap )
+                        Com_Error(ERR_DROP, "Couldn't load image '%s'\n", image->name);
+#else
                     Com_Error(ERR_DROP, "Couldn't load image '%s'\n", image->name);
+#endif
+                }
                 DB_LoadedExternalData(externalDataSize);
             }
         }
@@ -899,8 +911,17 @@ GfxImage *__cdecl Image_FindExisting_FastFile(const char *name)
 
 GfxImage *__cdecl Image_Register(char *imageName, unsigned __int8 semantic, int imageTrack)
 {
+#ifdef KISAK_WEB
+    // These procedural images have constructors in the original engine but are
+    // absent from the PC fastfiles. Build them instead of sampling a default asset.
+    if (!strcmp(imageName, "$g16r16") || !strcmp(imageName, "$r5g6b5") || !strcmp(imageName, "$blacktransparent"))
+    {
+        GfxImage *image = Image_FindExisting_LoadObj(imageName);
+        return image ? image : Image_LoadBuiltin(imageName, semantic, (unsigned char)imageTrack);
+    }
+#endif
     if ( useFastFile->current.enabled )
-        return (GfxImage *)((int (__cdecl *)(char *, unsigned int, int))Image_Register_FastFile)(imageName, semantic, imageTrack);
+        return Image_Register_FastFile(imageName);
     else
         return Image_Register_LoadObj(imageName, semantic, imageTrack);
 }
@@ -928,7 +949,7 @@ GfxImage *__cdecl Image_Register_FastFile(const char *imageName)
 
 void __cdecl R_ReleaseLostImages()
 {
-    DB_EnumXAssets(ASSET_TYPE_IMAGE, (void (__cdecl *)(XAssetHeader, void *))R_FreeLostImage, 0, 1);
+    DB_EnumXAssets(ASSET_TYPE_IMAGE, AssetEnumFn<R_FreeLostImage>, 0, 1);
 }
 
 void __cdecl R_FreeLostImage(XAssetHeader header)
@@ -954,7 +975,7 @@ void __cdecl R_FreeLostImage(XAssetHeader header)
 
 void __cdecl R_ReloadLostImages()
 {
-    DB_EnumXAssets(ASSET_TYPE_IMAGE, (void (__cdecl *)(XAssetHeader, void *))R_RebuildLostImage, 0, 1);
+    DB_EnumXAssets(ASSET_TYPE_IMAGE, AssetEnumFn<R_RebuildLostImage>, 0, 1);
 }
 
 void __cdecl R_RebuildLostImage(XAssetHeader header)

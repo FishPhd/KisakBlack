@@ -36,10 +36,7 @@ struct GameWorldMp // sizeof=0x2C
 };
 
 
-#ifdef KISAK_SP
 extern GameWorldSp gameWorldSp;
-#else
 extern GameWorldMp gameWorldMp;
-#endif
 
 extern GameWorldMp *gameWorldCurrent;

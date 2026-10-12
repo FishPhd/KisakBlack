@@ -1,6 +1,9 @@
 #include "cmd.h"
 
 #include <stdlib.h>
+#ifdef KISAK_WEB
+#include <cstdio>
+#endif
 #include <win32/win_common.h>
 #include <clientscript/cscr_debugger.h>
 #include <clientscript/cscr_main.h>
@@ -1378,11 +1381,37 @@ char __cdecl Cmd_ExecFromFastFile(int localClientNum, int controllerIndex, char 
 
     if ( !DB_IsMinimumFastFileLoaded() )
         return 0;
-    rawfile = DB_FindXAssetHeader(ASSET_TYPE_RAWFILE, filename, 1, -1).rawfile;
+    // Missing developer menus must not stall browser boot. Gameplay configs
+    // retain their normal database wait while retail optional scripts fall back.
+    const bool optional = !I_strnicmp(filename, "devgui", 6) || !I_strnicmp(filename, "autoexec_dev", 12);
+    rawfile = DB_FindXAssetHeader(ASSET_TYPE_RAWFILE, filename, !optional, optional ? 0 : -1).rawfile;
     if ( !rawfile )
         return 0;
+#ifdef KISAK_WEB
+    // Lobby entry executes dvar_defaults.cfg, which includes reset_bindings.cfg.
+    // Keep current controls across that implicit reset. Explicit "reset controls"
+    // still executes reset_bindings.cfg directly and retains its original behavior.
+    const bool keepControls = com_fullyInitialized && !I_stricmp(filename, "dvar_defaults.cfg");
+    const char *controlNames[] = {"sensitivity", "cl_freelook", "ui_mousePitch", "m_pitch", "m_filter", "cl_mouseAccel"};
+    char controlValues[6][64];
+    if (keepControls)
+    {
+        Key_WriteBindingsToTempBuf(localClientNum);
+        for (unsigned i = 0; i < ARRAY_COUNT(controlNames); ++i)
+            I_strncpyz(controlValues[i], Dvar_GetVariantString(controlNames[i]), sizeof(controlValues[i]));
+    }
+#endif
     Com_Printf(16, "execing %s from fastfile\n", filename);
     Cbuf_ExecuteBuffer(localClientNum, controllerIndex, (char *)rawfile->buffer);
+#ifdef KISAK_WEB
+    if (keepControls)
+    {
+        Key_RestoreBindingsFromTempBuf(localClientNum);
+        for (unsigned i = 0; i < ARRAY_COUNT(controlNames); ++i)
+            Dvar_SetFromStringByName(controlNames[i], controlValues[i]);
+    }
+    fprintf(stderr, "kisak-exec done %s\n", filename);
+#endif
     return 1;
 }
 

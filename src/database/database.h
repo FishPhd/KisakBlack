@@ -113,3 +113,21 @@ union XAssetHeader // sizeof=0x4
         data = p;
     }
 };
+
+// DB_EnumXAssets wants void(XAssetHeader, void *). The decompiled call sites cast callbacks that take a
+// different parameter list to that type, which is undefined behaviour and traps on WebAssembly (indirect
+// calls are signature-checked). AssetEnumFn<fn> is a correctly-typed adapter around any of them.
+template<typename T>
+inline void AssetEnumInvoke(void (__cdecl *fn)(XAssetHeader, T *), XAssetHeader header, void *data)
+{
+    fn(header, static_cast<T *>(data));
+}
+inline void AssetEnumInvoke(void (__cdecl *fn)(XAssetHeader), XAssetHeader header, void *)
+{
+    fn(header);
+}
+template<auto Fn>
+inline void __cdecl AssetEnumFn(XAssetHeader header, void *data)
+{
+    AssetEnumInvoke(Fn, header, data);
+}

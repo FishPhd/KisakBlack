@@ -7,16 +7,22 @@
 #include <qcommon/common.h>
 #include "snd_db.h"
 
+// Table slots without a row finder: needs the (unsigned int) prototype for call_indirect on wasm.
+static void *__cdecl SND_FindRowNone(unsigned int)
+{
+    return 0;
+}
+
 void *(__cdecl *const SND_FIND_ROW[SND_TABLE_COUNT])(unsigned int) =
 {
   (void*(*)(unsigned int))SND_FindRowAlias,
   (void*(*)(unsigned int))SND_FindRowGroup,
   (void*(*)(unsigned int))SND_FindRowCurve,
   (void*(*)(unsigned int))SND_FindRowPan,
-  (void*(*)(unsigned int))RETURN_ZERO32,
-  (void*(*)(unsigned int))RETURN_ZERO32,
+  SND_FindRowNone,
+  SND_FindRowNone,
   (void*(*)(unsigned int))SND_FindRowContext,
-  (void*(*)(unsigned int))RETURN_ZERO32,
+  SND_FindRowNone,
   (void*(*)(unsigned int))SND_FindRowMaster
 };
 

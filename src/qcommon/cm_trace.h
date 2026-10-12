@@ -66,20 +66,9 @@ struct TraceExtents // sizeof=0x30
 
     TraceExtents()
     {
-        this->start.vec.u[0] = 0.0f;
-        this->start.vec.u[1] = 0.0f;
-        this->start.vec.u[2] = 0.0f;
-        this->start.vec.u[3] = 0.0f;
-
-        this->end.vec.u[0] = 0.0f;
-        this->end.vec.u[1] = 0.0f;
-        this->end.vec.u[2] = 0.0f;
-        this->end.vec.u[3] = 0.0f;
-
-        this->invDelta.vec.u[0] = 0.0f;
-        this->invDelta.vec.u[1] = 0.0f;
-        this->invDelta.vec.u[2] = 0.0f;
-        this->invDelta.vec.u[3] = 0.0f;
+        this->start.Clear();
+        this->end.Clear();
+        this->invDelta.Clear();
     }
 };
 
@@ -444,45 +433,14 @@ struct traceWork_t // sizeof=0xE0
 
     traceWork_t()
     {
-        this->delta.vec.u[0] = 0.0f;
-        this->delta.vec.u[1] = 0.0f;
-        this->delta.vec.u[2] = 0.0f;
-        this->delta.vec.u[3] = 0.0f;
-        this->midpoint.vec.u[0] = 0.0f;
-        this->midpoint.vec.u[1] = 0.0f;
-        this->midpoint.vec.u[2] = 0.0f;
-        this->midpoint.vec.u[3] = 0.0f;
-        this->halfDelta.vec.u[0] = 0.0f;
-        this->halfDelta.vec.u[1] = 0.0f;
-        this->halfDelta.vec.u[2] = 0.0f;
-        this->halfDelta.vec.u[3] = 0.0f;
-        this->halfDeltaAbs.vec.u[0] = 0.0f;
-        this->halfDeltaAbs.vec.u[1] = 0.0f;
-        this->halfDeltaAbs.vec.u[2] = 0.0f;
-        this->halfDeltaAbs.vec.u[3] = 0.0f;
-        this->size.vec.u[0] = 0.0f;
-        this->size.vec.u[1] = 0.0f;
-
-        this->size.vec.u[2] = 0.0f;
-        this->size.vec.u[3] = 0.0f;
-
-        bounds[0].vec.u[0] = 0.0f;
-        bounds[0].vec.u[1] = 0.0f;
-        bounds[0].vec.u[2] = 0.0f;
-        bounds[0].vec.u[3] = 0.0f;
-
-
-        bounds[1].vec.u[0] = 0.0f;
-        bounds[1].vec.u[1] = 0.0f;
-        bounds[1].vec.u[2] = 0.0f;
-        bounds[1].vec.u[3] = 0.0f;
-
-        this->radiusOffset.vec.u[0] = 0.0f;
-        this->radiusOffset.vec.u[1] = 0.0f;
-        this->radiusOffset.vec.u[2] = 0.0f;
-        this->radiusOffset.vec.u[3] = 0.0f;
-
-        ////TraceExtents::TraceExtents(&this->extents);
+        this->delta.Clear();
+        this->midpoint.Clear();
+        this->halfDelta.Clear();
+        this->halfDeltaAbs.Clear();
+        this->size.Clear();
+        this->bounds[0].Clear();
+        this->bounds[1].Clear();
+        this->radiusOffset.Clear();
     }
 };
 

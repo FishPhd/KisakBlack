@@ -17,6 +17,7 @@
 #include <game_mp/g_active_mp.h>
 #include <qcommon/com_gamemodes.h>
 #include <live/live_stats.h>
+#include <live/live_offline_stats.h>
 #include <server/sv_game.h>
 #include <qcommon/cm_test.h>
 #include <qcommon/cm_load.h>
@@ -2005,7 +2006,7 @@ void __cdecl SV_AddModifiedStats(unsigned int clientNum)
         startOffset = 0;
         endOffset = 0;
         memset(msgBuff, 0, 0x41u);
-        if ( svs.clients[clientNum].statsSentIndex >= 5021
+        if ( svs.clients[clientNum].statsSentIndex >= 5069
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\server_mp\\sv_snapshot_mp.cpp",
                         2850,
@@ -2015,9 +2016,9 @@ void __cdecl SV_AddModifiedStats(unsigned int clientNum)
         {
             __debugbreak();
         }
-        if ( svs.clients[clientNum].statsSentIndex >= 5021 )
+        if ( svs.clients[clientNum].statsSentIndex >= 5069 )
             svs.clients[clientNum].statsSentIndex = 0;
-        for ( i = svs.clients[clientNum].statsSentIndex; i < 5021; ++i )
+        for ( i = svs.clients[clientNum].statsSentIndex; i < 5069; ++i )
         {
             dirtyByte = &svs.clients[clientNum].modifiedStatBytes[i];
             if ( *dirtyByte )
@@ -2595,7 +2596,10 @@ void __cdecl SV_SendMessageToClient(msg_t *msg, client_t *client, bool reliable)
         }
         client->nextSnapshotTime = rateMsec + svs.time;
         client->lastSnapshotTime = svs.time;
-        if ( client->header.state != CS_ACTIVE && !client->downloadName[0] && client->nextSnapshotTime < svs.time + 1000 )
+        // First-visit profile chunks use the core reliable channel while loading.
+        // Keep its acknowledgements at the normal rate instead of one per second.
+        if ( client->header.state != CS_ACTIVE && !client->downloadName[0]
+            && LiveOffline_ClientStatsReady(client) && client->nextSnapshotTime < svs.time + 1000 )
             client->nextSnapshotTime = svs.time + 1000;
         sv.bpsTotalBytes += compressedSize;
     }

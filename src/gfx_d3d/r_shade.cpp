@@ -414,8 +414,15 @@ void __cdecl R_SetPixelShaderConstantFromLiteral(GfxCmdBufState *state, unsigned
     {
         __debugbreak();
     }
-    LODWORD(state->pixelShaderConstState[dest]) = -1;
-    HIDWORD(state->pixelShaderConstState[dest]) = -1;
+    // Material literals are re-sent for every draw of every material; skip the device call when the
+    // register already holds these exact floats. Content (not pointer) comparison, so it stays valid
+    // when a zone unload/load reuses the address with different data.
+    float *shadow = state->pixelShaderLiteralShadow[dest];
+    if ( state->pixelShaderConstState[dest] == SHADER_LITERAL_CACHED && !memcmp(shadow, literal, sizeof(float) * 4) )
+        return;
+
+    memcpy(shadow, literal, sizeof(float) * 4);
+    state->pixelShaderConstState[dest] = SHADER_LITERAL_CACHED;
     R_HW_SetPixelShaderConstant(state->prim.device, dest, literal, 1u);
 }
 
@@ -776,8 +783,13 @@ void __cdecl R_SetVertexShaderConstantFromLiteral(GfxCmdBufState *state, unsigne
     {
         __debugbreak();
     }
-    LODWORD(state->vertexShaderConstState[dest]) = -1;
-    HIDWORD(state->vertexShaderConstState[dest]) = -1;
+    // See R_SetPixelShaderConstantFromLiteral: skip the upload when the register already holds these floats.
+    float *shadow = state->vertexShaderLiteralShadow[dest];
+    if ( state->vertexShaderConstState[dest] == SHADER_LITERAL_CACHED && !memcmp(shadow, literal, sizeof(float) * 4) )
+        return;
+
+    memcpy(shadow, literal, sizeof(float) * 4);
+    state->vertexShaderConstState[dest] = SHADER_LITERAL_CACHED; // also invalidates any cached code constant
     v5 = 1;
     v6 = literal;
     v7 = dest;

@@ -85,6 +85,16 @@ struct vector4 : vector3 // sizeof=0x40
 struct alignas(16) hybrid_vector // sizeof=0x10
 {                                                                             // XREF: colgeom_visitor_t/r
         float4 vec;                                                 // XREF: AimTarget_IsTargetVisible+1B/w
+
+        // Write +0.0f through the float view. Assigning 0.0f to vec.u[] is
+        // C4244 (float -> unsigned) and is what the MSVC Problems list flags.
+        void Clear()
+        {
+            vec.v[0] = 0.0f;
+            vec.v[1] = 0.0f;
+            vec.v[2] = 0.0f;
+            vec.v[3] = 0.0f;
+        }
 };
 static_assert(sizeof(hybrid_vector) == 16);
 
@@ -394,7 +404,7 @@ float Q_fabs(float f);
 #define I_rsqrt Q_rsqrt
 #define I_fabs Q_fabs
 
-#define IS_NAN(x) (isnan(x))
+#define IS_NAN(x) (isnan((double)(x)))
 
 constexpr float vec2_origin[2] = { 0.0, 0.0 };
 constexpr float vec3_origin[3] = { 0.0, 0.0, 0.0 };

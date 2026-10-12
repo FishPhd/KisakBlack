@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KisakBlack — Zombies</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.6 system-ui, sans-serif; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101419; color: #e4e8ee; }
+  main { width: min(620px, 86vw); padding: 40px 0; }
+  h1 { font-size: 48px; margin: 0 0 20px; letter-spacing: .06em; }
+  p { color: #bbc4cf; }
+  a { display: inline-block; margin-top: 20px; padding: 10px 20px; border: 1px solid #607488; border-radius: 4px; color: #e4e8ee; text-decoration: none; }
+  a:hover { background: #27323e; }
+</style>
+<main>
+  <h1>ZOMBIES</h1>
+  <p>Zombies gameplay is not ready in this build. Its installed maps and parts of the engine are present, but map startup and game scripts still need integration.</p>
+  <p>Multiplayer is available, including local bot matches and multiplayer room links.</p>
+  <a id="multiplayer" href="/">Return to Multiplayer</a>
+</main>
+<script>
+  const query = new URLSearchParams(location.search);
+  const target = new URL('/', location.href);
+  for (const key of ['assets', 'gen', 'ice', 'net'])
+    if (query.has(key)) target.searchParams.set(key, query.get(key));
+  document.querySelector('#multiplayer').href = target.href;
+</script>
+</html>

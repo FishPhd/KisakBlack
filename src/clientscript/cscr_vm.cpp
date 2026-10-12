@@ -5879,16 +5879,23 @@ function_call:
                     }
                     if (!gScrVmPub[inst].abort_on_error)
                     {
+                        char *loopFile = (char *)"";
+                        int loopLine = 0;
+                        Scr_GetFileAndLine(inst, localFs.pos, &loopFile, &loopLine);
                         if (inst == SCRIPTINSTANCE_CLIENT)
                             Com_PrintError(
                                 24,
-                                "%s script runtime error: potential infinite loop in script - killing thread.\n",
-                                "client");
+                                "%s script runtime error: potential infinite loop in script %s:%d - killing thread.\n",
+                                "client",
+                                loopFile ? loopFile : "",
+                                loopLine);
                         else
                             Com_PrintError(
                                 24,
-                                "%s script runtime error: potential infinite loop in script - killing thread.\n",
-                                "server");
+                                "%s script runtime error: potential infinite loop in script %s:%d - killing thread.\n",
+                                "server",
+                                loopFile ? loopFile : "",
+                                loopLine);
                         Scr_PrintPrevCodePos(inst, 24, (char *)localFs.pos, 0);
                         Scr_ResetTimeout(inst);
                         while (1)

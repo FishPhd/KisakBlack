@@ -5,6 +5,7 @@
 #include "sv_init_mp.h"
 #include <game_mp/g_main_mp.h>
 #include <live/live_win.h>
+#include <live/live_offline.h>
 #include <game_mp/pregame.h>
 #include <DW/dwUtils_pc.h>
 #include <live/live_storage_pub.h>
@@ -51,15 +52,12 @@ void __cdecl SV_SetTime(int time)
 
 int __cdecl SV_GetTime()
 {
-    if ( !s_LSGTime
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\server_mp\\sv_main_pc_mp.cpp",
-                    199,
-                    0,
-                    "%s",
-                    "0 != s_LSGTime") )
+    // Offline play never receives a DemonWare clock, so the first bot's stat
+    // reset asserted "0 != s_LSGTime". A local millisecond clock is enough.
+    if ( !s_LSGTime )
     {
-        __debugbreak();
+        int now = Sys_Milliseconds();
+        s_LSGTime = now ? now : 1;
     }
     return s_LSGTime;
 }
@@ -189,7 +187,7 @@ int __cdecl SV_GetLicenseType()
     if ( Dvar_GetInt("sv_forcelicensetype") )
         return Dvar_GetInt("sv_forcelicensetype");
     else
-        return s_licensetype;
+        return s_licensetype < 0 ? 0 : s_licensetype; // -1 (never set, offline) is outside sv_ranked's 0..5 domain
 }
 
 bool __cdecl SV_IsWagerServer()
@@ -878,6 +876,8 @@ unsigned __int64 __cdecl SV_GetOwnerID()
     retval = 0;
     if ( sv_ownerid && *(_BYTE *)sv_ownerid->current.integer )
         StringToXUID(sv_ownerid->current.string, &retval);
+    if ( !retval )
+        retval = LiveOffline_GetXuid();
     return retval;
 }
 

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+const url=process.argv[2] || 'ws://127.0.0.1:8080/relay';
+const open=()=>new Promise(resolve=>{const w=new WebSocket(url);w.binaryType='arraybuffer';const messages=[];w.onmessage=e=>messages.push(e.data);w.onopen=()=>resolve({w,messages});});
+const wait=async f=>{let end=Date.now()+3000;while(!f()){if(Date.now()>end)throw Error('timeout');await new Promise(r=>setTimeout(r,10));}};
+const h=await open();h.w.send('HOST');await wait(()=>h.messages.some(m=>typeof m==='string'&&m.startsWith('ROOM ')));assert(h.messages.includes('PROTOCOL 2'));const room=h.messages.find(m=>m.startsWith('ROOM ')).slice(5);
+const a=await open(),b=await open();a.w.send('JOIN '+room);b.w.send('JOIN '+room);await wait(()=>h.messages.includes('PEER 4'));
+h.w.send(new Uint8Array([127,0,0,4,12,2,42]));await wait(()=>b.messages.some(m=>m instanceof ArrayBuffer));assert.deepEqual([...new Uint8Array(b.messages.find(m=>m instanceof ArrayBuffer))],[127,0,0,2,12,2,42]);assert(!a.messages.some(m=>m instanceof ArrayBuffer));
+a.w.send(new Uint8Array([127,0,0,2,12,2,43]));await wait(()=>h.messages.some(m=>m instanceof ArrayBuffer));assert.deepEqual([...new Uint8Array(h.messages.find(m=>m instanceof ArrayBuffer))],[127,0,0,3,12,2,43]);
+a.w.send('SIGNAL '+JSON.stringify({to:2,data:{candidate:'test'}}));await wait(()=>h.messages.some(m=>typeof m==='string'&&m.startsWith('SIGNAL ')));assert.equal(JSON.parse(h.messages.find(m=>typeof m==='string'&&m.startsWith('SIGNAL ')).slice(7)).from,3);
+a.w.close();await wait(()=>h.messages.includes('LEAVE 3'));b.w.close();h.w.close();console.log('PASS relay: multiple guests, routing, byte order, signaling, disconnect');

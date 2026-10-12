@@ -1,5 +1,16 @@
 #include "r_scene.h"
 
+#ifdef KISAK_WEB
+#include <cstdint>
+#include <emscripten/heap.h>
+static bool Kisak_MatOk(const void *p, unsigned int bytes)
+{
+    uintptr_t a = (uintptr_t)p;
+    uintptr_t heap = (uintptr_t)emscripten_get_heap_size();
+    return a >= 0x1000 && bytes < heap && a <= heap - bytes;
+}
+#endif
+
 #include <Windows.h>
 #include "r_dvars.h"
 #include "r_warn.h"
@@ -508,8 +519,8 @@ void __cdecl R_AddOmniLightToScene(const float *org, const float (*axis)[3], int
     int integer; // xmm0_4
     int v7; // xmm0_4
     float v8; // xmm0_4
-    long double v9; // [esp-50h] [ebp-6Ch]
-    long double v10; // [esp-48h] [ebp-64h]
+    double v9; // [esp-50h] [ebp-6Ch]
+    double v10; // [esp-48h] [ebp-64h]
     float v11; // [esp-40h] [ebp-5Ch]
     float v12; // [esp-3Ch] [ebp-58h]
     float v13; // [esp-38h] [ebp-54h]
@@ -772,12 +783,12 @@ void __cdecl R_AddSpotLightToScene(const float *org, const float (*axis)[3], flo
 {
     double v6; // xmm0_8
     float v7; // xmm0_4
-    long double v8; // [esp+10h] [ebp-6Ch]
-    long double v9; // [esp+10h] [ebp-6Ch]
-    long double v10; // [esp+10h] [ebp-6Ch]
-    long double v11; // [esp+10h] [ebp-6Ch]
-    long double v12; // [esp+10h] [ebp-6Ch]
-    long double v13; // [esp+18h] [ebp-64h]
+    double v8; // [esp+10h] [ebp-6Ch]
+    double v9; // [esp+10h] [ebp-6Ch]
+    double v10; // [esp+10h] [ebp-6Ch]
+    double v11; // [esp+10h] [ebp-6Ch]
+    double v12; // [esp+10h] [ebp-6Ch]
+    double v13; // [esp+18h] [ebp-64h]
     float value; // [esp+1Ch] [ebp-60h]
     float v15; // [esp+28h] [ebp-54h]
     float v16; // [esp+2Ch] [ebp-50h]
@@ -1260,33 +1271,33 @@ GfxDrawSurf *__cdecl R_AddBModelSurfaces(
 
 const MaterialTechnique *__cdecl Material_GetTechnique(const Material *material, unsigned __int8 techType)
 {
-    const char *v2; // eax
     const MaterialTechniqueSet *techSet; // [esp+4h] [ebp-4h]
 
     techSet = Material_GetTechniqueSet(material);
     if ( !techSet )
-    {
-        v2 = va(
-                     "material '%s' missing techset. %d tech %d",
-                     material->info.name,
-                     material->localTechniqueSet != 0,
-                     techType);
-        if ( !Assert_MyHandler(
-                        "c:\\projects_pc\\cod\\codsrc\\src\\gfx_d3d\\r_material.h",
-                        588,
-                        0,
-                        "%s\n\t%s",
-                        "techSet",
-                        v2) )
-            __debugbreak();
-    }
-    return techSet->techniques[techType];
+        return 0;
+#ifdef KISAK_WEB
+    if ( !Kisak_MatOk(techSet, sizeof(MaterialTechniqueSet)) || techType >= 130 )
+        return 0;
+#endif
+    const MaterialTechnique *tech = techSet->techniques[techType];
+#ifdef KISAK_WEB
+    // An unused slot is sometimes a non-zero junk pointer. Treating that as a real fog technique
+    // makes the 2D drawer replace the menu art with the white default material (the options page).
+    if ( !tech || !Kisak_MatOk(tech, sizeof(MaterialTechnique)) || !Kisak_MatOk(tech->name, 1) || !tech->name[0] )
+        return 0;
+#endif
+    return tech;
 }
 
 MaterialTechniqueSet *__cdecl Material_GetTechniqueSet(const Material *material)
 {
     const char *v1; // eax
 
+#ifdef KISAK_WEB
+    if ( !Kisak_MatOk(material, sizeof(Material)) )
+        return 0;
+#endif
     if ( !material
         && !Assert_MyHandler("c:\\projects_pc\\cod\\codsrc\\src\\gfx_d3d\\r_material.h", 553, 0, "%s", "material") )
     {
@@ -2491,7 +2502,7 @@ void    R_SetSkyDynamicIntensity(const float *viewForward, GfxCmdBufInput *input
 {
 #if 0
     float value; // xmm0_4
-    long double v4; // [esp+1Ch] [ebp-8Ch] BYREF
+    double v4; // [esp+1Ch] [ebp-8Ch] BYREF
     char textBuff[64]; // [esp+28h] [ebp-80h]
     Font_s *v6; // [esp+68h] [ebp-40h]
     float textY; // [esp+6Ch] [ebp-3Ch]
@@ -3155,6 +3166,7 @@ void __cdecl R_UpdateLodParms(const refdef_s *refdef, GfxLodParms *lodParms)
     lodParms->ramp[1].bias = v3 * lodParms->ramp[1].appliedInvScale;
     lodParms->valid = 1;
 }
+
 
 void __cdecl R_RenderScene(refdef_s *refdef, int frameTime)
 {
@@ -4254,8 +4266,8 @@ void __cdecl R_SetPoisonFx(GfxViewInfo *viewInfo, const GfxSceneParms *sceneParm
 {
     float curAmount; // edx
     double v3; // xmm0_8
-    long double POISON_BLUR_SLOW; // [esp+0h] [ebp-1Ch]
-    long double POISON_BLUR_SLOWa; // [esp+0h] [ebp-1Ch]
+    double POISON_BLUR_SLOW; // [esp+0h] [ebp-1Ch]
+    double POISON_BLUR_SLOWa; // [esp+0h] [ebp-1Ch]
     float blend; // [esp+4h] [ebp-18h]
     float blenda; // [esp+4h] [ebp-18h]
     float blur1; // [esp+8h] [ebp-14h]

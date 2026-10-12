@@ -468,7 +468,7 @@ unsigned int __cdecl Sys_AddApicIdIfUnique(
     return existingCount + 1;
 }
 
-long double __cdecl Sys_BenchmarkGHz()
+double __cdecl Sys_BenchmarkGHz()
 {
     // KISAKTODO
 #if 0

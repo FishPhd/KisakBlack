@@ -5411,7 +5411,7 @@ void __cdecl CG_BulletEndpos(
                 const float *upDir,
                 float maxRange)
 {
-    long double v9; // [esp+0h] [ebp-54h]
+    double v9; // [esp+0h] [ebp-54h]
     float v10; // [esp+24h] [ebp-30h]
     float v11; // [esp+28h] [ebp-2Ch]
     float right; // [esp+48h] [ebp-Ch] BYREF
@@ -5484,7 +5484,7 @@ void __cdecl CG_BulletEndpos(
 
 void __cdecl RandomBulletDir(int randSeed, float *x, float *y)
 {
-    long double v3; // st7
+    double v3; // st7
     float sinT; // [esp+Ch] [ebp-10h]
     float theta; // [esp+10h] [ebp-Ch]
     float r; // [esp+14h] [ebp-8h]
@@ -5586,7 +5586,7 @@ void __cdecl CG_SndUpdateAutoSim()
 {
     DWORD v1; // eax
     double v2; // xmm0_8
-    long double v3; // [esp+0h] [ebp-ACh]
+    double v3; // [esp+0h] [ebp-ACh]
     unsigned int n; // [esp+5Ch] [ebp-50h]
     float da[3]; // [esp+60h] [ebp-4Ch] BYREF
     float db[3]; // [esp+6Ch] [ebp-40h] BYREF
@@ -7158,7 +7158,7 @@ void __cdecl CG_SetupWeaponDef()
     CG_GetWeaponIndexForName((char*)"defaultweapon_mp");
     if ( !G_ExitAfterToolComplete() )
     {
-        BG_LoadWeaponTable("_mp", 0);
+        if (!zombiemode->current.enabled) BG_LoadWeaponTable("_mp", 0);
         for ( configStringIndex = 0; configStringIndex < 0x100; ++configStringIndex )
             CG_SetupWeaponConfigString(configStringIndex);
     }

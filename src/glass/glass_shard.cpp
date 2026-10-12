@@ -10,6 +10,19 @@
 #include <client/cl_debugdata.h>
 #include <gfx_d3d/r_bsp.h>
 
+// The decompiled code wrapped indices with "(signed int)-fabs(i - (n - 1)) >> 31", i.e. a double-to-int cast of
+// a value that is out of range whenever i < n - 1 (n is unsigned). That is undefined behaviour: x86 happens to
+// produce the mask, but an optimized wasm build does not, and the edge walks below never terminate.
+static inline int GlassNextIndex(int i, unsigned int n)
+{
+    return i == (int)n - 1 ? 0 : i + 1;
+}
+
+static inline int GlassPrevIndex(int i, unsigned int n)
+{
+    return i == 0 ? (int)n - 1 : i - 1;
+}
+
 float hitPos[3];
 
 int GlassShard::splitFailCount[8];
@@ -1130,7 +1143,7 @@ char __thiscall GlassShard::Outline::CloseOutline()
             --this->numVerts;
             dir = this->verts[v1].edge.dir;
             v5 = &this->verts[v1];
-            v6 = &this->verts[((signed int)-abs(v1 - (this->numVerts - 1)) >> 31) & (v1 + 1)];
+            v6 = &this->verts[GlassNextIndex(v1, this->numVerts)];
             *dir = v6->edge.origin[0] - v5->edge.origin[0];
             dir[1] = v6->edge.origin[1] - v5->edge.origin[1];
             v3 = Vec2Normalize(dir);
@@ -1142,7 +1155,7 @@ char __thiscall GlassShard::Outline::CloseOutline()
     this->area = 0.0f;
     for ( i = 0; i < this->numVerts; ++i )
     {
-        v11 = ((signed int)-fabs(i - (this->numVerts - 1)) >> 31) & (i + 1);
+        v11 = GlassNextIndex(i, this->numVerts);
         this->length = this->length + this->verts[i].edge.len;
         this->area = (float)((float)((float)(this->verts[i].edge.origin[0] * this->verts[v11].edge.origin[1])
                                                              - (float)(this->verts[i].edge.origin[1] * this->verts[v11].edge.origin[0]))
@@ -3574,9 +3587,9 @@ int GlassShard::Split(
         newOutline.Add(newDir, newEdgeDist)->isOriginalEdge = isOriginalEdge;
         v13 = this->outline.verts[newEdgeIdx].isOriginalEdge;
         otherOutline.Add(newOutline.verts[newOutline.numVerts - 1].edge.origin)->isOriginalEdge = v13;
-        for ( edgeIndex = ((signed int)-abs(newEdgeIdx - (this->outline.numVerts - 1)) >> 31) & (newEdgeIdx + 1);
+        for ( edgeIndex = GlassNextIndex(newEdgeIdx, this->outline.numVerts);
                     edgeIndex != startEdge;
-                    edgeIndex = ((signed int)-fabs(edgeIndex - (this->outline.numVerts - 1)) >> 31) & (edgeIndex + 1) )
+                    edgeIndex = GlassNextIndex(edgeIndex, this->outline.numVerts) )
         {
             v12 = this->outline.verts[edgeIndex].isOriginalEdge;
             newOutline.Add(this->outline.verts[edgeIndex].edge.origin)->isOriginalEdge = v12;
@@ -3585,9 +3598,7 @@ int GlassShard::Split(
             goto LABEL_36;
         for ( edgeIndex = newEdgeIdx; edgeIndex != startEdge; edgeIndex = nextEdgeIndex )
         {
-            nextEdgeIndex = this->outline.numVerts
-                                        - 1
-                                        + (((signed int)-fabs(edgeIndex) >> 31) & (edgeIndex - this->outline.numVerts));
+            nextEdgeIndex = GlassPrevIndex(edgeIndex, this->outline.numVerts);
             v11 = this->outline.verts[nextEdgeIndex].isOriginalEdge;
             otherOutline.Add(this->outline.verts[edgeIndex].edge.origin)->isOriginalEdge = v11;
         }
@@ -4113,7 +4124,7 @@ bool __thiscall GlassShard::IsOnBottomEdge()
     }
     if ( edgeIdx == -1 )
         return 0;
-    edgeIdx2 = ((signed int)-fabs(edgeIdx - (this->outline.numVerts - 1)) >> 31) & (edgeIdx + 1);
+    edgeIdx2 = GlassNextIndex(edgeIdx, this->outline.numVerts);
     minEdge = FLT_MAX;
     minOthers = FLT_MAX;
     for ( j = 0; j < this->outline.numVerts; ++j )

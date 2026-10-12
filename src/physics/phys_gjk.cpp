@@ -9,12 +9,22 @@
 // (Honestly it should probably be turned on for the entire project)
 // `mp_array`, I was having endless (endless, and not sometimes!) gjk warnings about max iterations. This seems to have fixed it.
 // Could also be fixed with more iterations, but that's a hack.
-#if !defined(_M_IX86_FP) || _M_IX86_FP != 0
+#if defined(_MSC_VER) && (!defined(_M_IX86_FP) || _M_IX86_FP != 0)
 // to turn on x87: Edit the vcxproj 
 // <ClCompile Include="src\physics\phys_gjk.cpp">
 // <EnableEnhancedInstructionSet Condition = "'$(Platform)'=='Win32'" > NoExtensions< / EnableEnhancedInstructionSet>
 // < / ClCompile>
 #error "phys_gjk.cpp expects x87 floats"
+#endif
+
+// gjk_real: the precision of this file's local temporaries.
+// Desktop (MSVC x86, compiled with /arch:IA32) gets x87 extended precision for free.
+// wasm has only strict IEEE binary32/binary64, so the web build keeps the temporaries
+// in double instead; members and parameters stay float, which mirrors x87 spills.
+#ifdef KISAK_WEB
+typedef double gjk_real;
+#else
+typedef float gjk_real;
 #endif
 
 const float SEP_CONV_THRESH = 0.001f;
@@ -29,13 +39,13 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
     // Pointer to the new support vertex (w_verts[new_index])
     const phys_vec3 *new_vert = &gjk_info->m_w_verts[new_index];
 
-    float new_vert_sq = new_vert->x * new_vert->x
+    gjk_real new_vert_sq = new_vert->x * new_vert->x
         + new_vert->y * new_vert->y
         + new_vert->z * new_vert->z;
 
     int new_bit = 1 << new_index;
     int best_set = new_bit;
-    float best_dist_sq = new_vert_sq;
+    gjk_real best_dist_sq = new_vert_sq;
 
     // Initialize lambda for the singleton set containing new_index
     gjk_info->m_set_list[new_bit].m_lamda[new_index] = 1.0f;
@@ -50,8 +60,8 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
 
     // Per-vertex data accumulated during phase 1, used in phase 2
     int   w_inds[4] = {};   // index of each existing vert
-    float ndifs_sq[4] = {};   // squared length of edge vector (w_i - new_vert)
-    float dotps[4] = {};   // dot(edge, new_vert) where edge = w_i - new_vert (used for barycentric projection)
+    gjk_real ndifs_sq[4] = {};   // squared length of edge vector (w_i - new_vert)
+    gjk_real dotps[4] = {};   // dot(edge, new_vert) where edge = w_i - new_vert (used for barycentric projection)
 
     // Parallel arrays of (w_i - new_vert) direction vectors, one per existing vert
     phys_vec3 difs[4] = {};
@@ -70,9 +80,9 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         edge.y = wi->y - new_vert->y;
         edge.z = wi->z - new_vert->z;
 
-        float edge_sq = edge.x * edge.x + edge.y * edge.y + edge.z * edge.z;
+        gjk_real edge_sq = edge.x * edge.x + edge.y * edge.y + edge.z * edge.z;
         // dot(edge, new_vert) - used for barycentric projection of origin onto the edge
-        float dot_edge_new_vert = edge.x * new_vert->x + edge.y * new_vert->y + edge.z * new_vert->z;
+        gjk_real dot_edge_new_vert = edge.x * new_vert->x + edge.y * new_vert->y + edge.z * new_vert->z;
 
         // Store for phase 2
         w_inds[w_count] = i;
@@ -85,8 +95,8 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         //   t = -dot(edge, new_vert) / |edge|^2
         if (edge_sq > 1e-10f)
         {
-            float t = -dot_edge_new_vert / edge_sq;
-            float one_minus_t = 1.0f - t;
+            gjk_real t = -dot_edge_new_vert / edge_sq;
+            gjk_real one_minus_t = 1.0f - t;
 
             if (t > 0.0f && one_minus_t > 0.0f)
             {
@@ -96,7 +106,7 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
                 closest.y = new_vert->y + edge.y * t;
                 closest.z = new_vert->z + edge.z * t;
 
-                float dist_sq = closest.x * closest.x
+                gjk_real dist_sq = closest.x * closest.x
                     + closest.y * closest.y
                     + closest.z * closest.z;
 
@@ -115,7 +125,7 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         // seed_simplex mode: also test whether w_i alone is closer than current best
         if (seed_simplex)
         {
-            float wi_sq = wi->x * wi->x + wi->y * wi->y + wi->z * wi->z;
+            gjk_real wi_sq = wi->x * wi->x + wi->y * wi->y + wi->z * wi->z;
             if (best_dist_sq > wi_sq)
             {
                 best_dist_sq = wi_sq;
@@ -138,15 +148,15 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         edge.y = gjk_info->m_w_verts[2].y - gjk_info->m_w_verts[1].y;
         edge.z = gjk_info->m_w_verts[2].z - gjk_info->m_w_verts[1].z;
 
-        float edge_sq = edge.x * edge.x + edge.y * edge.y + edge.z * edge.z;
+        gjk_real edge_sq = edge.x * edge.x + edge.y * edge.y + edge.z * edge.z;
         if (edge_sq > 1e-10f)
         {
             // Project w_verts[1] onto the edge
-            float dot = gjk_info->m_w_verts[1].x * edge.x
+            gjk_real dot = gjk_info->m_w_verts[1].x * edge.x
                 + gjk_info->m_w_verts[1].y * edge.y
                 + gjk_info->m_w_verts[1].z * edge.z;
-            float t = -dot / edge_sq;
-            float one_minus_t = 1.0f - t;
+            gjk_real t = -dot / edge_sq;
+            gjk_real one_minus_t = 1.0f - t;
 
             if (t > 0.0f && one_minus_t > 0.0f)
             {
@@ -155,7 +165,7 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
                 closest.y = gjk_info->m_w_verts[1].y + edge.y * t;
                 closest.z = gjk_info->m_w_verts[1].z + edge.z * t;
 
-                float dist_sq = closest.x * closest.x
+                gjk_real dist_sq = closest.x * closest.x
                     + closest.y * closest.y
                     + closest.z * closest.z;
 
@@ -183,8 +193,8 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         for (int a = 0; a < w_count - 1; ++a)
         {
             int   idx_a = w_inds[a];
-            float a_sq = ndifs_sq[a];   // |dif_a|^2
-            float neg_dp_a = -dotps[a];     // -dot(dif_a, new_vert)
+            gjk_real a_sq = ndifs_sq[a];   // |dif_a|^2
+            gjk_real neg_dp_a = -dotps[a];     // -dot(dif_a, new_vert)
 
             for (int b = a + 1; b < w_count; ++b)
             {
@@ -192,22 +202,22 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
                 const phys_vec3 *dif_b = &difs[b];
 
                 // dot(dif_a, dif_b)
-                float dot_ab = difs[a].x * dif_b->x
+                gjk_real dot_ab = difs[a].x * dif_b->x
                     + difs[a].y * dif_b->y
                     + difs[a].z * dif_b->z;
 
-                float b_sq = ndifs_sq[b];
-                float neg_dp_b = -dotps[b];
+                gjk_real b_sq = ndifs_sq[b];
+                gjk_real neg_dp_b = -dotps[b];
 
                 // Gram determinant: |dif_a|^2 * |dif_b|^2 - dot(dif_a,dif_b)^2
-                float gram_det = a_sq * b_sq - dot_ab * dot_ab;
+                gjk_real gram_det = a_sq * b_sq - dot_ab * dot_ab;
 
                 if (gram_det > 1e-5f)
                 {
                     // Barycentric coords for the triangle [new_vert, w_a, w_b]
-                    float lambda_a = (b_sq * neg_dp_a - neg_dp_b * dot_ab) / gram_det;
-                    float lambda_b = (a_sq * neg_dp_b - dot_ab * neg_dp_a) / gram_det;
-                    float lambda_new = 1.0f - lambda_a - lambda_b;
+                    gjk_real lambda_a = (b_sq * neg_dp_a - neg_dp_b * dot_ab) / gram_det;
+                    gjk_real lambda_b = (a_sq * neg_dp_b - dot_ab * neg_dp_a) / gram_det;
+                    gjk_real lambda_new = 1.0f - lambda_a - lambda_b;
 
                     if (lambda_a > 0.0f && lambda_b > 0.0f && lambda_new > 0.0f)
                     {
@@ -231,7 +241,7 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
                         closest.y = new_contrib.y + contrib_b.y;
                         closest.z = new_contrib.z + contrib_b.z;
 
-                        float dist_sq = closest.x * closest.x
+                        gjk_real dist_sq = closest.x * closest.x
                             + closest.y * closest.y
                             + closest.z * closest.z;
 
@@ -283,12 +293,12 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         cross.z = difs[0].x * difs[1].y - difs[0].y * difs[1].x;
 
         // det = dot(cross, difs[2]) - signed volume spanned by the edges
-        float det = cross.x * difs[2].x + cross.y * difs[2].y + cross.z * difs[2].z;
+        gjk_real det = cross.x * difs[2].x + cross.y * difs[2].y + cross.z * difs[2].z;
         if (fabs(det) <= 1e-5f)
             return best_set;                    // degenerate tetrahedron
 
         // t2 = coefficient of difs[2]   (0xa0ca74..0xa0caa7)
-        float t2 = -(cross.x * new_vert->x + cross.y * new_vert->y + cross.z * new_vert->z) / det;
+        gjk_real t2 = -(cross.x * new_vert->x + cross.y * new_vert->y + cross.z * new_vert->z) / det;
         if (t2 < 0.0f)
             return best_set;
 
@@ -299,12 +309,12 @@ int    backup1(phys_gjk_info *gjk_info, int new_index, bool seed_simplex)
         wxd2.z = difs[2].y * new_vert->x - new_vert->y * difs[2].x;
 
         // t1 = coefficient of difs[0]
-        float t1 = (difs[1].x * wxd2.x + difs[1].y * wxd2.y + difs[1].z * wxd2.z) / det;
+        gjk_real t1 = (difs[1].x * wxd2.x + difs[1].y * wxd2.y + difs[1].z * wxd2.z) / det;
         if (t1 < 0.0f)
             return best_set;
 
         // t0 = coefficient of difs[1]
-        float t0 = -(difs[0].x * wxd2.x + difs[0].y * wxd2.y + difs[0].z * wxd2.z) / det;
+        gjk_real t0 = -(difs[0].x * wxd2.x + difs[0].y * wxd2.y + difs[0].z * wxd2.z) / det;
         if (t0 < 0.0f)
             return best_set;
 
@@ -546,13 +556,13 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk(
         // v . w is the signed support along the current search direction.
         // If positive, we have new evidence the shapes are separated and can
         // tighten the lower bound on the squared distance.
-        const float support_dot_w = m_support_dir.x * w.x
+        const gjk_real support_dot_w = m_support_dir.x * w.x
             + m_support_dir.y * w.y
             + m_support_dir.z * w.z;
 
         if (support_dot_w > 0.0f && m_upper_dist_sq > 0.0f)
         {
-            const float candidate = (support_dot_w * support_dot_w) / m_upper_dist_sq;
+            const gjk_real candidate = (support_dot_w * support_dot_w) / m_upper_dist_sq;
 
             if (candidate > m_lower_dist_sq)
             {
@@ -562,7 +572,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk(
                 // separation beyond m_gjk_sep_thresh can be proven.
                 if ((m_flags & 1) != 0)
                 {
-                    const float thresh_sq = m_gjk_sep_thresh * m_gjk_sep_thresh;
+                    const gjk_real thresh_sq = m_gjk_sep_thresh * m_gjk_sep_thresh;
                     if (thresh_sq < candidate)
                         return GJK_SEPARATED;
                 }
@@ -576,8 +586,8 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk(
         {
             // Tightness test: is m_lower_dist_sq / m_upper_dist_sq close
             // enough to 1?  Equivalent to |v_low| / |v_up| >= (1 - eps).
-            const float ratio = 1.0f - CONV_THRESH;
-            const float ratio_sq = ratio * ratio;
+            const gjk_real ratio = 1.0f - CONV_THRESH;
+            const gjk_real ratio_sq = ratio * ratio;
             if (m_lower_dist_sq > ratio_sq * m_upper_dist_sq)
                 return GJK_VALID;
 
@@ -591,9 +601,9 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk(
                 if ((m_last_w_set & mask) == 0)
                     continue;
 
-                const float dx = w.x - m_w_verts[i].x;
-                const float dy = w.y - m_w_verts[i].y;
-                const float dz = w.z - m_w_verts[i].z;
+                const gjk_real dx = w.x - m_w_verts[i].x;
+                const gjk_real dy = w.y - m_w_verts[i].y;
+                const gjk_real dz = w.z - m_w_verts[i].z;
                 if (dx * dx + dy * dy + dz * dz < 1.0e-6f)
                     return GJK_VALID;
             }
@@ -636,16 +646,16 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                 const phys_vec3 *initial_support_dir,
                 bool in_separation_loop)
 {
-    float nsupport_dir_len;
-    float move;
-    float ray_end_dist_numer;
+    gjk_real nsupport_dir_len;
+    gjk_real move;
+    gjk_real ray_end_dist_numer;
     int new_index;
 
     // Initialize continuous collision time and shift GJK origin accordingly
-    float lambda = d->m_start_time;
+    gjk_real lambda = d->m_start_time;
     this->m_continuous_collision_lambda = lambda;
 
-    float neg_lambda = -lambda;
+    gjk_real neg_lambda = -lambda;
     this->m_gjk_origin.x = this->m_cg1_relative_translation_loc.x * neg_lambda;
     this->m_gjk_origin.y = this->m_cg1_relative_translation_loc.y * neg_lambda;
     this->m_gjk_origin.z = this->m_cg1_relative_translation_loc.z * neg_lambda;
@@ -675,7 +685,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
 
     this->m_cc_reset_iter = 0;
 
-    float support_dir_moveback = (this->m_geom_radii_sum >= 0.051f) ? this->m_geom_radii_sum : 0.051f;
+    gjk_real support_dir_moveback = (this->m_geom_radii_sum >= 0.051f) ? this->m_geom_radii_sum : 0.051f;
 
     iassert(support_dir_moveback < this->m_gjk_sep_thresh);
 
@@ -697,7 +707,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                 // Cached-support-dir mode: if ||v||^2 < sep_thresh^2, set sep flag
                 if (this->m_flags & 0x10)
                 {
-                    float sep_thresh_sq = this->m_gjk_sep_thresh * this->m_gjk_sep_thresh;
+                    gjk_real sep_thresh_sq = this->m_gjk_sep_thresh * this->m_gjk_sep_thresh;
                     if (sep_thresh_sq > this->m_upper_dist_sq)
                         this->m_flags |= 1u;
                 }
@@ -772,25 +782,25 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
             };
 
             // v_dot_w = dot(support_dir, w)
-            float support_dot_w = this->m_support_dir.x * w.x
+            gjk_real support_dot_w = this->m_support_dir.x * w.x
                                 + this->m_support_dir.y * w.y
                                 + this->m_support_dir.z * w.z;
 
             // Lower-bound update and separation check
-            float candidate = 0.0f;
+            gjk_real candidate = 0.0f;
             if (support_dot_w > 0.0f)
             {
                 if (this->m_upper_dist_sq > 0.0f)
                 {
                     this->m_flags |= 0x20u;
-                    float raw_candidate = (support_dot_w * support_dot_w) / this->m_upper_dist_sq;
+                    gjk_real raw_candidate = (support_dot_w * support_dot_w) / this->m_upper_dist_sq;
                     candidate = 0.0f;  // candidate used for convergence check stays 0
                     if (this->m_lower_dist_sq < raw_candidate)
                     {
                         this->m_lower_dist_sq = raw_candidate;
                         if (this->m_flags & 1)
                         {
-                            float thresh_sq = this->m_gjk_sep_thresh * this->m_gjk_sep_thresh;
+                            gjk_real thresh_sq = this->m_gjk_sep_thresh * this->m_gjk_sep_thresh;
                             if (thresh_sq < raw_candidate)
                                 return GJK_SEPARATED;
                         }
@@ -805,7 +815,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
             if (this->m_gjk_iter != 0 && candidate < this->m_lower_dist_sq)
             {
                 // has_converged = (lower > (1-CONV_THRESH)^2 * upper)
-                float thresh = 1.0f - CONV_THRESH;
+                gjk_real thresh = 1.0f - CONV_THRESH;
                 thresh *= thresh;
                 if (this->m_lower_dist_sq > thresh * this->m_upper_dist_sq)
                     has_converged = true;
@@ -813,14 +823,14 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                 // Degeneracy check: is w already in the simplex?
                 if (!has_converged)
                 {
-                    const float epsilon_sq = 1e-6f;
+                    const gjk_real epsilon_sq = 1e-6f;
                     for (int i = 0, mask = 1; i < 4; ++i, mask <<= 1)
                     {
                         if (this->m_last_w_set & mask)
                         {
-                            float dx = w.x - this->m_w_verts[i].x;
-                            float dy = w.y - this->m_w_verts[i].y;
-                            float dz = w.z - this->m_w_verts[i].z;
+                            gjk_real dx = w.x - this->m_w_verts[i].x;
+                            gjk_real dy = w.y - this->m_w_verts[i].y;
+                            gjk_real dz = w.z - this->m_w_verts[i].z;
                             if (dx * dx + dy * dy + dz * dz < epsilon_sq)
                             {
                                 has_converged = true;
@@ -834,7 +844,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
             // Conservative advancement — only if flag 4 not set and v_dot_w > 0
             if (!(this->m_flags & 4) && support_dot_w > 0.0f)
             {
-                float geom_block = support_dir_moveback * support_dir_moveback;
+                gjk_real geom_block = support_dir_moveback * support_dir_moveback;
                 if (geom_block * this->m_upper_dist_sq <= support_dot_w * support_dot_w)
                 {
                     nsupport_dir_len = sqrtf(this->m_upper_dist_sq);
@@ -852,7 +862,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                         // Objects not approaching each other
                         if (ray_end_dist_numer > 0.0f)
                         {
-                            float thresh_sq = this->m_gjk_sep_thresh * this->m_gjk_sep_thresh;
+                            gjk_real thresh_sq = this->m_gjk_sep_thresh * this->m_gjk_sep_thresh;
                             if (thresh_sq < this->m_lower_dist_sq)
                                 return GJK_SEPARATED;
                             this->m_flags |= 5u;
@@ -865,11 +875,11 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                         // IDA gates the advance on ray_end_dist_numer >= 0 as well -
                         // once the support point is inside the moveback radius the
                         // binary stops advancing lambda and just refines the simplex.
-                        float dot_origin = this->m_support_dir.x * this->m_gjk_origin.x
+                        gjk_real dot_origin = this->m_support_dir.x * this->m_gjk_origin.x
                             + this->m_support_dir.y * this->m_gjk_origin.y
                             + this->m_support_dir.z * this->m_gjk_origin.z;
 
-                        float new_lambda = (dot_origin + ray_end_dist_numer) / move;
+                        gjk_real new_lambda = (dot_origin + ray_end_dist_numer) / move;
 
                         if (this->m_continuous_collision_lambda + 0.0001f < new_lambda)
                         {
@@ -877,10 +887,10 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                             if (d->m_end_time < new_lambda)
                             {
                                 //float end_numerator = ray_end_dist_numer - move * d->m_end_time;
-                                float end_numerator = ray_end_dist_numer + dot_origin - move * d->m_end_time;
+                                gjk_real end_numerator = ray_end_dist_numer + dot_origin - move * d->m_end_time;
 
                                 // Check: sep_thresh * nsupport_dir_len >= end_numerator
-                                float sep_limit = this->m_gjk_sep_thresh * nsupport_dir_len;
+                                gjk_real sep_limit = this->m_gjk_sep_thresh * nsupport_dir_len;
 
                                 if (sep_limit >= end_numerator)
                                 {
@@ -963,7 +973,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
         // Store new lambda, update origin
         this->m_continuous_collision_lambda = lambda;
 
-        float neg_lam = -lambda;
+        gjk_real neg_lam = -lambda;
         this->m_gjk_origin.x = this->m_cg1_relative_translation_loc.x * neg_lam;
         this->m_gjk_origin.y = this->m_cg1_relative_translation_loc.y * neg_lam;
         this->m_gjk_origin.z = this->m_cg1_relative_translation_loc.z * neg_lam;
@@ -1055,11 +1065,11 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::collide(const phys_gjk_input *d)
         gjk_sep_dir::comp_sep_dir(&support_dir, d, this);
     }
 
-    float support_dir_sq = AbsSquared(support_dir);
+    gjk_real support_dir_sq = AbsSquared(support_dir);
 
     if (support_dir_sq < 0.0000000099999991f)
     {
-        float init_sq = initial_support_dir.x * initial_support_dir.x
+        gjk_real init_sq = initial_support_dir.x * initial_support_dir.x
             + initial_support_dir.y * initial_support_dir.y
             + initial_support_dir.z * initial_support_dir.z;
 
@@ -1095,11 +1105,11 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::collide(const phys_gjk_input *d)
 
         iassert((w.GetX() == w.GetX() && w.GetY() == w.GetY() && w.GetZ() == w.GetZ()));
 
-        float support_dir_len = sqrt(support_dir_sq);
-        float inflate = 17.0f / support_dir_len;
+        gjk_real support_dir_len = sqrt(support_dir_sq);
+        gjk_real inflate = 17.0f / support_dir_len;
 
-        float dot_w_sep = w.x * support_dir.x + w.y * support_dir.y + w.z * support_dir.z;
-        float scale = -(inflate - dot_w_sep / support_dir_sq);
+        gjk_real dot_w_sep = w.x * support_dir.x + w.y * support_dir.y + w.z * support_dir.z;
+        gjk_real scale = -(inflate - dot_w_sep / support_dir_sq);
 
         this->m_gjk_origin.x = support_dir.x * scale;
         this->m_gjk_origin.y = support_dir.y * scale;
@@ -1127,7 +1137,7 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::collide(const phys_gjk_input *d)
 
         iassert(AbsSquared(support_dir) >= m_gjk_pen_thresh_sq);
 
-        float conv = 1.0f - SEP_CONV_THRESH;
+        gjk_real conv = 1.0f - SEP_CONV_THRESH;
         conv *= conv;
         if (conv * this->m_lower_dist_sq < 289.0f || iters >= 10)
             return GJK_PENETRATING;
@@ -1142,18 +1152,18 @@ char phys_gjk_info::phys_collide_do_gjk_collide(const phys_gjk_input *d)
     double v5; // st6
     double v6; // st7
     phys_gjk_info::gjk_retval_e retv; // eax
-    float v15; // [esp+14h] [ebp-2Ch]
-    float v16; // [esp+14h] [ebp-2Ch]
-    float v17; // [esp+14h] [ebp-2Ch]
-    float v18; // [esp+14h] [ebp-2Ch]
-    float v19; // [esp+18h] [ebp-28h]
-    float v20; // [esp+18h] [ebp-28h]
-    float v21; // [esp+18h] [ebp-28h]
-    float v22; // [esp+18h] [ebp-28h]
-    float v23; // [esp+1Ch] [ebp-24h]
-    float v24; // [esp+1Ch] [ebp-24h]
-    float v25; // [esp+1Ch] [ebp-24h]
-    float v26; // [esp+1Ch] [ebp-24h]
+    gjk_real v15; // [esp+14h] [ebp-2Ch]
+    gjk_real v16; // [esp+14h] [ebp-2Ch]
+    gjk_real v17; // [esp+14h] [ebp-2Ch]
+    gjk_real v18; // [esp+14h] [ebp-2Ch]
+    gjk_real v19; // [esp+18h] [ebp-28h]
+    gjk_real v20; // [esp+18h] [ebp-28h]
+    gjk_real v21; // [esp+18h] [ebp-28h]
+    gjk_real v22; // [esp+18h] [ebp-28h]
+    gjk_real v23; // [esp+1Ch] [ebp-24h]
+    gjk_real v24; // [esp+1Ch] [ebp-24h]
+    gjk_real v25; // [esp+1Ch] [ebp-24h]
+    gjk_real v26; // [esp+1Ch] [ebp-24h]
 
 
     iassert((d->m_start_time >= 0.0f) && (d->m_start_time <= d->m_end_time) && (d->m_end_time <= 1.0f));
@@ -1325,8 +1335,8 @@ int phys_gjk_info::compress_verts(char w_set)
 void phys_gjk_info::comp_closest_points(int w_set, phys_vec3 *a, phys_vec3 *b)
 {
     phys_gjk_info::phys_gjk_set_info *set_info; // eax
-    float inv_lambda_sum; // [esp-8h] [ebp-14h]
-    float lambda_sum; // [esp-4h] [ebp-10h]
+    gjk_real inv_lambda_sum; // [esp-8h] [ebp-14h]
+    gjk_real lambda_sum; // [esp-4h] [ebp-10h]
 
     a->x = 0.0;
     a->y = 0.0;
@@ -1420,11 +1430,11 @@ const phys_vec3 *phys_gjk_info::get_initial_support_dir(
     phys_full_multiply(&cg2_center_world, &this->cg2_to_cg1_xform, &cg2_center_local);
     d->gjk_cg1->get_center(&cg1_center_local);
 
-    float dx = cg1_center_local.x - cg2_center_world.x;
-    float dy = cg1_center_local.y - cg2_center_world.y;
-    float dz = cg1_center_local.z - cg2_center_world.z;
+    gjk_real dx = cg1_center_local.x - cg2_center_world.x;
+    gjk_real dy = cg1_center_local.y - cg2_center_world.y;
+    gjk_real dz = cg1_center_local.z - cg2_center_world.z;
 
-    float dist_sq = dx * dx + dy * dy + dz * dz;
+    gjk_real dist_sq = dx * dx + dy * dy + dz * dz;
 
     if (dist_sq < 0.0000000099999991)
     {
@@ -1559,19 +1569,19 @@ void phys_gjk_info::comp_v(int w_set, phys_vec3 *v) const
     {
         iassert(list_w_vert_count == 3);
 
-        float e02x = list_w_vert[2].x - list_w_vert[0].x;
-        float e02y = list_w_vert[2].y - list_w_vert[0].y;
-        float e02z = list_w_vert[2].z - list_w_vert[0].z;
+        gjk_real e02x = list_w_vert[2].x - list_w_vert[0].x;
+        gjk_real e02y = list_w_vert[2].y - list_w_vert[0].y;
+        gjk_real e02z = list_w_vert[2].z - list_w_vert[0].z;
 
         phys_vec3 normal;
         normal.x = e02z * e01.y - e02y * e01.z;
         normal.y = e01.z * e02x - e02z * e01.x;
         normal.z = e02y * e01.x - e01.y * e02x;
 
-        float normal_sq = normal.y * normal.y + normal.x * normal.x + normal.z * normal.z;
+        gjk_real normal_sq = normal.y * normal.y + normal.x * normal.x + normal.z * normal.z;
         if (normal_sq > 0.01f)
         {
-            float t = (normal.x * list_w_vert[0].x
+            gjk_real t = (normal.x * list_w_vert[0].x
                      + normal.y * list_w_vert[0].y
                      + normal.z * list_w_vert[0].z) / normal_sq;
 
@@ -1590,7 +1600,7 @@ void phys_gjk_info::comp_v(int w_set, phys_vec3 *v) const
         sides[2].y = -e02y;
         sides[2].z = -e02z;
 
-        float nside_sq[3];
+        gjk_real nside_sq[3];
         nside_sq[0] = sides[0].x * sides[0].x + sides[0].y * sides[0].y + sides[0].z * sides[0].z;
         nside_sq[1] = sides[1].x * sides[1].x + sides[1].y * sides[1].y + sides[1].z * sides[1].z;
         nside_sq[2] = sides[2].x * sides[2].x + sides[2].y * sides[2].y + sides[2].z * sides[2].z;
@@ -1613,7 +1623,7 @@ void phys_gjk_info::comp_v(int w_set, phys_vec3 *v) const
     project_edge:
         iassert(nside_sq[side_i] > 0.0f);
 
-        float t = (list_w_vert[side_i].x * sides[side_i].x
+        gjk_real t = (list_w_vert[side_i].x * sides[side_i].x
             + list_w_vert[side_i].y * sides[side_i].y
             + list_w_vert[side_i].z * sides[side_i].z) / nside_sq[side_i];
         v->x = list_w_vert[side_i].x - sides[side_i].x * t;
@@ -1623,11 +1633,11 @@ void phys_gjk_info::comp_v(int w_set, phys_vec3 *v) const
     }
 
     // 2-vertex case: project origin onto line segment w[0]->w[1]
-    float ne1_sq = e01.x * e01.x + e01.y * e01.y + e01.z * e01.z;
+    gjk_real ne1_sq = e01.x * e01.x + e01.y * e01.y + e01.z * e01.z;
     iassert(ne1_sq > 0.0f);
 
     // t = dot(w[0], e01) / |e01|^2, closest = w[0] - t * e01
-    float t = (e01.x * list_w_vert[0].x
+    gjk_real t = (e01.x * list_w_vert[0].x
         + e01.y * list_w_vert[0].y
         + e01.z * list_w_vert[0].z) / ne1_sq;
     v->x = list_w_vert[0].x - e01.x * t;

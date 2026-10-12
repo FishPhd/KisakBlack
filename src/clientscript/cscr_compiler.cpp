@@ -289,6 +289,15 @@ void __cdecl LinkFile(scriptInstance_t inst, unsigned int filePosId, unsigned in
 
     emptyValue.type = 0;
     emptyValue.u.intValue = 0;
+    // Report every unresolved symbol in this file before LinkThread raises the
+    // first error, so integration failures retain useful names without debug data.
+    for (unsigned int symbol = FindFirstSibling(inst, fileCountId); symbol;
+         symbol = FindNextSibling(inst, symbol))
+    {
+        const unsigned int name = GetVariableName(inst, symbol);
+        if (!FindVariable(inst, filePosId, name))
+            Com_Printf(23, "Unresolved script function: %s\n", SL_ConvertToString(name, inst));
+    }
     for ( threadCountPtr = FindFirstSibling(inst, fileCountId);
                 threadCountPtr;
                 threadCountPtr = FindNextSibling(inst, threadCountPtr) )
@@ -2736,7 +2745,7 @@ void __cdecl EmitFunction(scriptInstance_t inst, sval_u func, sval_u sourcePos)
     }
     else
     {
-        CompileError(inst, sourcePos.stringValue, "unknown function");
+        CompileError(inst, sourcePos.stringValue, "unknown function '%s'", SL_ConvertToString(threadName, inst));
     }
 }
 

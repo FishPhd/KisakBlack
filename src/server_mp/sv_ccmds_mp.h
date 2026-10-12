@@ -14,6 +14,8 @@ void __cdecl ShowLoadErrorsSummary(const char *mapName, unsigned int count);
 void __cdecl SV_MapRestart_f();
 void __cdecl SV_FastRestart_f();
 void __cdecl SV_MapRotate_f();
+bool __cdecl SV_ReturnToLobbyAfterMatch();
+void __cdecl SV_AddBots_f();
 void __cdecl SV_TempBan_f();
 int __cdecl SV_KickUser_f(char *playerName, int maxPlayerNameLen);
 client_t *__cdecl SV_GetPlayerByName();
