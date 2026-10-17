@@ -302,11 +302,19 @@ bool phys_slot_pool::slot_ptr_readable(const void *slot) const
 
     if (slot_align < 4 || slot_size < sizeof(extra_info))
         return false;
-    // Heap-range check is inside phys_walk_ptr_ok and is wasm-only. Alignment is checked on every build.
+    // Wasm rejects anything outside its one heap. Desktop slots live in the
+    // physics buffer, and a free-list link can briefly hold a payload size.
     if (!phys_walk_ptr_ok(slot, slot_size))
         return false;
     if ((reinterpret_cast<uintptr_t>(slot) % slot_align) != 0)
         return false;
+#ifndef __EMSCRIPTEN__
+    const auto addr = reinterpret_cast<uintptr_t>(slot);
+    const auto base = reinterpret_cast<uintptr_t>(g_phys_memory_buffer);
+    const auto bytes = static_cast<uintptr_t>(g_phys_memory_buffer_size);
+    if (!base || addr < base || slot_size > bytes || addr > base + bytes - slot_size)
+        return false;
+#endif
     return true;
 }
 
