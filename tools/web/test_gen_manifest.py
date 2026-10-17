@@ -118,5 +118,68 @@ class ZombiesManifestTests(unittest.TestCase):
         self.assertEqual(inventory["zombie_theater"]["trace_status"], "passed")
 
 
+class UpdateManifestTests(unittest.TestCase):
+    def test_new_dlc_fastfiles_are_listed_without_replacing_existing_maps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            game = pathlib.Path(tmp) / "game"
+            (game / "zone" / "Common").mkdir(parents=True)
+            (game / "zone" / "English").mkdir(parents=True)
+            for name in ("mp_nuked", "mp_discovery"):
+                (game / "zone" / "Common" / f"{name}.ff").write_bytes(b"ff")
+                (game / "zone" / "English" / f"en_{name}.ff").write_bytes(b"en")
+            zones = manifest.zone_index(str(game))
+            existing = {"maps": {"mp_nuked": [{"path": "zone/Common/mp_nuked.ff", "size": 2}]}}
+            added = manifest.add_map_fastfiles(
+                existing, manifest.missing_manifest_maps(existing, manifest.discover_maps(str(game))),
+                zones, lambda p: {"path": p, "size": (game / p).stat().st_size})
+            self.assertEqual(added, ["mp_discovery"])
+            self.assertEqual([e["path"] for e in existing["maps"]["mp_nuked"]], ["zone/Common/mp_nuked.ff"])
+            self.assertEqual(
+                {e["path"] for e in existing["maps"]["mp_discovery"]},
+                {"zone/Common/mp_discovery.ff", "zone/English/en_mp_discovery.ff"})
+
+    def test_update_writes_new_maps_then_packs_only_those_client_maps(self):
+        calls = []
+
+        def trace(args, game, name, gametype, client=False, **kwargs):
+            calls.append(name)
+            return {"map": name, "ok": True, "entries": [], "seconds": 1, "returncode": 0}
+
+        def collect(game, run, zones):
+            return {f"zone/Common/{run['map']}.ff"}, {("main/source.iwd", run["map"] + ".iwi")}, set()
+
+        def repack(game, entries, target):
+            pathlib.Path(target).write_bytes(b"pack")
+            return len(entries)
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(manifest, "run_trace", side_effect=trace), \
+                patch.object(manifest, "collect", side_effect=collect), patch.object(manifest, "repack_iwd", side_effect=repack):
+            root = pathlib.Path(tmp)
+            game, out = root / "game", root / "out"
+            (game / "zone" / "Common").mkdir(parents=True)
+            (game / "zone" / "English").mkdir(parents=True)
+            out.mkdir()
+            for name in ("mp_nuked", "mp_discovery"):
+                (game / "zone" / "Common" / f"{name}.ff").write_bytes(b"ff")
+                (game / "zone" / "English" / f"en_{name}.ff").write_bytes(b"en")
+            existing = {
+                "version": 1,
+                "boot": [],
+                "maps": {"mp_nuked": [{"path": "zone/Common/mp_nuked.ff", "size": 2}]},
+                "client": {"boot": [], "maps": {"mp_nuked": [{"path": "main/iw_web_map_mp_nuked.iwd", "size": 4, "gen": True}]}},
+            }
+            (out / "manifest.json").write_text(json.dumps(existing))
+            args = argparse.Namespace(maps="", client=True, client_maps=None, jobs=1, trace_log_dir="")
+            result = manifest.update_existing_manifest(
+                args, str(game), str(out), manifest.zone_index(str(game)),
+                lambda p: {"path": p, "size": (game / p).stat().st_size})
+        self.assertEqual(result["listed"], ["mp_discovery"])
+        self.assertEqual(calls, ["mp_discovery"])
+        self.assertEqual(result["packed"], ["mp_discovery"])
+        self.assertIn("mp_nuked", result["manifest"]["client"]["maps"])
+        self.assertIn("main/iw_web_map_mp_discovery.iwd",
+                      [e["path"] for e in result["manifest"]["client"]["maps"]["mp_discovery"]])
+
+
 if __name__ == "__main__":
     unittest.main()

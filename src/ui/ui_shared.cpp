@@ -4364,6 +4364,7 @@ void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu)
 #endif
     if ( menu && menu->window.name && !I_stricmp(menu->window.name, "menu_xboxlive_privatelobby") )
         UI_KisakEnsurePrivateLobbyBotsRow(menu);
+    UI_KisakEnsureMapListScroll(menu);
 
     for ( i = dc->openMenuCount - 1; i >= 0; --i )
         Menu_LoseFocusDueToOpen(localClientNum, dc, dc->menuStack[i].menu);
@@ -4788,6 +4789,28 @@ void    Menu_HandleKey(int localClientNum, UiContext *dc, menuDef_t *menu, int k
                     || inHandleKey
                     || key != 200 && key != 201 && key != 202)
                 {
+                    if (down && (key == 205 || key == 206))
+                    {
+                        for (i = 0; i < menu->itemCount; ++i)
+                        {
+                            itemDef_s *wheelItem = menu->items[i];
+                            listBoxDef_s *wheelList;
+                            const rectDef_s *wheelRect;
+                            if (!Item_IsVisible(localClientNum, dc->contextIndex, wheelItem))
+                                continue;
+                            if (wheelItem->type != 4 && wheelItem->dataType != 4)
+                                continue;
+                            wheelList = Item_GetListBoxDef(wheelItem);
+                            if (!wheelList)
+                                continue;
+                            wheelRect = Window_GetRect(&wheelItem->window);
+                            if (!Rect_ContainsPoint(dc->contextIndex, wheelRect, dc->cursor.x, dc->cursor.y))
+                                continue;
+                            Item_ListBox_HandleKey(localClientNum, dc, wheelItem, key, down, 1);
+                            inHandler = 0;
+                            return;
+                        }
+                    }
                     for (i = 0; i < menu->itemCount; ++i)
                     {
                         if (Item_IsVisible(localClientNum, dc->contextIndex, menu->items[i]))
@@ -5051,8 +5074,14 @@ int __cdecl Item_ListBox_HandleKey(int localClientNum, UiContext *dc, itemDef_s 
         v19 = 0;
     lastIndex = v19;
     flags = Window_GetDynamicFlags(dc->contextIndex, &item->window);
-    if ( !force && (!validMousePosition || (flags & 2) == 0) )
-        return 0;
+    if ( !force )
+    {
+        if ( !validMousePosition )
+            return 0;
+        // Wheel over a list should scroll it even before the row has focus.
+        if ( (flags & 2) == 0 && key != 205 && key != 206 )
+            return 0;
+    }
     UI_OverrideCursorPos(localClientNum, dc->contextIndex, item);
     max = (int)Item_ListBox_MaxScroll(localClientNum, dc->contextIndex, item);
     viewmax = Item_ListBox_Viewmax(localClientNum, dc->contextIndex, item);
@@ -5368,14 +5397,11 @@ $LN72_1:
             result = 1;
             break;
         case 205:
-            if ( Item_IsModal(item) )
+            if ( Item_IsModal(item) && listPtr->usePaging )
             {
-                if ( listPtr->usePaging )
-                {
-                    Item_ListBox_Page(localClientNum, dc->contextIndex, item, lastIndex, max, viewmax, 1);
-                    Focused = Menu_GetFocused(dc);
-                    Menu_HandleMouseMove(localClientNum, dc, Focused);
-                }
+                Item_ListBox_Page(localClientNum, dc->contextIndex, item, lastIndex, max, viewmax, 1);
+                Focused = Menu_GetFocused(dc);
+                Menu_HandleMouseMove(localClientNum, dc, Focused);
             }
             else
             {
@@ -5384,14 +5410,11 @@ $LN72_1:
             result = 1;
             break;
         case 206:
-            if ( Item_IsModal(item) )
+            if ( Item_IsModal(item) && listPtr->usePaging )
             {
-                if ( listPtr->usePaging )
-                {
-                    Item_ListBox_Page(localClientNum, dc->contextIndex, item, lastIndex, max, viewmax, -1);
-                    v7 = Menu_GetFocused(dc);
-                    Menu_HandleMouseMove(localClientNum, dc, v7);
-                }
+                Item_ListBox_Page(localClientNum, dc->contextIndex, item, lastIndex, max, viewmax, -1);
+                v7 = Menu_GetFocused(dc);
+                Menu_HandleMouseMove(localClientNum, dc, v7);
             }
             else
             {
@@ -9988,6 +10011,26 @@ void __cdecl Item_ListBox_Paint(int localClientNum, UiContext *dc, itemDef_s *it
                 listPtr->endPos[dc->contextIndex] = listPtr->startPos[dc->contextIndex];
                 size = Item_ListBox_ScrollHeight(localClientNum, dc->contextIndex, item);
                 UI_DrawHandlePic(scrPlace, x, y, 16.0, size, rect->horzAlign, rect->vertAlign, 0, sharedUiInfo.assets.scrollBar);
+                UI_DrawHandlePic(
+                    scrPlace,
+                    x,
+                    y,
+                    16.0,
+                    16.0,
+                    rect->horzAlign,
+                    rect->vertAlign,
+                    0,
+                    sharedUiInfo.assets.scrollBarArrowUp);
+                UI_DrawHandlePic(
+                    scrPlace,
+                    x,
+                    (float)(y + size) - 16.0,
+                    16.0,
+                    16.0,
+                    rect->horzAlign,
+                    rect->vertAlign,
+                    0,
+                    sharedUiInfo.assets.scrollBarArrowDown);
                 if ( g_debugMode )
                 {
                     UI_DrawRect(scrPlace, x, y, 16.0, size, rect->horzAlign, rect->vertAlign, 1.0, colorWhite);

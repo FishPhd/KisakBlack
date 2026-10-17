@@ -38,6 +38,10 @@ int main(int argc, char **argv) {
     static_assert(Web_SettleFinished(0, 250));
     static_assert(Web_SettleFinished(3, 45000));
     static_assert(Web_SettleFinished(1, 10, true));
+    static_assert(Web_SkipMapLoadPreparation(2, false));
+    static_assert(!Web_SkipMapLoadPreparation(2, true));
+    static_assert(Web_SkipMapLoadPreparation(1, true));
+    static_assert(Web_SkipMapLoadPreparation(0, false));
     using namespace webgpu;
     assert(policy::CompactVertexStreams(5) == std::vector<unsigned>({0,2}));
     assert(policy::CompactVertexStreams(8) == std::vector<unsigned>({3}));

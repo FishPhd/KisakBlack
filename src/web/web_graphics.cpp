@@ -51,7 +51,7 @@ bool Web_UseFullTexturePreparation() {
 
 void Web_RegisterGraphicsDvars()
 {
-    web_disableWeaponFiringEffects = _Dvar_RegisterBool("web_disableWeaponFiringEffects", true, 1,
+    web_disableWeaponFiringEffects = _Dvar_RegisterBool("web_disableWeaponFiringEffects", false, 1,
         "Disable weapon muzzle, casing, tracer and bullet impact visuals in the browser");
     web_disableDistortion = _Dvar_RegisterBool("web_disableDistortion", false, 1, "Disable distortion effects in the browser");
     web_disableMotionBlur = _Dvar_RegisterBool("web_disableMotionBlur", false, 1, "Skip motion blur passes in the browser");

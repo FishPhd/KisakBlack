@@ -31,6 +31,7 @@ Options:
   --stage <dir>       also write a boot-only game directory (for run_node.mjs --lazy-source tests)
   --jobs N            parallel node runs (default 3)
   --node <exe>        node executable (default: node)
+  --update            keep an existing manifest and add maps that are now installed (DLC copies, etc.)
 """
 
 import argparse
@@ -172,6 +173,143 @@ def discover_maps(game):
             if m and f"en_{m.group(1)}.ff".lower() in loc:
                 maps.append(m.group(1).lower())
     return sorted(set(maps))
+
+
+def map_fastfile_entries(map_name, zones_by_name, entry):
+    """The map fastfile plus its english pair, when both are installed."""
+    rows = []
+    for zone in (map_name, f"en_{map_name}"):
+        rel = zones_by_name.get(zone)
+        if rel:
+            rows.append(entry(rel))
+    return rows
+
+
+def missing_manifest_maps(manifest, discovered):
+    have = set(manifest.get("maps", {}))
+    return [name for name in discovered if name not in have]
+
+
+def missing_client_maps(manifest, discovered):
+    have = set((manifest.get("client") or {}).get("maps", {}))
+    return [name for name in discovered if name not in have]
+
+
+def merge_unique_entries(existing, added):
+    seen = {e["path"].lower() for e in existing}
+    out = list(existing)
+    for entry in added:
+        key = entry["path"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(entry)
+    return out
+
+
+def add_map_fastfiles(manifest, maps, zones_by_name, entry):
+    """List installed map fastfiles so Create Game can see them before client packs exist."""
+    added = []
+    maps_out = manifest.setdefault("maps", {})
+    for name in maps:
+        rows = map_fastfile_entries(name, zones_by_name, entry)
+        if not rows:
+            continue
+        maps_out[name] = merge_unique_entries(maps_out.get(name, []), rows)
+        added.append(name)
+    return added
+
+
+def packed_iwd_names(out_dir, filename):
+    path = os.path.join(out_dir, filename)
+    if not os.path.isfile(path):
+        return set()
+    with zipfile.ZipFile(path) as archive:
+        return {n.lower().replace("\\", "/") for n in archive.namelist() if not n.endswith("/")}
+
+
+def write_manifest_files(out_dir, manifest):
+    manifest["generated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1)
+    with open(os.path.join(out_dir, "manifest.txt"), "w", encoding="utf-8", newline="\n") as f:
+        for e in manifest.get("boot", []):
+            f.write(f"{e['path']}\t{e['size']}\t\n")
+        for m, es in sorted(manifest.get("maps", {}).items()):
+            for e in es:
+                f.write(f"{e['path']}\t{e['size']}\t{m}\n")
+        for client_set in [manifest.get("client"), manifest.get("zombies")]:
+            if not client_set:
+                continue
+            for e in client_set.get("boot", []):
+                f.write(f"{e['path']}\t{e['size']}\t\n")
+            for m, es in sorted(client_set.get("maps", {}).items()):
+                for e in es:
+                    f.write(f"{e['path']}\t{e['size']}\t{m}\n")
+
+
+def pack_additional_client_maps(args, game, out_dir, zones_by_name, manifest, maps, entry):
+    """Trace and pack only the requested client maps into an existing Play set."""
+    if not maps:
+        return []
+    if not manifest.get("client"):
+        sys.exit("--update --client needs an existing client set; run a full --client generate first")
+    print(f"tracing client on {len(maps)} added map(s): {', '.join(maps)}")
+    runs = []
+    with cf.ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(maps)))) as pool:
+        futs = [pool.submit(run_trace, args, game, m, "tdm", True) for m in maps]
+        for f in cf.as_completed(futs):
+            r = f.result()
+            print(f"  [{'ok ' if r['ok'] else 'FAIL'}] client {r['map']:<14} {len(r['entries']):5d} opens  {r['seconds']:.0f}s")
+            if not r["ok"]:
+                print(r["log_tail"], file=sys.stderr)
+            runs.append(r)
+    if not all(r["ok"] for r in runs):
+        sys.exit("client trace failed (see output above)")
+
+    server_boot = {e["path"] for e in manifest.get("boot", [])}
+    server_map_zones = {e["path"] for es in manifest.get("maps", {}).values() for e in es}
+    client_boot = {e["path"] for e in manifest["client"].get("boot", [])}
+    already = packed_iwd_names(out_dir, IWD_NAME) | packed_iwd_names(out_dir, CLIENT_IWD_NAME)
+    packed = []
+    maps_out = manifest["client"].setdefault("maps", {})
+    for r, zones, map_iwd, map_files in [(r, *collect(game, r, zones_by_name)) for r in runs]:
+        extras = [entry(z) for z in sorted(zones - server_boot - server_map_zones - client_boot)]
+        extras += [entry(f) for f in sorted(map_files)]
+        needed = {(rel, name) for rel, name in map_iwd if name.lower().replace("\\", "/") not in already}
+        if needed:
+            pack_name = f"iw_web_map_{r['map']}.iwd"
+            pack_path = os.path.join(out_dir, pack_name)
+            pack_count = repack_iwd(game, needed, pack_path)
+            extras.append({"path": f"main/{pack_name}", "size": os.path.getsize(pack_path), "gen": True})
+            print(f"  {r['map']}: {pack_count} map-only IWD entries in {pack_name}")
+        maps_out[r["map"]] = merge_unique_entries(maps_out.get(r["map"], []), extras)
+        packed.append(r["map"])
+    return packed
+
+
+def update_existing_manifest(args, game, out_dir, zones_by_name, entry):
+    """Keep the current boot/client packs and add maps that appeared on disk later (DLC)."""
+    manifest_path = os.path.join(out_dir, "manifest.json")
+    if not os.path.isfile(manifest_path):
+        sys.exit(f"--update needs {manifest_path}; generate a full set first")
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+    discovered = [m for m in args.maps.split(",") if m] or discover_maps(game)
+    listed = add_map_fastfiles(manifest, missing_manifest_maps(manifest, discovered), zones_by_name, entry)
+    write_manifest_files(out_dir, manifest)
+    if listed:
+        print(f"listed {len(listed)} new map(s) from zone/: {', '.join(listed)}")
+    else:
+        print("no new map fastfiles to list")
+
+    packed = []
+    if args.client:
+        need_client = [m for m in args.client_maps.split(",") if m] if args.client_maps else missing_client_maps(manifest, discovered)
+        packed = pack_additional_client_maps(args, game, out_dir, zones_by_name, manifest, need_client, entry)
+        write_manifest_files(out_dir, manifest)
+    print(f"updated {out_dir}")
+    return {"listed": listed, "packed": packed, "manifest": manifest}
 
 
 def run_trace(args, game, map_name, gametype, client=False, frontend=False, zombies=False):
@@ -552,6 +690,8 @@ def main():
     ap.add_argument("--node", default="node")
     ap.add_argument("--gpu-catalog-session", default="", help="after packing assets, capture a WebGPU recipe catalog using this owned headed CDP session")
     ap.add_argument("--inventory-only", action="store_true", help="add/update the complete hashed installation inventory without rerunning traces")
+    ap.add_argument("--update", action="store_true",
+                    help="keep the existing manifest and add maps now present in zone/ (DLC copies)")
     ap.add_argument("--client", action="store_true",
                     help="also trace the *client* (dedicated 0, +devmap) and add a client set for the Play button")
     ap.add_argument("--client-zombies", action="store_true", help="also trace and pack the stock Zombies frontend")
@@ -576,6 +716,16 @@ def main():
     # Every invocation retains its traces; later attempts must not overwrite failure evidence.
     args.trace_log_dir = os.path.join(out_dir, "traces", time.strftime("%Y%m%dT%H%M%S") + f"-{time.time_ns()}")
     zones_by_name = zone_index(game)
+
+    def entry(rel, **extra):
+        e = {"path": rel, "size": os.path.getsize(os.path.join(game, rel))}
+        e.update(extra)
+        return e
+
+    if args.update:
+        update_existing_manifest(args, game, out_dir, zones_by_name, entry)
+        return
+
     inventory = zombie_asset_inventory(zones_by_name)
     with open(os.path.join(out_dir, "zombies-assets.json"), "w", encoding="utf-8") as f:
         json.dump(inventory, f, indent=2)
@@ -619,11 +769,6 @@ def main():
             all_files.add(rel)
         else:
             print(f"  ! required file {name} not found in {game}", file=sys.stderr)
-
-    def entry(rel, **extra):
-        e = {"path": rel, "size": os.path.getsize(os.path.join(game, rel))}
-        e.update(extra)
-        return e
 
     boot = [entry(z) for z in sorted(boot_zones)] + [entry(f) for f in sorted(all_files)]
     maps_out = {}

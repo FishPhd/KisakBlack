@@ -4472,6 +4472,30 @@ static bool UI_KisakRpnHasIntConstant(const itemDef_s *it, int value)
     return false;
 }
 
+void UI_KisakEnsureMapListScroll(menuDef_t *menu)
+{
+    int i;
+
+    if ( !menu || !menu->items )
+        return;
+    for ( i = 0; i < menu->itemCount; ++i )
+    {
+        itemDef_s *it = menu->items[i];
+        listBoxDef_s *list;
+        int feeder;
+
+        if ( !it || (it->type != 4 && it->dataType != 4) )
+            continue;
+        list = Item_GetListBoxDef(it);
+        if ( !list )
+            continue;
+        feeder = (int)list->special;
+        if ( feeder != 1 && feeder != 4 )
+            continue;
+        list->noScrollBars = 0;
+    }
+}
+
 void UI_KisakEnsurePrivateLobbyBotsRow(menuDef_t *menu)
 {
     int i;

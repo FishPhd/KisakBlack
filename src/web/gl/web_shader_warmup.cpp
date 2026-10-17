@@ -16,6 +16,7 @@
 #include <deque>
 #include <algorithm>
 #include <client_mp/cl_scrn_mp.h>
+#include <web/web_preparation_policy.h>
 
 namespace
 {
@@ -71,6 +72,7 @@ void CollectTechniques(XAssetHeader header, void *data)
 
 void Web_PrepareLegacyMap(const char *map, int localClientNum)
 {
+    if (localClientNum >= 0 && Web_SkipMapLoadPreparation(2, false)) return;
     if (webgpu::Requested() || !web_warmShaders || !web_warmShaders->current.enabled) return;
     DB_SyncXAssets();
     unsigned generation;

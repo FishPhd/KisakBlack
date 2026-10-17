@@ -1458,8 +1458,11 @@ void Executor::ProcessWarmup() {
     if (progress != r.lastCompleted || r.collecting) { r.lastCompleted = progress; r.progressAt = now; }
     if (!r.progressAt) r.progressAt = now;
     const size_t totalRecipes = r.capture ? 0 : r.recipes.size();
-    const bool recipesReady = !r.collecting && r.hiddenDrawsDone.load() && r.cacheReady && completed == totalRecipes
-        && r.uploadFence->load() && r.utilityCompleted == r.utilityTotal;
+    // Compiled recipe/utility counts are the gate. A missing catalog or a late
+    // upload fence must not hold the overlay at N/N; nostall compiles the rest.
+    const bool compilesDone = !r.collecting && r.hiddenDrawsDone.load() && completed == totalRecipes
+        && r.utilityCompleted == r.utilityTotal;
+    const bool recipesReady = compilesDone;
     if (recipesReady && !r.draining && !r.done) { r.draining = true; r.drainAt = now; }
     if (!r.done && r.draining && Web_SettleFinished(pipelineJobs, now - r.drainAt, r.cancel)) {
         r.done = true; loadingWarm = false;
@@ -1501,7 +1504,7 @@ void Executor::ProcessWarmup() {
             << ",\"catalogUsed\":" << (r.catalogUsed ? "true" : "false")
             << ",\"coverage\":\"loaded-materials-and-learned-recipes\""
             << ",\"status\":\"" << (!r.done ? "preparing" : r.cancel ? "skipped" :
-                errors || r.rejected || !r.cacheOk || !r.uploadFence->load() || completed != totalRecipes ? "incomplete" : r.capture ? "captured" : "complete") << "\"}}";
+                errors || r.rejected || completed != totalRecipes ? "incomplete" : r.capture ? "captured" : "complete") << "\"}}";
         reportJson(session.c_str(), json.str().c_str());
         if (r.done) fprintf(stderr, "WEB_GPU_WARMUP_DONE completed=%zu total=%zu candidates=%zu capture=%d cancelled=%d\n", completed, totalRecipes, r.capture ? r.recipes.size() : 0, r.capture, bool(r.cancel));
     }
@@ -1981,6 +1984,7 @@ std::string PreparationProfile() {
 }
 void WarmMap(const char *map, int localClientNum) {
     if (!Requested() || started != 1 || preparationMode == 0) return;
+    if (localClientNum >= 0 && Web_SkipMapLoadPreparation(preparationMode.load(), captureRecipes.load())) return;
     const auto profile = PreparationProfile();
     if (preparedMap == map && preparedProfile == profile && preparedGeneration == mapGeneration) return;
     auto request = std::make_shared<WarmRequest>(); request->token = ++warmSequence;
@@ -2267,8 +2271,13 @@ void NotifyPreparationAsset(int type, const char *name) {
 void CheckPreparation() {
     if (preparationMode == 0 || !Requested() || started != 1 || loadingWarm || preparedProfile.empty()) return;
     if (PreparationProfile() != preparedProfile) {
-        if (rgp.world && !preparedMap.empty() && preparedMap != "@frontend") WarmMap(preparedMap.c_str(), 0);
-        else WarmFrontend();
+        if (rgp.world && !preparedMap.empty() && preparedMap != "@frontend") {
+            if (Web_SkipMapLoadPreparation(preparationMode.load(), captureRecipes.load())) {
+                preparedProfile = PreparationProfile();
+                return;
+            }
+            WarmMap(preparedMap.c_str(), 0);
+        } else WarmFrontend();
         return;
     }
     if (preparationMode != 2 || !DB_FinishedLoadingAssets()) return;

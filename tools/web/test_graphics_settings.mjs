@@ -10,13 +10,13 @@ test('fresh defaults fit physical pixels up to 1080p and use the visible filteri
   const args = graphicsBootSettings(new Map(), '1600x900', false).join(' ');
   assert.match(args, /r_mode 1600x900/);
   assert.match(args, /r_picmip 2/);
-  assert.match(args, /web_disableWeaponFiringEffects 1/);
+  assert.match(args, /web_disableWeaponFiringEffects 0/);
   assert.match(args, /r_texFilterAnisoMin 4/);
   assert.doesNotMatch(args, /r_customMode/);
 });
 
 test('weapon firing visuals preserve an explicit saved choice', () => {
-  const saved = savedSettings('seta web_disableWeaponFiringEffects "0"');
+  const saved = savedSettings('seta web_disableWeaponFiringEffects "1"');
   const args = graphicsBootSettings(saved, '1280x720', false).join(' ');
   assert.doesNotMatch(args, /web_disableWeaponFiringEffects /);
 });

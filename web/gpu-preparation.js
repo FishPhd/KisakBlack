@@ -41,11 +41,18 @@ export function settleFinished(pipelineJobs, elapsedMs, cancelled = false) {
 export function persistWarmRecipe(capture, learned) {
   return !!(capture || learned);
 }
+// Temporary: gameplay map loads skip the graphics gate. Catalog capture
+// (preparation=full with capture) still prepares maps. Frontend warmup is separate.
+export function skipMapLoadPreparation(mode, capture = false) {
+  return !(mode === 'full' && capture);
+}
 export function preparationMessage(w, catalog) {
   if (w?.active && w.stage === 'settle')
     return {title:'Preparing graphics',hint:'Finishing shaders from the first view before play. Surfaces can appear when ready instead of stalling the frame.',reason:''};
   if (w?.active) return {title:'Preparing graphics',hint:'Preparing shaders and static resources before play. This is not a coverage guarantee.',reason:''};
-  if (w?.status !== 'incomplete') return {title:'Graphics preparation',hint:'Preparation finished; gameplay coverage is checked separately.',reason:''};
+  const catalogOnly = w?.status === 'incomplete' && !(w.failures > 0) && !(w.rejected > 0) && !(w.done < w.total)
+    && catalog?.ok === false && catalog?.learned?.ok !== false;
+  if (w?.status !== 'incomplete' || catalogOnly) return {title:'Graphics preparation',hint:'Preparation finished; gameplay coverage is checked separately.',reason:''};
   let reason='Some required graphics work could not be verified.';
   if (w.failures > 0) reason=`${w.failures} graphics compilation${w.failures===1?'':'s'} failed.`;
   else if (w.rejected > 0) reason=`${w.rejected} shader recipe${w.rejected===1?' was':'s were'} rejected or exceeded the preparation budget.`;

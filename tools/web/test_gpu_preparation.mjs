@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
-import {assetIdentity, loadCatalog, catalogChunks, preparationMode, residentStaticImages, pipelineNostall, runtimePipelineJobs, settleFinished, persistWarmRecipe, preparationReadiness, preparationMessage, sha256, CHUNK_LIMIT, CATALOG_LIMIT, shouldRetryDownloads, MAX_DOWNLOAD_REATTEMPTS} from '../../web/gpu-preparation.js';
+import {assetIdentity, loadCatalog, catalogChunks, preparationMode, residentStaticImages, pipelineNostall, runtimePipelineJobs, settleFinished, persistWarmRecipe, skipMapLoadPreparation, preparationReadiness, preparationMessage, sha256, CHUNK_LIMIT, CATALOG_LIMIT, shouldRetryDownloads, MAX_DOWNLOAD_REATTEMPTS} from '../../web/gpu-preparation.js';
 const manifest = {version:1, generated:'first', boot:[], client:{maps:{mp_a:[],mp_b:[]}}};
 const finishedButIncomplete={status:'incomplete',active:false,done:198,total:198,failures:0,rejected:0};
 const mismatchMessage=preparationMessage(finishedButIncomplete,{ok:false,reason:'no catalog matches this renderer build and graphics profile'});
-assert.match(mismatchMessage.title,/incomplete/);assert.match(mismatchMessage.reason,/No shader catalog matches/);
-assert.match(mismatchMessage.hint,/not a coverage check/);
+assert.doesNotMatch(mismatchMessage.title,/incomplete/);
+assert.equal(mismatchMessage.reason,'');
+assert.match(mismatchMessage.hint,/gameplay coverage/);
+assert.equal(skipMapLoadPreparation('full', false), true);
+assert.equal(skipMapLoadPreparation('full', true), false);
+assert.equal(skipMapLoadPreparation('normal', true), true);
+assert.equal(skipMapLoadPreparation('off', false), true);
 assert.match(preparationMessage({...finishedButIncomplete,failures:2}).reason,/2 graphics compilations failed/);
 assert.match(preparationMessage({...finishedButIncomplete,rejected:1}).reason,/1 shader recipe was rejected/);
 assert.match(preparationMessage(finishedButIncomplete,{ok:false,learned:{ok:false}}).reason,/Saved shader recipes/);

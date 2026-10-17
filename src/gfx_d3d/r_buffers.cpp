@@ -551,6 +551,10 @@ void __cdecl R_CreateParticleCloudBuffer()
             while ( zIter != 16 )
             {
                 particleVertsIter = &particleVerts[4 * vertexIndex];
+                // Gaussian samples share the permuted slot. A sequential cursor
+                // filled the second half in grid order, so soft clouds (snow,
+                // sprinklers, muzzle smoke) drew as clumps instead of a volume.
+                gaussParticleVertsIter = &particleVerts[4 * (vertexIndex + 1024)];
                 lfsr = -(lfsr & 1) & 0x240 ^ ((int)lfsr >> 1);
                 vertexIndex = lfsr & 0x3FF;
                 pos[0][0] = (float)((float)((float)((float)rand() / 32767.0) + (float)xIter) * 0.25) + -1.0;

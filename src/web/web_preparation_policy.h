@@ -29,3 +29,9 @@ constexpr bool Web_SettleFinished(unsigned pipelineJobs, double elapsedMs, bool 
 constexpr bool Web_PersistWarmRecipe(bool capture, bool learned) {
     return capture || learned;
 }
+// Temporary nostall retest: gameplay map loads skip the blocking graphics gate.
+// Catalog capture still walks maps when preparation is full. Frontend warmup
+// is a separate call and does not use this predicate.
+constexpr bool Web_SkipMapLoadPreparation(int mode, bool capture) {
+    return !(mode == 2 && capture);
+}

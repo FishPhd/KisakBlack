@@ -2,7 +2,7 @@
 // Explicit launcher/URL choices use the same r_mode as the in-game menu.
 export const graphicsDefaults = Object.freeze({
   r_aaSamples: 1,
-  web_disableWeaponFiringEffects: 1,
+  web_disableWeaponFiringEffects: 0,
   web_disableDistortion: 1,
   web_disableMotionBlur: 1,
   web_reduceDynamicLights: 1,

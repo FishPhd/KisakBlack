@@ -1148,13 +1148,13 @@ function enterPlay() {
         state.installation.compiledScope=state.installation.compiledOnDevice ? (state.catalog?.scope==='*' ? '*' : w.map) : null;
       }
       const showSettle = w.stage !== 'settle' || useZombiesArgs();
-      $("warmup").hidden = !(w.active && showSettle) && w.status !== 'incomplete';
+      $("warmup").hidden = !(w.active && showSettle);
+      $("warmup").classList.remove('incomplete');
       const message=preparationMessage(w,state.catalog);
       $("warmup-title").textContent=message.title;
       $("warmup-hint").textContent=message.hint;
       $("warmup-reason").textContent=message.reason;
       $("warmup-reason").hidden=!message.reason;
-      $("warmup").classList.toggle('incomplete', !w.active && w.status === 'incomplete');
       $("warmup-cancel").textContent = w.active ? 'Skip preparation' : 'Continue';
       $("warmup-progress").max = Math.max(1, w.total);
       $("warmup-progress").value = w.done;

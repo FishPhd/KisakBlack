@@ -1129,6 +1129,7 @@ bool __cdecl Item_IsTextField(const itemDef_s *item);
 void __cdecl Item_TextField_BeginEdit(int localClientNum, int contextIndex, itemDef_s *item);
 void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu);
 void UI_KisakEnsurePrivateLobbyBotsRow(menuDef_t *menu); // ui_main.cpp: offline "BOTS: n" row in the private match lobby
+void UI_KisakEnsureMapListScroll(menuDef_t *menu); // show stock arrows when the map list is longer than the box
 void __cdecl Menus_AddToStack(int localClientNum, UiContext *dc, menuDef_t *pMenu);
 void __cdecl Menu_LoseFocusDueToOpen(int localClientNum, UiContext *dc, menuDef_t *menu);
 int __cdecl Menus_OpenByName(int localClientNum, UiContext *dc, const char *p);
