@@ -11,6 +11,13 @@
 #include <win32/win_main.h>
 #include <server_mp/sv_main_mp.h>
 #include <game_mp/g_main_mp.h>
+#include <game_mp/g_utils_mp.h>
+#include <game/g_weapon.h>
+#include <game/g_items.h>
+#include <bgame/bg_weapons.h>
+#include <bgame/bg_misc.h>
+#include <bgame/bg_weapons_def.h>
+#include <game_mp/g_client_script_cmd_mp.h>
 #include <win32/win_net.h>
 #include <win32/win_shared.h>
 #include <win32/win_syscon.h>
@@ -28,6 +35,15 @@
 #include <client_mp/cl_main_mp.h>
 #include <client/con_channels.h>
 #include <clientscript/cscr_stringlist.h>
+#include <clientscript/cscr_variable.h>
+#include <clientscript/cscr_main.h>
+#include <clientscript/cscr_vm.h>
+#include <game/actor.h>
+#include <game/g_scr_vehicle.h>
+#include <ragdoll/ragdoll.h>
+#include <cgame/cg_hudelem.h>
+#include <cgame_mp/cg_servercmds_mp.h>
+#include <cgame_mp/cg_newDraw_mp.h>
 #include <universal/com_memory.h>
 #include <universal/physicalmemory.h>
 #include <universal/q_parse.h>
@@ -38,6 +54,9 @@
 
 #include "web_assets.h"
 #include "web_graphics.h"
+#include <gfx_d3d/r_init.h>
+#include <gfx_d3d/r_dvars.h>
+#include "gpu/web_gpu.h"
 #include <server/sv_game.h>
 #include <ui/ui_main.h>
 #include <ui/ui_main_pc.h>
@@ -47,16 +66,102 @@
 #include <sstream>
 #include <iomanip>
 #include <atomic>
+#include <cstring>
 #include <universal/com_expressions_eval.h>
 #include <cmath>
 #include <ui/ui_feeders.h>
+#include <live/live_stats.h>
 
 static void Web_StatusTick();
 static void Web_PrefetchTick();
 static void Web_HintOnce();
 static void Web_ObserveTick();
+static bool Web_IsMapPickerOpen();
 static std::atomic<bool> s_agentTelemetry{false};
+extern "C" EMSCRIPTEN_KEEPALIVE int Kisak_TestGpuDeviceLoss()
+{
+#ifdef KISAK_WEB_WEBGPU
+    if (s_agentTelemetry.load() && webgpu::Requested()) return webgpu::TestDeviceLoss();
+#endif
+    return 0;
+}
 static const dvar_t *web_status;
+static cmd_function_s web_coverageWeaponCommand;
+static cmd_function_s web_hitmarkerTestCommand;
+
+// Pulse the stock replicated HUD element for alignment checks in local agent tests.
+static void Web_HitmarkerTest_f()
+{
+    if (!s_agentTelemetry.load() || !com_sv_running || !com_sv_running->current.enabled
+        || !g_cheats || !g_cheats->current.enabled || !g_entities[0].client) return;
+    for (auto &hud : g_hudelems)
+    {
+        char material[64];
+        if (hud.clientNum != 0 || hud.elem.type != HE_TYPE_MATERIAL
+            || !CG_ServerMaterialName(0, hud.elem.materialIndex, material, sizeof(material))
+            || strcmp(material, "damage_feedback")) continue;
+        hud.elem.fromColor = hud.elem.color;
+        hud.elem.fromColor.a = 255;
+        hud.elem.color.a = 0;
+        hud.elem.fadeStartTime = level.time;
+        hud.elem.fadeTime = 3000;
+    }
+}
+
+
+// Agent-only fixture: enumerate the actual registered variants (including
+// attachments), then select through the same server path as scripted loadouts.
+static void Web_CoverageWeapon_f()
+{
+    if (!s_agentTelemetry.load() || !com_sv_running || !com_sv_running->current.enabled
+        || !g_cheats || !g_cheats->current.enabled || !g_entities[0].client) return;
+    if (Cmd_Argc() == 2 && !strcmp(Cmd_Argv(1), "list")) {
+        for (unsigned i=1; i<BG_GetNumWeapons(); ++i) {
+            if (!BG_CanPlayerHaveWeapon(i)) continue;
+            const auto *variant = BG_GetWeaponVariantDef(i);
+            if (!variant || !variant->weapDef) continue;
+            const auto *def=variant->weapDef;
+            std::ostringstream effects; effects << std::hex;
+            for (const auto *effect : {def->viewFlashEffect,def->worldFlashEffect,def->viewShellEjectEffect,
+                def->worldShellEjectEffect,def->viewLastShotEjectEffect,def->worldLastShotEjectEffect,
+                def->projExplosionEffect,def->projExplosionEffect2,def->projExplosionEffect3,
+                def->projExplosionEffect4,def->projExplosionEffect5,def->projDudEffect,def->projTrailEffect,def->projIgnitionEffect})
+                effects << reinterpret_cast<uintptr_t>(effect) << '_';
+            effects << reinterpret_cast<uintptr_t>(def->projectileModel) << '_' << unsigned(def->impactType) << '_' << unsigned(def->weapType);
+            const int selectable = def->weapClass != WEAPCLASS_TURRET && def->weapClass != WEAPCLASS_NON_PLAYER && def->gunXModel[0];
+            Com_Printf(16, "WEB_COVERAGE_WEAPON %u %d %d %d %s %s\n", i, int(def->offhandClass), int(def->offhandSlot), selectable, effects.str().c_str(), variant->szInternalName);
+        }
+        Com_Printf(16, "WEB_COVERAGE_WEAPONS_END\n"); return;
+    }
+    const unsigned index = Cmd_Argc() >= 2 ? unsigned(atoi(Cmd_Argv(1))) : 0;
+    if (!index || index >= BG_GetNumWeapons() || !BG_CanPlayerHaveWeapon(index)) return;
+    auto *ent = &g_entities[0];
+    const auto *variant = BG_GetWeaponVariantDef(index);
+    if (Cmd_Argc() == 3 && !strcmp(Cmd_Argv(2), "use")) {
+        if (variant->weapDef->weapType != WEAPTYPE_GRENADE && variant->weapDef->weapType != WEAPTYPE_MINE) return;
+        ent->client->ps.offHandIndex = index; G_UseOffHand(ent);
+        Com_Printf(16, "WEB_COVERAGE_USED %u\n", index); return;
+    }
+    for (auto &held : ent->client->ps.heldWeapons) if (held.weapon && held.weapon != index)
+        if (!variant->weapDef->offhandClass || held.weapon != ent->client->ps.weapon)
+            BG_TakePlayerWeapon(&ent->client->ps, held.weapon);
+    if (!BG_PlayerHasWeapon(&ent->client->ps, index) && !G_GivePlayerWeapon(&ent->client->ps, index, 0, 0)) return;
+    G_InitializeAmmo(ent, index, 0, 0); Add_Ammo(ent, index, 0, 999, 1);
+    if (variant->weapDef->offhandClass) {
+        if (variant->weapDef->offhandClass == OFFHAND_CLASS_FLASH_GRENADE) ent->client->ps.offhandSecondary = PLAYER_OFFHAND_SECONDARY_FLASH;
+        else if (variant->weapDef->offhandClass == OFFHAND_CLASS_SMOKE_GRENADE) ent->client->ps.offhandSecondary = PLAYER_OFFHAND_SECONDARY_SMOKE;
+        G_SetEquippedOffHand(0, index);
+    }
+    else G_SelectWeaponIndex(0, index);
+    if (Cmd_Argc() == 3 && !strcmp(Cmd_Argv(2), "fast") && !variant->weapDef->offhandClass) {
+        // Shader qualification samples every attachment combination without
+        // spending seconds lowering/raising the same model between variants.
+        // Fire/reload animations are still exercised for each effect family.
+        ent->client->ps.weapon = index;
+        ent->client->ps.weaponstate = WEAPON_READY; ent->client->ps.weaponTime = 0; ent->client->ps.weaponDelay = 0;
+    }
+    Com_Printf(16, "WEB_COVERAGE_SELECTED %u\n", index);
+}
 
 #include <emscripten.h>
 #include <emscripten/threading.h>
@@ -504,6 +609,8 @@ cmd_function_s Sys_Connect_f_VAR;
 
 void __cdecl Sys_Init()
 {
+    Cmd_AddCommandInternal("kisak_coverage_weapon", Web_CoverageWeapon_f, &web_coverageWeaponCommand);
+    Cmd_AddCommandInternal("kisak_test_hitmarker", Web_HitmarkerTest_f, &web_hitmarkerTestCommand);
     Cmd_AddCommandInternal("in_restart", Sys_In_Restart_f, &Sys_In_Restart_f_VAR);
     Cmd_AddCommandInternal("net_restart", Sys_Net_Restart_f, &Sys_Net_Restart_f_VAR);
 
@@ -571,6 +678,7 @@ int __stdcall WinMain(HINSTANCE__ *, HINSTANCE__ *, char *lpCmdLine, int)
 
     MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakBootStage) Module.kisakBootStage("engineInit"); });
     Com_Init(sys_cmdline);
+    if (!IsDedicatedServer() && !Web_IsZombieBoot()) webgpu::WarmFrontend();
     MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakBootStage) Module.kisakBootStage("engineReady"); });
     if (!IsDedicatedServer())
         Cbuf_AddText(0, "readStats\n");
@@ -588,6 +696,8 @@ int __stdcall WinMain(HINSTANCE__ *, HINSTANCE__ *, char *lpCmdLine, int)
             NET_SleepUntilPacket(idleMsec);
         }
 
+        if (!IsDedicatedServer()) Web_UpdateGraphicsSettings();
+        if (!IsDedicatedServer()) webgpu::CheckPreparation();
         Com_Frame();
 
         Web_ObserveTick();
@@ -618,6 +728,92 @@ static std::string Web_JsonString(const char *s)
     return out.str();
 }
 
+static bool Web_NamedMenuOpen(UiContext *dc, const char *name)
+{
+    if (!dc || !name || dc->openMenuCount <= 0 || dc->openMenuCount > 16)
+        return false;
+    for (int m = 0; m < dc->openMenuCount; ++m)
+    {
+        menuDef_t *menu = dc->menuStack[m].menu;
+        if (menu && menu->window.name && !I_stricmp(menu->window.name, name))
+            return true;
+    }
+    return false;
+}
+
+// ui_gametype follows a gametype picker the same way ui_mapname follows the map cursor.
+static bool Web_GametypePickerOpen(UiContext *dc)
+{
+    if (!dc || dc->openMenuCount <= 0 || dc->openMenuCount > 16)
+        return false;
+    for (int m = 0; m < dc->openMenuCount; ++m)
+    {
+        menuDef_t *menu = dc->menuStack[m].menu;
+        const char *name = menu && menu->window.name ? menu->window.name : "";
+        if (name[0] && I_stristr(name, "gametype") && !I_stristr(name, "privatelobby"))
+            return true;
+    }
+    return false;
+}
+
+// The page publishes this settled lobby choice. Cursor movement inside a picker is not a choice.
+static void Web_SettledLobbySelection(UiContext *dc, const char **mapOut, const char **modeOut)
+{
+    static char map[64];
+    static char mode[32];
+    if (!Web_IsMapPickerOpen())
+    {
+        const char *picked = Dvar_GetString("ui_mapname");
+        if (picked && picked[0])
+            I_strncpyz(map, picked, sizeof(map));
+    }
+    if (!Web_GametypePickerOpen(dc))
+    {
+        const char *picked = Dvar_GetString("ui_gametype");
+        if (picked && picked[0])
+            I_strncpyz(mode, picked, sizeof(mode));
+    }
+    *mapOut = map;
+    *modeOut = mode;
+}
+
+static void Web_AppendPartyFields(std::ostringstream &out, UiContext *dc)
+{
+    const char *uiMap = "";
+    const char *uiGametype = "";
+    Web_SettledLobbySelection(dc, &uiMap, &uiGametype);
+    const char *playerName = Dvar_GetString("name");
+    out << ",\"privateLobby\":" << (Web_NamedMenuOpen(dc, "menu_xboxlive_privatelobby") ? "true" : "false")
+        << ",\"uiMap\":" << Web_JsonString(uiMap)
+        << ",\"uiGametype\":" << Web_JsonString(uiGametype)
+        << ",\"playerName\":" << Web_JsonString(playerName ? playerName : "")
+        << ",\"playerRank\":" << LiveStats_GetRank(0)
+        << ",\"playerPrestige\":" << LiveStats_GetPrestige(0);
+}
+
+static void Web_AppendGraphicsFields(std::ostringstream &out)
+{
+    out << ",\"graphics\":{\"width\":" << vidConfig.displayWidth
+        << ",\"height\":" << vidConfig.displayHeight
+        << ",\"aspectRatio\":" << vidConfig.aspectRatioWindow
+        << ",\"fullscreen\":" << (r_fullscreen->current.enabled ? "true" : "false");
+    if (s_agentTelemetry.load())
+    {
+        out << ",\"settings\":{";
+        bool first = true;
+        for (const char *name : {"r_mode", "ui_r_mode", "r_aaSamples", "ui_r_aaSamples", "ui_r_fullscreen",
+            "r_picmip_manual", "r_picmip", "r_picmip_bump", "r_picmip_spec", "r_texFilterAnisoMax", "r_texFilterAnisoMin",
+            "sm_enable", "r_dof_enable", "web_disableDistortion", "web_disableMotionBlur", "web_reduceDynamicLights", "web_warmShaders", "web_disableWeaponFiringEffects", "web_adsBindingVersion"})
+        {
+            if (!first) out << ',';
+            first = false;
+            out << Web_JsonString(name) << ':' << Web_JsonString(Dvar_GetVariantString(name));
+        }
+        out << '}';
+    }
+    out << '}';
+}
+
 static void Web_ObserveTick()
 {
     if (IsDedicatedServer()) return;
@@ -630,6 +826,69 @@ static void Web_ObserveTick()
     clientActive_t *cl = CL_GetLocalClientGlobals(0);
     const int connection = CL_GetLocalClientConnectionState(0);
     const bool ui = (clientUIActives[0].keyCatchers & 0x10) != 0;
+
+    // Normal play only needs the small state snapshot below. Building a JSON tree
+    // for every visible menu item (and its labels) ten times a second is useful to
+    // the browser agent, but adds avoidable work to the game's main thread.
+    if (!agent)
+    {
+        bool frontendReady = false;
+        if (ui)
+        {
+            for (int m = 0; m < dc->openMenuCount && !frontendReady; ++m)
+            {
+                menuDef_t *menu = dc->menuStack[m].menu;
+                if (!menu || !menu->window.name
+                    || (strcmp(menu->window.name, "main_text")
+                        && !(Web_IsZombieBoot() && !strcmp(menu->window.name, "main_online"))))
+                    continue;
+                for (int i = 0; i < menu->itemCount; ++i)
+                {
+                    itemDef_s *it = menu->items[i];
+                    if (it && Item_IsFocusDefType(it) && Item_IsVisible(0, dc->contextIndex, it)
+                        && (!(it->dvarFlags & 3) || Item_EnableShowViaDvar(it, 1)))
+                    {
+                        frontendReady = true;
+                        break;
+                    }
+                }
+            }
+        }
+        const char *mapName = Dvar_GetString("mapname");
+        const char *gameType = Dvar_GetString("g_gametype");
+        int players = 0, bots = 0;
+        if (com_sv_running && com_sv_running->current.enabled && com_maxclients && svs.clients)
+        {
+            for (int i = 0; i < com_maxclients->current.integer; ++i)
+            {
+                if (svs.clients[i].header.state < CS_CONNECTED)
+                    continue;
+                if (svs.clients[i].header.netchan.remoteAddress.type == NA_BOT)
+                    ++bots;
+                else
+                    ++players;
+            }
+        }
+        std::ostringstream snapshot;
+        snapshot << "{\"connection\":" << connection << ",\"serverTime\":" << (cl ? cl->serverTime : 0)
+                 << ",\"uiActive\":" << (ui ? "true" : "false")
+                 << ",\"menus\":[],\"menuInteractive\":false,\"frontendReady\":"
+                 << (ui && frontendReady ? "true" : "false")
+                 << ",\"map\":" << Web_JsonString(mapName ? mapName : "")
+                 << ",\"gametype\":" << Web_JsonString(gameType ? gameType : "")
+                 << ",\"players\":" << players << ",\"bots\":" << bots;
+        Web_AppendPartyFields(snapshot, dc);
+        Web_AppendGraphicsFields(snapshot);
+        snapshot << '}';
+        char *copy = strdup(snapshot.str().c_str());
+        if (!copy) return;
+        MAIN_THREAD_ASYNC_EM_ASM({
+            try { if (Module.kisakObserve) Module.kisakObserve(JSON.parse(UTF8ToString($0))); }
+            finally { _free($0); }
+        }, copy);
+        return;
+    }
+
     std::ostringstream out;
     out << "{\"connection\":" << connection << ",\"serverTime\":" << (cl ? cl->serverTime : 0)
         << ",\"uiActive\":" << (ui ? "true" : "false") << ",\"menus\":[";
@@ -648,7 +907,8 @@ static void Web_ObserveTick()
             if (!it || !Item_IsFocusDefType(it) || !Item_IsVisible(0, dc->contextIndex, it)
                 || ((it->dvarFlags & 3) && !Item_EnableShowViaDvar(it, 1))) continue;
             interactive = true;
-            if (menu->window.name && !strcmp(menu->window.name, "main_text")) frontendReady = true;
+            if (menu->window.name && (!strcmp(menu->window.name, "main_text")
+                || (Web_IsZombieBoot() && !strcmp(menu->window.name, "main_online")))) frontendReady = true;
             if (!agent) continue;
             rectDef_s r = it->window.rect;
             ScrPlace_ApplyRect(&scrPlaceView[0], &r.x, &r.y, &r.w, &r.h, r.horzAlign, r.vertAlign);
@@ -676,6 +936,9 @@ static void Web_ObserveTick()
             firstItem = false;
             out << "{\"index\":" << i << ",\"name\":" << Web_JsonString(it->window.name)
                 << ",\"text\":" << Web_JsonString(text.c_str()) << ",\"rect\":[" << r.x << ',' << r.y << ',' << r.w << ',' << r.h << ']';
+            if (it->dvar)
+                out << ",\"dvar\":" << Web_JsonString(it->dvar)
+                    << ",\"value\":" << Web_JsonString(Dvar_GetVariantString(it->dvar));
             if (it->dataType == 4)
             {
                 listBoxDef_s *list = Item_GetListBoxDef(it);
@@ -704,7 +967,124 @@ static void Web_ObserveTick()
     if (agent && cl)
         out << ",\"origin\":[" << cl->cgameOrigin[0] << ',' << cl->cgameOrigin[1] << ',' << cl->cgameOrigin[2]
             << "],\"angles\":[" << cl->viewangles[0] << ',' << cl->viewangles[1] << ',' << cl->viewangles[2] << ']'
-            << ",\"inputReady\":" << (connection == CA_ACTIVE && !(cl->snap.ps.pm_flags & 0x800) && cl->snap.ps.weaponstate != 35 ? "true" : "false");
+            << ",\"cameraAngles\":[" << cl->cgameViewangles[0] << ',' << cl->cgameViewangles[1] << ',' << cl->cgameViewangles[2] << ']'
+            << ",\"inputReady\":" << (connection == CA_ACTIVE && !webgpu::Settling() && !(cl->snap.ps.pm_flags & 0x800) && cl->snap.ps.weaponstate != 35 ? "true" : "false")
+            << ",\"weapon\":" << cl->snap.ps.weapon
+            << ",\"adsFraction\":" << cl->snap.ps.fWeaponPosFrac
+            << ",\"mouse2\":[" << Web_JsonString(Key_GetBinding(0, 201, 0))
+            << ',' << Web_JsonString(Key_GetBinding(0, 201, 1)) << ']'
+            << ",\"cursorHint\":" << cl->snap.ps.cursorHint
+            << ",\"cursorHintEntity\":" << cl->snap.ps.cursorHintEntIndex
+            << ",\"cursorHintString\":" << cl->snap.ps.cursorHintString;
+    const char *mapName = Dvar_GetString("mapname");
+    const char *gameType = Dvar_GetString("g_gametype");
+    int players = 0, bots = 0;
+    if (agent && cl && connection == CA_ACTIVE && com_sv_running && com_sv_running->current.enabled
+        && cl->snap.ps.clientNum >= 0 && cl->snap.ps.clientNum < level.maxclients) {
+        const auto &ent = g_entities[cl->snap.ps.clientNum];
+        if (ent.client) out << ",\"cheats\":{\"noclip\":" << ((ent.client->flags & 1) ? "true" : "false")
+            << ",\"god\":" << ((ent.flags & 1) ? "true" : "false") << ",\"viewHeight\":" << ent.client->ps.viewHeightCurrent << '}';
+    }
+    if (com_sv_running && com_sv_running->current.enabled && com_maxclients && svs.clients)
+    {
+        for (int i = 0; i < com_maxclients->current.integer; ++i)
+        {
+            if (svs.clients[i].header.state < CS_CONNECTED)
+                continue;
+            if (svs.clients[i].header.netchan.remoteAddress.type == NA_BOT)
+                ++bots;
+            else
+                ++players;
+        }
+    }
+    out << ",\"map\":" << Web_JsonString(mapName ? mapName : "")
+        << ",\"gametype\":" << Web_JsonString(gameType ? gameType : "")
+        << ",\"players\":" << players
+        << ",\"bots\":" << bots;
+    if (agent && connection == CA_ACTIVE && com_sv_running && com_sv_running->current.enabled)
+    {
+        out << ",\"gameplayEntities\":[";
+        bool first = true;
+        for (int i = 0; i < level.num_entities; ++i)
+        {
+            const gentity_s &ent = g_entities[i];
+            if (!ent.r.inuse || (!ent.client && ent.s.eType != ET_PLAYER_CORPSE && ent.s.eType != ET_SCRIPTMOVER
+                && !ent.scr_vehicle && !ent.physObjId))
+                continue;
+            if (!first) out << ',';
+            first = false;
+            out << "{\"entity\":" << i << ",\"type\":" << ent.s.eType << ",\"health\":" << ent.health
+                << ",\"model\":" << Web_JsonString(ent.model ? SL_ConvertToString(G_ModelName(ent.model), SCRIPTINSTANCE_SERVER) : "")
+                << ",\"origin\":[" << ent.r.currentOrigin[0] << ',' << ent.r.currentOrigin[1] << ',' << ent.r.currentOrigin[2]
+                << "],\"physics\":" << (ent.physObjId && ent.physObjId != -1 ? "true" : "false");
+            if (ent.client) out << ",\"team\":" << ent.client->sess.cs.team;
+            if (ent.scr_vehicle)
+            {
+                const auto &veh = *ent.scr_vehicle;
+                out << ",\"vehicle\":{\"state\":" << veh.moveState << ",\"speed\":" << veh.speed
+                    << ",\"goal\":[" << veh.goalPosition[0] << ',' << veh.goalPosition[1] << ',' << veh.goalPosition[2] << "]}";
+            }
+            out << '}';
+        }
+        out << "],\"ragdolls\":[";
+        first = true;
+        for (RagdollBody *body : g_ragdoll_body_pool)
+        {
+            if (!first) out << ',';
+            first = false;
+            out << "{\"entity\":" << body->dobj << ",\"state\":" << body->state << ",\"bones\":" << body->numBones << '}';
+        }
+        out << "],\"hitmarkers\":[";
+        hudelem_s *elems[1025];
+        const int count = GetSortedHudElems(0, elems);
+        first = true;
+        for (int i = 0; i < count; ++i)
+        {
+            char name[64];
+            if (elems[i]->type != HE_TYPE_MATERIAL || !CG_ServerMaterialName(0, elems[i]->materialIndex, name, sizeof(name))
+                || (strcmp(name, "damage_feedback") && strcmp(name, "damage_feedback_j")))
+                continue;
+            cg_hudelem_t info{};
+            info.timeNow = cl->snap.serverTime;
+            char label[256]{};
+            GetHudElemInfo(0, elems[i], &info, label);
+            if (!first) out << ',';
+            first = false;
+            out << "{\"material\":" << Web_JsonString(name) << ",\"x\":" << info.x << ",\"y\":" << info.y
+                << ",\"width\":" << info.width << ",\"height\":" << info.height << '}';
+        }
+        out << ']';
+    }
+    if (agent && com_sv_running && com_sv_running->current.enabled
+        && zombiemode && zombiemode->current.enabled && level.clients)
+    {
+        out << ",\"zombies\":{\"serverTime\":" << level.time
+            << ",\"score\":" << level.clients[0].sess.cs.score.score
+            << ",\"health\":" << g_entities[0].health;
+        for (const char *name : {"round_number", "zombie_total"})
+        {
+            const unsigned int key = SL_FindString(name, SCRIPTINSTANCE_SERVER);
+            const unsigned int id = key && gScrVarPub[SCRIPTINSTANCE_SERVER].levelId
+                ? FindVariable(SCRIPTINSTANCE_SERVER, gScrVarPub[SCRIPTINSTANCE_SERVER].levelId, key) : 0;
+            if (id && GetValueType(SCRIPTINSTANCE_SERVER, id) == VAR_INTEGER)
+                out << ',' << Web_JsonString(name) << ':' << GetVariableValueAddress(SCRIPTINSTANCE_SERVER, id)->u.intValue;
+        }
+        out << ",\"actors\":[";
+        bool first = true;
+        for (int i = 0; i < level.num_entities; ++i)
+        {
+            const gentity_s &ent = g_entities[i];
+            if (!ent.r.inuse || !ent.actor) continue;
+            if (!first) out << ',';
+            first = false;
+            out << "{\"entity\":" << i << ",\"species\":" << ent.actor->species
+                << ",\"health\":" << ent.health << ",\"pathLength\":" << ent.actor->Path.wPathLen
+                << ",\"origin\":[" << ent.r.currentOrigin[0] << ',' << ent.r.currentOrigin[1] << ',' << ent.r.currentOrigin[2] << "]}";
+        }
+        out << "]}";
+    }
+    Web_AppendPartyFields(out, dc);
+    Web_AppendGraphicsFields(out);
     out << '}';
     char *copy = strdup(out.str().c_str());
     if (!copy) return;
@@ -800,78 +1180,97 @@ static bool Web_IsMapListMenu(menuDef_t *menu)
     return false;
 }
 
-static void Web_PrefetchMapListMenu(menuDef_t *menu)
-{
-    const dvar_t *uiMap = Dvar_FindVar("ui_mapname");
-    if (uiMap)
-        Web_PrefetchMapName(uiMap->current.string);
-    const dvar_t *preview = Dvar_FindVar("ui_preview");
-    if (preview)
-        Web_PrefetchMapName(preview->current.string);
-    if (!menu->items || menu->itemCount <= 0 || menu->itemCount > 4096 || sharedUiInfo.mapCount <= 0)
-        return;
-    for (int i = 0; i < menu->itemCount; ++i)
-    {
-        itemDef_s *item = menu->items[i];
-        if (!item || item->dataType != 4)
-            continue;
-        listBoxDef_s *list = Item_GetListBoxDef(item);
-        if (!list)
-            continue;
-        const int feeder = (int)list->special;
-        int cursor = list->cursorPos[0];
-        if (cursor < 0)
-            cursor = 0;
-        const char *load = nullptr;
-        if (feeder == 1)
-        {
-            if (cursor < sharedUiInfo.mapCount)
-                load = sharedUiInfo.mapList[cursor].mapLoadName;
-        }
-        else if (feeder == 4)
-        {
-            int actual = 0;
-            const char *label = UI_SelectedMap(cursor, &actual);
-            if (label && label[0] && actual >= 0 && actual < sharedUiInfo.mapCount)
-                load = sharedUiInfo.mapList[actual].mapLoadName;
-        }
-        Web_PrefetchMapName(load);
-    }
-}
-
-// The map picker writes ui_preview / the list cursor as soon as it opens. The ui_mapname poll
-// below still covers the lobby, which shows the name before that menu exists.
-static void Web_PrefetchOpenMapList()
+// Ignore transient map-picker cursor values; only the lobby selection is committed.
+static bool Web_IsMapPickerOpen()
 {
     if (IsDedicatedServer())
-        return;
+        return false;
     uiInfo_s *info = UI_UIContext_GetInfo(0);
     if (!info)
-        return;
+        return false;
     UiContext *dc = &info->uiDC;
     if (dc->openMenuCount <= 0 || dc->openMenuCount > 16)
-        return;
+        return false;
     for (int i = 0; i < dc->openMenuCount; ++i)
     {
         menuDef_t *menu = dc->menuStack[i].menu;
         if (Web_IsMapListMenu(menu))
-            Web_PrefetchMapListMenu(menu);
+            return true;
     }
+    return false;
+}
+
+// The row under the cursor. The page waits 350ms and keeps only the latest name, so this
+// overlaps the download with browsing without importing every map the cursor passes.
+static const char *Web_HighlightedMapName()
+{
+    uiInfo_s *info = UI_UIContext_GetInfo(0);
+    if (!info || sharedUiInfo.mapCount <= 0)
+        return nullptr;
+    UiContext *dc = &info->uiDC;
+    if (dc->openMenuCount <= 0 || dc->openMenuCount > 16)
+        return nullptr;
+    for (int i = 0; i < dc->openMenuCount; ++i)
+    {
+        menuDef_t *menu = dc->menuStack[i].menu;
+        if (!menu || !menu->items || menu->itemCount <= 0 || menu->itemCount > 4096)
+            continue;
+        if (!Web_IsMapListMenu(menu))
+            continue;
+        for (int j = 0; j < menu->itemCount; ++j)
+        {
+            itemDef_s *item = menu->items[j];
+            if (!item || item->dataType != 4)
+                continue;
+            listBoxDef_s *list = Item_GetListBoxDef(item);
+            if (!list)
+                continue;
+            const int feeder = (int)list->special;
+            int cursor = list->cursorPos[0];
+            if (cursor < 0)
+                cursor = 0;
+            if (feeder == 1)
+            {
+                if (cursor < sharedUiInfo.mapCount)
+                    return sharedUiInfo.mapList[cursor].mapLoadName;
+            }
+            else if (feeder == 4)
+            {
+                int actual = 0;
+                const char *label = UI_SelectedMap(cursor, &actual);
+                if (label && label[0] && actual >= 0 && actual < sharedUiInfo.mapCount)
+                    return sharedUiInfo.mapList[actual].mapLoadName;
+            }
+        }
+    }
+    return nullptr;
 }
 
 static void Web_PrefetchTick()
 {
-    Web_PrefetchOpenMapList();
-
     static unsigned int s_lastCheck;
     static char s_lastMap[64];
     const unsigned int now = Sys_Milliseconds();
-    if (now - s_lastCheck < 2000u)
+    if (now - s_lastCheck < 250u)
         return;
     s_lastCheck = now;
     // While still in the frontend, the private-match lobby writes ui_mapname before the server exists.
     if (!com_sv_running || !com_sv_running->current.enabled)
     {
+        // ui_mapname follows the cursor, so it is not a committed lobby choice. The
+        // highlighted row still starts a download: the page keeps only the name that
+        // stays selected, and a later load then finds those files already local.
+        if (Web_IsMapPickerOpen())
+        {
+            static char s_lastHighlight[64];
+            const char *highlight = Web_HighlightedMapName();
+            if (highlight && !I_strnicmp(highlight, "mp_", 3) && I_stricmp(highlight, s_lastHighlight))
+            {
+                I_strncpyz(s_lastHighlight, highlight, sizeof(s_lastHighlight));
+                Web_PrefetchMap(highlight);
+            }
+            return;
+        }
         const dvar_t *uiMap = Dvar_FindVar("ui_mapname");
         const char *picked = uiMap ? uiMap->current.string : nullptr;
         if (picked && !I_strnicmp(picked, "mp_", 3) && I_stricmp(picked, s_lastMap))
