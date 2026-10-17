@@ -11,6 +11,9 @@
 #include <client/cl_console.h>
 #include <cgame_mp/cg_newDraw_mp.h>
 #include "cg_drawtools.h"
+#ifdef KISAK_WEB
+#include "cg_draw_reticles.h"
+#endif
 #include <gfx_d3d/rb_corona.h>
 #include <EffectsCore/fx_sprite.h>
 
@@ -1938,6 +1941,34 @@ void __cdecl DrawHudElemMaterial(int localClientNum, const hudelem_s *elem, cg_h
                                          cghe,
                                          //COERCE_FLOAT(COERCE_UNSIGNED_INT(cghe->height - height) ^ _mask__NegFloat_));
                                          -(cghe->height - height));
+#ifdef KISAK_WEB
+        if (!strcmp(materialName, "damage_feedback") || !strcmp(materialName, "damage_feedback_j"))
+        {
+            const cg_s *cg = CG_GetLocalClientGlobals(localClientNum);
+            float centerX = 0.0f, centerY = 0.0f;
+            if (cg_crosshairDynamic->current.enabled)
+                CG_CalcCrosshairPosition(cg, &centerX, &centerY);
+            else
+            {
+                const unsigned int weapon = BG_GetViewmodelWeaponIndex(&cg->predictedPlayerState);
+                if (weapon && cg->predictedPlayerState.fWeaponPosFrac > 0.0f)
+                {
+                    const WeaponDef *def = BG_GetWeaponDef(weapon);
+                    if (!def->bKeepCrosshairWhenADS)
+                    {
+                        float scale = 1.0f;
+                        CG_TransitionToAds(cg, def, cg->predictedPlayerState.fWeaponPosFrac, &scale, &centerY);
+                    }
+                }
+            }
+            // The stock 24x48 hitmarker contains its visible X in the upper
+            // 24x24 half. Anchor that graphic to the reticle in physical pixels,
+            // including dynamic aim / ADS offsets and the active HUD scale.
+            const ScreenPlacement *place = &scrPlaceView[localClientNum];
+            screenPos[0] = ScrPlace_ApplyX(place, centerX, 2) - width * 0.5f;
+            screenPos[1] = ScrPlace_ApplyY(place, centerY, 2) - height * 0.25f;
+        }
+#endif
         CL_DrawStretchPicPhysical(screenPos[0], screenPos[1], width, height, 0.0, 0.0, 1.0, 1.0, cghe->color, material);
     }
 }
