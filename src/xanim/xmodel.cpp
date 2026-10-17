@@ -73,6 +73,10 @@ void __cdecl XModelSurfsSetData(const char *name, XModelSurfs *modelSurfs, void 
 
 XModel *__cdecl XModelPrecache(char *name, void *(__cdecl *Alloc)(int), void *(__cdecl *AllocColl)(int))
 {
+    // Do not open or hash a control-character name. "void" is the stand-in
+    // already used when a real xmodel is missing.
+    if (!XModel_NameIsUsable(name))
+        name = (char *)"void";
     if ( useFastFile->current.enabled )
         return (XModel *)((int (__cdecl *)(char *, void *(__cdecl *)(int), void *(__cdecl *)(int)))XModelPrecache_FastFile)(
                                              name,

@@ -225,6 +225,22 @@ struct XModelDefault // sizeof=0x50
     unsigned __int16 surfNames[1];
 };
 
+// Asset names are printable paths. Empty strings and control bytes (including a
+// lone 0x0B, which prints as a vertical tab) are not xmodels.
+inline bool XModel_NameIsUsable(const char *name)
+{
+    const unsigned char *p;
+
+    if (!name || !name[0])
+        return false;
+    for (p = (const unsigned char *)name; *p; ++p)
+    {
+        if (*p < 0x20u || *p == 0x7Fu)
+            return false;
+    }
+    return true;
+}
+
 bool __cdecl XModelBad(const XModel *model);
 void __cdecl XModelReleaseResources(XModel *model);
 void __cdecl XModelPartsFree(XModelPartsLoad *modelParts);
