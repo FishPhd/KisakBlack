@@ -4575,6 +4575,7 @@ void __cdecl VEH_GroundPlant(gentity_s *ent, vehicle_physic_t *phys, int gravity
     veh->vehicle_cache.proximity_data.update(mn, mx, contents, expand_vec);
     context.prims = vehicle_cache->proximity_data.prims;
     context.nprims = vehicle_cache->proximity_data.nprims;
+    int anyWheelHit = 0;
     for ( i = 0; i < numWheels; ++i )
     {
         if ( vehicle_cache->hit_indices[i] > 0 )
@@ -4605,6 +4606,7 @@ void __cdecl VEH_GroundPlant(gentity_s *ent, vehicle_physic_t *phys, int gravity
         }
         else
         {
+            anyWheelHit = 1;
             Vec3Lerp(&trace_points[6 * i], &trace_points[6 * i + 3], trace.fraction, hitPos);
             phys->wheelSurfType[i] = (unsigned __int8)((int)(0x3F00000
                                                                                                          & trace.sflags) >> 20);
@@ -4695,7 +4697,9 @@ void __cdecl VEH_GroundPlant(gentity_s *ent, vehicle_physic_t *phys, int gravity
     else
         v3 = -60.0f;
     phys->angles[2] = v3;
-    if ( ((veh->flags & 0x80) != 0 || (veh->flags & 1) == 0) && plane[2] != 0.0 )
+    // A total miss stores the trace end (256 below each wheel). Solving the
+    // origin from that plane buries the vehicle. Leave the spawn origin.
+    if ( anyWheelHit && ((veh->flags & 0x80) != 0 || (veh->flags & 1) == 0) && plane[2] != 0.0 )
         phys->origin[2] = (-((float)((float)(phys->origin[0] * plane[0]) + (float)(phys->origin[1] * plane[1])) - plane[3])) / plane[2];
     AnglesSubtract(phys->angles, phys->prevAngles, phys->rotVel);
     phys->rotVel[0] = 20.0 * phys->rotVel[0];
@@ -4753,128 +4757,89 @@ void __cdecl VEH_DebugBox(float *pos, float width, float r, float g, float b)
 static float predictTime = 0.15f;
 void __cdecl VEH_TouchEntities(gentity_s *ent)
 {
-    int contentmask; // [esp+30h] [ebp-1088h]
-    int var1084; // [esp+34h] [ebp-1084h]
-    float v4; // [esp+40h] [ebp-1078h] BYREF
-    float v5; // [esp+44h] [ebp-1074h]
-    float v6; // [esp+48h] [ebp-1070h]
-    DObj *obj; // [esp+4Ch] [ebp-106Ch]
-    scr_vehicle_s *scr_vehicle; // [esp+50h] [ebp-1068h]
-    float mins; // [esp+54h] [ebp-1064h] BYREF
-    float v10; // [esp+58h] [ebp-1060h]
-    float v11; // [esp+5Ch] [ebp-105Ch]
-    void(__cdecl * touch)(gentity_s *, gentity_s *, int); // [esp+60h] [ebp-1058h]
-    gentity_s *enta; // [esp+64h] [ebp-1054h]
-    float out[3]; // [esp+68h] [ebp-1050h] BYREF
-    float v3[3]; // [esp+74h] [ebp-1044h] BYREF
-    float maxs; // [esp+80h] [ebp-1038h] BYREF
-    float v17; // [esp+84h] [ebp-1034h]
-    float v18; // [esp+88h] [ebp-1030h]
-    void(__cdecl * v19)(gentity_s *, gentity_s *, int); // [esp+8Ch] [ebp-102Ch]
-    int entityList[1024]; // [esp+90h] [ebp-1028h] BYREF
-    int i; // [esp+1090h] [ebp-28h]
-    float v22; // [esp+1094h] [ebp-24h] BYREF
-    float v23; // [esp+1098h] [ebp-20h]
-    float v24; // [esp+109Ch] [ebp-1Ch]
-    float v25; // [esp+10A0h] [ebp-18h]
-    float v26; // [esp+10A4h] [ebp-14h]
-    float v27; // [esp+10A8h] [ebp-10h]
-    float offset[3]; // [esp+10ACh] [ebp-Ch] BYREF
-
-    if (!ent && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\g_scr_vehicle.cpp", 2649, 0, "%s", "ent"))
-        __debugbreak();
-    if (!ent->scr_vehicle
-        && !Assert_MyHandler(
-            "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_scr_vehicle.cpp",
-            2650,
-            0,
-            "%s",
-            "ent->scr_vehicle"))
+    if (!ent || !ent->scr_vehicle) return;
+    // handler is a byte index into entityHandlers. A stale value is an OOB load.
+    if (ent->handler >= ENT_HANDLER_COUNT) return;
+    scr_vehicle_s *vehicle = ent->scr_vehicle;
+    BG_GetVehicleInfo(vehicle->infoIdx);
+    auto touch = entityHandlers[ent->handler].touch;
+    float offset[3], predicted[3], mins[3], maxs[3];
+    for (int axis = 0; axis < 3; ++axis)
     {
-        __debugbreak();
+        offset[axis] = vehicle->phys.origin[axis] - vehicle->phys.prevOrigin[axis];
+        predicted[axis] = predictTime * vehicle->phys.vel[axis];
+        mins[axis] = ent->r.absmin[axis];
+        maxs[axis] = ent->r.absmax[axis];
     }
-    scr_vehicle = ent->scr_vehicle;
-    BG_GetVehicleInfo(scr_vehicle->infoIdx);
-    touch = entityHandlers[ent->handler].touch;
-    offset[0] = scr_vehicle->phys.origin[0] - scr_vehicle->phys.prevOrigin[0];
-    offset[1] = scr_vehicle->phys.origin[1] - scr_vehicle->phys.prevOrigin[1];
-    offset[2] = scr_vehicle->phys.origin[2] - scr_vehicle->phys.prevOrigin[2];
-    AnglesSubtract(scr_vehicle->phys.angles, scr_vehicle->phys.prevAngles, v3);
-    Vec3NormalizeTo(scr_vehicle->phys.vel, out);
-    maxs = ent->r.absmax[0];
-    v17 = ent->r.absmax[1];
-    v18 = ent->r.absmax[2];
-    mins = ent->r.absmin[0];
-    v10 = ent->r.absmin[1];
-    v11 = ent->r.absmin[2];
-    ExtendBounds(&mins, &maxs, offset);
-    v25 = predictTime * scr_vehicle->phys.vel[0];
-    v26 = predictTime * scr_vehicle->phys.vel[1];
-    v27 = predictTime * scr_vehicle->phys.vel[2];
-    mins = mins + v25;
-    v10 = v10 + v26;
-    v11 = v11 + v27;
-    maxs = maxs + v25;
-    v17 = v17 + v26;
-    v18 = v18 + v27;
-    contentmask = 0x280E091;
-    if (vehicle_riding->current.enabled)
-        contentmask = 0x80E091;
-    var1084 = CM_AreaEntities(&mins, &maxs, entityList, 1024, contentmask);
-    for (i = 0; i < var1084; ++i)
+    // These must be actual vectors. Separate decompiler scalar locals are not
+    // contiguous in Wasm and passing &mins formerly overwrote adjacent locals.
+    ExtendBounds(mins, maxs, offset);
+    for (int axis = 0; axis < 3; ++axis)
     {
-        enta = &g_entities[entityList[i]];
-        v19 = entityHandlers[enta->handler].touch;
-        if (enta->s.number != ent->s.number
-            && (enta->s.eType == 1 || enta->s.eType == 6 || enta->s.eType == 4 || enta->s.eType == 17 || enta->s.eType == 14)
-            && enta->s.groundEntityNum != ent->s.number)
+        mins[axis] += predicted[axis];
+        maxs[axis] += predicted[axis];
+    }
+    int entityList[1024];
+    const int contentmask = vehicle_riding->current.enabled ? 0x80E091 : 0x280E091;
+    const int count = CM_AreaEntities(mins, maxs, entityList, ARRAY_COUNT(entityList), contentmask);
+    for (int i = 0; i < count; ++i)
+    {
+        const int entityNum = entityList[i];
+        if (entityNum < 0 || entityNum >= level.num_entities) continue;
+        gentity_s *other = &g_entities[entityNum];
+        if (!other->r.inuse || other->handler >= ENT_HANDLER_COUNT
+            || other == ent || other->s.groundEntityNum == ent->s.number) continue;
+        if (other->s.eType != ET_PLAYER && other->s.eType != ET_SCRIPTMOVER
+            && other->s.eType != ET_MISSILE && other->s.eType != ET_ACTOR
+            && other->s.eType != ET_VEHICLE) continue;
+        float otherMins[3], otherMaxs[3];
+        if (other->classname == scr_const.script_model)
         {
-            if (enta->classname == scr_const.script_model)
+            if (!other->model) continue;
+            DObj *obj = Com_GetServerDObj(other->s.number);
+            if (!obj)
             {
-                if (!enta->model)
-                    continue;
-                obj = Com_GetServerDObj(enta->s.number);
-                DObjPhysicsGetBounds(obj, &v22, &v4);
-                v22 = enta->r.currentOrigin[0] + v22;
-                v23 = enta->r.currentOrigin[1] + v23;
-                v24 = enta->r.currentOrigin[2] + v24;
-                v4 = enta->r.currentOrigin[0] + v4;
-                v5 = enta->r.currentOrigin[1] + v5;
-                v6 = enta->r.currentOrigin[2] + v6;
+                memcpy(otherMins, other->r.absmin, sizeof(otherMins));
+                memcpy(otherMaxs, other->r.absmax, sizeof(otherMaxs));
             }
             else
             {
-                v22 = enta->r.absmin[0];
-                v23 = enta->r.absmin[1];
-                v24 = enta->r.absmin[2];
-                v4 = enta->r.absmax[0];
-                v5 = enta->r.absmax[1];
-                v6 = enta->r.absmax[2];
-            }
-            ExpandBoundsToWidth(&v22, &v4);
-            v22 = v22 - v25;
-            v23 = v23 - v26;
-            v24 = v24 - v27;
-            v4 = v4 - v25;
-            v5 = v5 - v26;
-            v6 = v6 - v27;
-            if (SV_EntityContact(&v22, &v4, ent))
-            {
-                if (Scr_IsSystemActive(1u, SCRIPTINSTANCE_SERVER))
+                DObjPhysicsGetBounds(obj, otherMins, otherMaxs);
+                for (int axis = 0; axis < 3; ++axis)
                 {
-                    Scr_AddEntity(ent, SCRIPTINSTANCE_SERVER);
-                    Scr_Notify(enta, scr_const.touch, 1u);
-                    Scr_AddEntity(enta, SCRIPTINSTANCE_SERVER);
-                    Scr_Notify(ent, scr_const.touch, 1u);
+                    otherMins[axis] += other->r.currentOrigin[axis];
+                    otherMaxs[axis] += other->r.currentOrigin[axis];
                 }
-                if (v19)
-                    v19(enta, ent, 1);
-                if (touch)
-                    touch(ent, enta, 1);
-                if (enta->s.eType == 1 || enta->actor && enta->actor->Physics.bIsAlive)
-                    VEH_PushEntity(ent, enta);
             }
         }
+        else
+        {
+            memcpy(otherMins, other->r.absmin, sizeof(otherMins));
+            memcpy(otherMaxs, other->r.absmax, sizeof(otherMaxs));
+        }
+        ExpandBoundsToWidth(otherMins, otherMaxs);
+        for (int axis = 0; axis < 3; ++axis)
+        {
+            otherMins[axis] -= predicted[axis];
+            otherMaxs[axis] -= predicted[axis];
+        }
+        if (!SV_EntityContact(otherMins, otherMaxs, ent)) continue;
+        auto otherTouch = entityHandlers[other->handler].touch;
+        if (Scr_IsSystemActive(1u, SCRIPTINSTANCE_SERVER))
+        {
+            Scr_AddEntity(ent, SCRIPTINSTANCE_SERVER);
+            Scr_Notify(other, scr_const.touch, 1u);
+            Scr_AddEntity(other, SCRIPTINSTANCE_SERVER);
+            Scr_Notify(ent, scr_const.touch, 1u);
+        }
+        if (otherTouch) otherTouch(other, ent, 1);
+        if (!ent->r.inuse || !ent->scr_vehicle) return;
+        if (!other->r.inuse) continue;
+        if (touch) touch(ent, other, 1);
+        if (!ent->r.inuse || !ent->scr_vehicle) return;
+        if (other->r.inuse && (other->s.eType == ET_PLAYER
+            || (other->s.eType == ET_ACTOR && other->actor && other->actor->Physics.bIsAlive)))
+            VEH_PushEntity(ent, other);
     }
     GlassSv_PredictTouch(ent);
 }
@@ -7054,7 +7019,6 @@ void __cdecl VEH_UpdateAIMove(gentity_s *ent)
 void __cdecl VEH_UpdateMoveToGoal(gentity_s *ent, const float *goalPos)
 {
     double v2; // st7
-    float *vel; // [esp+14h] [ebp-150h]
     float v4; // [esp+18h] [ebp-14Ch]
     float *accel; // [esp+20h] [ebp-144h]
     float v6; // [esp+24h] [ebp-140h]
@@ -7068,9 +7032,7 @@ void __cdecl VEH_UpdateMoveToGoal(gentity_s *ent, const float *goalPos)
     float axis[3][3]; // [esp+88h] [ebp-DCh] BYREF
     float dotVec[2]; // [esp+ACh] [ebp-B8h] BYREF
     float dt; // [esp+B4h] [ebp-B0h]
-    float v17; // [esp+B8h] [ebp-ACh] BYREF
-    float v18; // [esp+BCh] [ebp-A8h]
-    float v19; // [esp+C0h] [ebp-A4h]
+    float moveDir[3];
     float newVerticalSpeed; // [esp+C4h] [ebp-A0h] BYREF
     float startMoveAngle; // [esp+C8h] [ebp-9Ch]
     float desiredVel[3]; // [esp+CCh] [ebp-98h]
@@ -7134,21 +7096,25 @@ void __cdecl VEH_UpdateMoveToGoal(gentity_s *ent, const float *goalPos)
     if ( info->type != 6 )
         vecToGoal[2] = 0.0f;
     distToGoal = Vec3Length(vecToGoal);
-    desiredDir[0] = (float)(1.0 / distToGoal) * vecToGoal[0];
-    desiredDir[1] = (float)(1.0 / distToGoal) * vecToGoal[1];
-    desiredDir[2] = (float)(1.0 / distToGoal) * vecToGoal[2];
-    desiredYaw = VEH_UpdateMove_GetDesiredYaw(veh, desiredDir);
-    hasGoalhanged = VEH_CheckIfGoalYawChanged(ent, desiredYaw);
-    if ( distToGoal <= 0.0 )
+    // A goal can coincide with the current origin, including zero-length path
+    // segments. Complete it before normalizing, and wake the waiting script.
+    if ( distToGoal <= 0.0f )
     {
-        vel = phys->vel;
-        phys->vel[0] = 0.0f;
-        vel[1] = 0.0f;
-        vel[2] = 0.0f;
+        Vec3Clear(phys->vel);
+        Vec3Clear(phys->accel);
+        veh->speed = 0.0f;
         if ( info->type == 2 )
             VEH_GroundPlant(ent, phys, 1);
+        if ( !hovering )
+        {
+            VEH_UpdateMove_CheckNearGoal(ent, 0.0f);
+            VEH_UpdateMove_CheckGoalReached(ent, 0.0f);
+        }
+        return;
     }
-    else
+    Vec3Scale(vecToGoal, 1.0f / distToGoal, desiredDir);
+    desiredYaw = VEH_UpdateMove_GetDesiredYaw(veh, desiredDir);
+    hasGoalhanged = VEH_CheckIfGoalYawChanged(ent, desiredYaw);
     {
         dt = 0.05f;
         startMoveAngle = 30.0f;
@@ -7165,20 +7131,16 @@ void __cdecl VEH_UpdateMoveToGoal(gentity_s *ent, const float *goalPos)
         if ( startMoveAngle <= fabs(angleDiff) )
             speedScale = 0.0f;
         else
-            speedScale = 1.0 - (float)(angleDiff / startMoveAngle);
+            speedScale = 1.0f - fabsf(angleDiff) / startMoveAngle;
         VEH_GetNewSpeedAndAccel(veh, dt, hovering, speedScale, &newSpeed, &accelMax);
         VEH_GetNewSpeedAndAccel(veh, dt, hovering, 0.5, &newVerticalSpeed, &accelMax);
         if ( info->type == 6 && newVerticalSpeed > (float)(vehHelicopterMaxSpeedVertical->current.value * 17.6) )
             newVerticalSpeed = vehHelicopterMaxSpeedVertical->current.value * 17.6;
-        v17 = (float)(1.0 / distToGoal) * vecToGoal[0];
-        v18 = (float)(1.0 / distToGoal) * vecToGoal[1];
-        v19 = (float)(1.0 / distToGoal) * vecToGoal[2];
-        desiredVel[0] = newSpeed * v17;
-        desiredVel[1] = newSpeed * v18;
-        desiredVel[2] = v19 * newVerticalSpeed;
-        accelVec[0] = (float)(newSpeed * v17) - prevVel[0];
-        accelVec[1] = (float)(newSpeed * v18) - prevVel[1];
-        accelVec[2] = (float)(v19 * newVerticalSpeed) - prevVel[2];
+        Vec3Copy(desiredDir, moveDir);
+        desiredVel[0] = newSpeed * moveDir[0];
+        desiredVel[1] = newSpeed * moveDir[1];
+        desiredVel[2] = moveDir[2] * newVerticalSpeed;
+        Vec3Sub(desiredVel, prevVel, accelVec);
         if ( !veh->stopping
             && veh->manualSpeed >= veh->speed
             && (float)((float)(prevVel[0] * desiredVel[0]) + (float)(prevVel[1] * desiredVel[1])) > 0.0
@@ -7271,7 +7233,7 @@ void __cdecl VEH_UpdateMoveToGoal(gentity_s *ent, const float *goalPos)
         phys->origin[1] = (float)(dt * averageVel[1]) + phys->origin[1];
         phys->origin[2] = (float)(dt * averageVel[2]) + phys->origin[2];
         if ( info->type != 2 )
-            VEH_UpdateMoveOrientation(ent, &v17);
+            VEH_UpdateMoveOrientation(ent, moveDir);
         if ( info->type == 6 )
             VEH_UpdateVelocityWithRotation(ent);
         if ( info->type == 2 )

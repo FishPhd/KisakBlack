@@ -2017,6 +2017,36 @@ void __cdecl GScr_GetVehicleNode()
     }
 }
 
+void GScr_GetAllVehicleNodes()
+{
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (int i = 0; i < s_numNodes; ++i)
+    {
+        Scr_AddEntityNum(s_nodes[i].index, 3, SCRIPTINSTANCE_SERVER, 0);
+        Scr_AddArray(SCRIPTINSTANCE_SERVER);
+    }
+}
+
+void GScr_GetVehicleNodeArray()
+{
+    const unsigned int name = Scr_GetConstString(0, SCRIPTINSTANCE_SERVER);
+    char *key = Scr_GetString(1, SCRIPTINSTANCE_SERVER);
+    const int offset = Scr_GetOffset(3, key, SCRIPTINSTANCE_SERVER);
+    if (offset < 0 || offset >= ARRAY_COUNT(vn_fields) - 1 || vn_fields[offset].type != F_STRING)
+        Scr_ParamError(1, "vehicle node key must be a string field", SCRIPTINSTANCE_SERVER);
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (int i = 0; i < s_numNodes; ++i)
+    {
+        const unsigned short value = *reinterpret_cast<const unsigned short *>(
+            reinterpret_cast<const char *>(&s_nodes[i]) + vn_fields[offset].ofs);
+        if (value && value == name)
+        {
+            Scr_AddEntityNum(s_nodes[i].index, 3, SCRIPTINSTANCE_SERVER, 0);
+            Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        }
+    }
+}
+
 void __cdecl G_SpawnHeliHeightLock(SpawnVar *spawnVar)
 {
     float *v1; // [esp+0h] [ebp-24h]

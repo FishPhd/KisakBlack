@@ -148,6 +148,8 @@ unsigned __int16 __cdecl GScr_GetVehicleNodeIndex(unsigned int index);
 void __cdecl GScr_AddFieldsForVehicleNode();
 void __cdecl GScr_GetVehicleNodeField(unsigned int entnum, unsigned int offset);
 void __cdecl GScr_GetVehicleNode();
+void GScr_GetAllVehicleNodes();
+void GScr_GetVehicleNodeArray();
 void __cdecl G_SpawnHeliHeightLock(SpawnVar *spawnVar);
 
 

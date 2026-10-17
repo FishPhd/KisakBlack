@@ -1,5 +1,6 @@
 #include "nitrous_vehicle.h"
 #include <xanim/dobj.h>
+#include <xanim/xmodel.h>
 #include <bgame/bg_public.h>
 #include <game/g_scr_vehicle.h>
 #include <qcommon/dobj_management.h>
@@ -159,6 +160,46 @@ NitrousVehicle::NitrousVehicle()
         this->m_wheels[i] = 0;
 }
 
+// Seat a 4-wheel or tank so the bottom of the model bounds rests on the
+// ground under the spawn point. A miss, or a hit that would lower the
+// vehicle, leaves currentOrigin where the script put it.
+static void LiftNitrousGroundVehicle(gentity_s *owner, const XModel *model)
+{
+    float mins[3];
+    float maxs[3];
+    float start[3];
+    float end[3];
+    trace_t trace;
+    col_context_t context;
+
+    if (!owner || !model)
+        return;
+    XModelGetBounds(model, mins, maxs);
+    if (!(maxs[2] > mins[2]))
+        return;
+
+    start[0] = owner->r.currentOrigin[0];
+    start[1] = owner->r.currentOrigin[1];
+    end[0] = start[0];
+    end[1] = start[1];
+    // Bottom of the bounds sweeps the same window as VEH_GroundPlant: +64 to -256.
+    start[2] = owner->r.currentOrigin[2] + 64.0f - mins[2];
+    end[2] = owner->r.currentOrigin[2] - 256.0f - mins[2];
+    G_TraceCapsule(&trace, start, mins, maxs, end, owner->s.number, owner->clipmask, &context);
+    if (trace.startsolid || trace.allsolid || trace.fraction >= 1.0f || trace.normal.vec.v[2] <= 0.0f)
+        return;
+
+    const float seatedZ = start[2] + (end[2] - start[2]) * trace.fraction;
+    if (!(seatedZ > owner->r.currentOrigin[2]))
+        return;
+    owner->r.currentOrigin[2] = seatedZ;
+    if (owner->scr_vehicle)
+    {
+        owner->scr_vehicle->phys.origin[2] = seatedZ;
+        owner->scr_vehicle->phys.prevOrigin[2] = seatedZ;
+    }
+}
+
 void NitrousVehicle::init(gentity_s *owner, const VehicleParameter *parameter)
 {
     DObj *ServerDObj; // eax
@@ -191,6 +232,8 @@ void NitrousVehicle::init(gentity_s *owner, const VehicleParameter *parameter)
     this->m_forward_vel = 0.0f;
     this->m_script_brake = 0.0f;
     this->m_stuck_time = 0.0f;
+    if (!this->m_vehicle_info->type || this->m_vehicle_info->type == 2)
+        LiftNitrousGroundVehicle(owner, this->m_xmodel);
     m_origin = this->m_origin;
     currentOrigin = owner->r.currentOrigin;
     this->m_origin[0] = owner->r.currentOrigin[0];
