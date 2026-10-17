@@ -1,4 +1,5 @@
 #include "cg_scr_main_mp.h"
+#include "cg_zombie_script_bindings.h"
 #include <clientscript/cscr_variable.h>
 #include <clientscript/cscr_vm.h>
 #include <cgame/cg_camerashake.h>
@@ -25,6 +26,11 @@
 #include <universal/surfaceflags.h>
 #include <gfx_d3d/r_fog.h>
 #include "cg_servercmds_mp.h"
+#include <win32/win_gamerprofile.h>
+#include <cgame/cg_visionsets.h>
+#include <array>
+#include <utility>
+#include <universal/com_math_anglevectors.h>
 
 GfxFog cg_clientVolFog;
 
@@ -35,6 +41,113 @@ unsigned __int16 *footTags[4] =
     &scr_const.j_ball_ri,
     &scr_const.j_palm_ri
 };
+
+static void CScr_TriggerFX()
+{
+    const unsigned int count = Scr_GetNumParam(SCRIPTINSTANCE_CLIENT);
+    if (count != 1)
+        Scr_Error(SCRIPTINSTANCE_CLIENT, "triggerfx requires one effect handle", 0);
+    const unsigned int handle = Scr_GetInt(0, SCRIPTINSTANCE_CLIENT);
+    const int time = CG_GetLocalClientGlobals(0)->time;
+    // The browser hosts one local player. Remote peers run their own client VM
+    // and effect system; their handles are never sent across the network.
+    FX_RetriggerEffect(0, handle, time);
+}
+
+static void CScr_UpdateDvarsFromProfile()
+{
+    const int client = CScr_GetLocalClientNum(0);
+    if (client != 0) Scr_Error(SCRIPTINSTANCE_CLIENT, "browser profile belongs to local client zero", 0);
+    GamerProfile_UpdateDvarsFromProfile(0);
+}
+
+static void CScr_GetOriginMethod(scr_entref_t entref)
+{
+    cg_s *cg = CG_GetLocalClientGlobals(entref.client);
+    if (entref.entnum == cg->predictedPlayerState.clientNum)
+        Scr_AddVector(cg->predictedPlayerState.origin, SCRIPTINSTANCE_CLIENT);
+    else Scr_AddVector(CG_GetEntity(entref.client, entref.entnum)->pose.origin, SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetEyeMethod(scr_entref_t entref)
+{
+    const playerState_s *ps = &CG_GetLocalClientGlobals(entref.client)->predictedPlayerState;
+    if (entref.entnum != ps->clientNum)
+        Scr_Error(SCRIPTINSTANCE_CLIENT, "geteye requires the local player", 0);
+    float origin[3] = {ps->origin[0], ps->origin[1], ps->origin[2] + ps->viewHeightCurrent};
+    AddLeanToPosition(origin, ps->viewangles[1], ps->leanf, 16.0f, 20.0f);
+    Scr_AddVector(origin, SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetLocalClientNumberMethod(scr_entref_t entref)
+{
+    if (entref.entnum != CG_GetLocalClientGlobals(entref.client)->predictedPlayerState.clientNum)
+        Scr_Error(SCRIPTINSTANCE_CLIENT, "entity is not the local player", 0);
+    Scr_AddInt(entref.client, SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetLocalClientHealth()
+{
+    const int client = CScr_GetLocalClientNum(0);
+    Scr_AddInt(CG_GetLocalClientGlobals(client)->predictedPlayerState.stats[0], SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetLocalClientMaxHealth()
+{
+    const int client = CScr_GetLocalClientNum(0);
+    Scr_AddInt(CG_GetLocalClientGlobals(client)->predictedPlayerState.stats[2], SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_IsADS()
+{
+    Scr_AddBool(CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->predictedPlayerState.fWeaponPosFrac > 0.0f,
+        SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_IsMeleeing()
+{
+    const int state = CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->predictedPlayerState.weaponstate;
+    Scr_AddBool(state >= WEAPON_MELEE_INIT && state <= WEAPON_MELEE_END, SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_IsThrowingGrenade()
+{
+    const int state = CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->predictedPlayerState.weaponstate;
+    Scr_AddBool(state >= WEAPON_OFFHAND_INIT && state <= WEAPON_OFFHAND_END, SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_IsOnTurret()
+{
+    Scr_AddBool((CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->predictedPlayerState.eFlags & 0x300) != 0,
+        SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetWeaponAmmoClip()
+{
+    const int client = CScr_GetLocalClientNum(0);
+    const unsigned int weapon = BG_FindWeaponIndexForName(Scr_GetString(1, SCRIPTINSTANCE_CLIENT));
+    if (!weapon) Scr_ParamError(1, "unknown weapon", SCRIPTINSTANCE_CLIENT);
+    Scr_AddInt(BG_GetAmmoInClip(&CG_GetLocalClientGlobals(client)->predictedPlayerState, weapon), SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetPlayerAnglesMethod(scr_entref_t entref)
+{
+    cg_s *cg = CG_GetLocalClientGlobals(entref.client);
+    if (entref.entnum != cg->predictedPlayerState.clientNum)
+        Scr_Error(SCRIPTINSTANCE_CLIENT, "getplayerangles requires the local player", 0);
+    Scr_AddVector(cg->predictedPlayerState.viewangles, SCRIPTINSTANCE_CLIENT);
+}
+
+static void CScr_GetNormalizedMovementMethod(scr_entref_t entref)
+{
+    if (entref.entnum != CG_GetLocalClientGlobals(entref.client)->predictedPlayerState.clientNum)
+        Scr_Error(SCRIPTINSTANCE_CLIENT, "getnormalizedmovement requires the local player", 0);
+    usercmd_s cmd = {};
+    if (!CL_GetUserCmd(entref.client, CL_GetCurrentCmdNumber(entref.client), &cmd))
+        Scr_Error(SCRIPTINSTANCE_CLIENT, "current movement command is unavailable", 0);
+    float movement[3] = {(signed char)cmd.forwardmove / 127.0f, (signed char)cmd.rightmove / 127.0f, 0.0f};
+    Scr_AddVector(movement, SCRIPTINSTANCE_CLIENT);
+}
 
 BuiltinFunctionDef client_project_functions[] =
 {
@@ -47,6 +160,15 @@ BuiltinFunctionDef client_project_functions[] =
   { "playfxontag", &CScr_PlayFXOnTag, 0 },
   { "playviewmodelfx", &CScr_PlayViewmodelFX, 0 },
   { "spawnfx", &CScr_SpawnFX, 0 },
+  { "triggerfx", &CScr_TriggerFX, 0 },
+  { "updatedvarsfromprofile", &CScr_UpdateDvarsFromProfile, 0 },
+  { "getlocalclienthealth", &CScr_GetLocalClientHealth, 0 },
+  { "getlocalclientmaxhealth", &CScr_GetLocalClientMaxHealth, 0 },
+  { "isads", &CScr_IsADS, 0 },
+  { "ismeleeing", &CScr_IsMeleeing, 0 },
+  { "isthrowinggrenade", &CScr_IsThrowingGrenade, 0 },
+  { "isonturret", &CScr_IsOnTurret, 0 },
+  { "getweaponammoclip", &CScr_GetWeaponAmmoClip, 0 },
   { "deletefx", &CScr_DeleteFX, 0 },
   { "getanimlength", &CScr_GetAnimLength, 0 },
   { "animateui", &CScr_AnimateUI, 0 },
@@ -72,8 +194,14 @@ BuiltinFunctionDef client_project_functions[] =
 };
 
 // LWSS: Looks congruent to retail blops MP
-const BuiltinMethodDef client_project_methods[29] =
+const BuiltinMethodDef client_project_methods[] =
 {
+  { "geteye", &CScr_GetEyeMethod, 0 },
+  { "getorigin", &CScr_GetOriginMethod, 0 },
+  { "getlocalclientnumber", &CScr_GetLocalClientNumberMethod, 0 },
+  { "getlinkedent", &CScr_GetParentEntity, 0 },
+  { "getplayerangles", &CScr_GetPlayerAnglesMethod, 0 },
+  { "getnormalizedmovement", &CScr_GetNormalizedMovementMethod, 0 },
   { "gettagorigin", &CScr_GetTagOrigin, 0 },
   { "gettagangles", &CScr_GetTagAngles, 0 },
   { "getinkillcam", &CScr_GetInKillcam, 0 },
@@ -107,6 +235,79 @@ const BuiltinMethodDef client_project_methods[29] =
 
 cached_tag_mat_t cg_cachedTagMat;
 cscr_mp_data_t cg_scr_mp_data;
+
+// TODO(zombies-followup): replace the explicitly cosmetic temporary bindings
+// below with SP shader overrides, damage/underwater vision layers, water queries,
+// camera attachment, and debris simulation. This allowlist is Zombies-only;
+// it never substitutes spawning, health, damage, weapons, or round progression.
+static constexpr const char *zombieTemporaryClientApis[] = {
+    "createdynentandlaunch", "forcegamemodemappings", "gettagforwardvector",
+    "getvisionsetnaked", "getwaterheight", "haseyes", "isextracam", "linktocamera",
+    "mapshaderconstant", "setblur", "setclientdvar", "setshaderconstant", "setvolfog",
+    "setwaterfog", "stopextracam", "swimming", "useweaponhidetags",
+    "visionsetdamage", "visionsetnaked", "visionsetunderwater"
+};
+
+template <size_t Index> static void ZombieTemporaryClientApi(scr_entref_t entref)
+{
+    const char *name = zombieTemporaryClientApis[Index];
+    if (!strcmp(name, "getvisionsetnaked"))
+        Scr_AddString(CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->visionNameNaked, SCRIPTINSTANCE_CLIENT);
+    else if (!strcmp(name, "visionsetnaked"))
+    {
+        const int client = CScr_GetLocalClientNum(0);
+        const char *vision = Scr_GetString(1, SCRIPTINSTANCE_CLIENT);
+        const float duration = Scr_GetNumParam(SCRIPTINSTANCE_CLIENT) > 2 ? Scr_GetFloat(2, SCRIPTINSTANCE_CLIENT) : 0.0f;
+        if (duration < 0 || duration > 3600) Scr_ParamError(2, "invalid vision duration", SCRIPTINSTANCE_CLIENT);
+        if (!strcmp(vision, "undefined") || !*vision) vision = "default";
+        if (CG_VisionSetStartLerp_To(client, VISIONSETMODE_NAKED, VISIONSETLERP_TO_SMOOTH, vision, (int)(duration * 1000)))
+            I_strncpyz(CG_GetLocalClientGlobals(client)->visionNameNaked, vision, 64);
+    }
+    else if (!strcmp(name, "setclientdvar"))
+    {
+        const char *dvar = Scr_GetString(0, SCRIPTINSTANCE_CLIENT);
+        if (!Dvar_IsValidName(dvar)) Scr_ParamError(0, "invalid client dvar name", SCRIPTINSTANCE_CLIENT);
+        Dvar_SetFromStringByName(dvar, Scr_GetString(1, SCRIPTINSTANCE_CLIENT));
+    }
+    else if (!strcmp(name, "gettagforwardvector"))
+    {
+        // TODO(zombies-followup): resolve the requested bone instead of the model axis.
+        float axis[3][3];
+        AnglesToAxis(CG_GetEntity(entref.client, entref.entnum)->pose.angles, axis);
+        Scr_AddVector(axis[0], SCRIPTINSTANCE_CLIENT);
+    }
+    else if (!strcmp(name, "isextracam"))
+        Scr_AddBool(CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->extraCamActive, SCRIPTINSTANCE_CLIENT);
+    else if (!strcmp(name, "stopextracam"))
+        CG_GetLocalClientGlobals(CScr_GetLocalClientNum(0))->extraCamActive = false;
+    else if (!strcmp(name, "haseyes") || !strcmp(name, "swimming"))
+        Scr_AddBool(false, SCRIPTINSTANCE_CLIENT); // Temporary: no eye glow or swimming on dry Kino.
+    else if (!strcmp(name, "getwaterheight") || !strcmp(name, "createdynentandlaunch"))
+        Scr_AddUndefined(SCRIPTINSTANCE_CLIENT); // Temporary: no water surface or cosmetic debris entity.
+    else
+    {
+        static bool reported;
+        if (!reported)
+        {
+            reported = true;
+            Com_PrintWarning(16, "Zombies temporary cosmetic client binding: %s (TODO zombies-followup)\n", name);
+        }
+    }
+}
+
+template <size_t Index> static void ZombieTemporaryClientFunction()
+{
+    ZombieTemporaryClientApi<Index>({});
+}
+
+template <size_t... Indices> static auto ZombieTemporaryFunctions(std::index_sequence<Indices...>)
+{
+    return std::array<void (*)(), sizeof...(Indices)>{&ZombieTemporaryClientFunction<Indices>...};
+}
+template <size_t... Indices> static auto ZombieTemporaryMethods(std::index_sequence<Indices...>)
+{
+    return std::array<void (*)(scr_entref_t), sizeof...(Indices)>{&ZombieTemporaryClientApi<Indices>...};
+}
 
 //void __cdecl CScrCmd_Earthquake(scr_entref_t entref)
 //{
@@ -1408,6 +1609,17 @@ void(__cdecl *__cdecl CScr_GetFunctionProjectSpecific(const char **pName, int *t
             return client_project_functions[i].actionFunc;
         }
     }
+    if (zombiemode->current.enabled)
+    {
+        static const auto functions = ZombieTemporaryFunctions(std::make_index_sequence<ARRAY_COUNT(zombieTemporaryClientApis)>{});
+        for (size_t n = 0; n < ARRAY_COUNT(zombieTemporaryClientApis); ++n)
+            if (!strcmp(*pName, zombieTemporaryClientApis[n]))
+            {
+                *pName = zombieTemporaryClientApis[n];
+                *type = 0;
+                return functions[n];
+            }
+    }
     return 0;
 }
 
@@ -1854,7 +2066,7 @@ void (__cdecl *__cdecl CScr_GetMethodProjectSpecific(const char **pName, int *ty
 {
     unsigned int i; // [esp+18h] [ebp-4h]
 
-    for ( i = 0; i < 0x1D; ++i )
+    for ( i = 0; i < sizeof(client_project_methods) / sizeof(client_project_methods[0]); ++i )
     {
         if ( !strcmp(*pName, client_project_methods[i].actionString) )
         {
@@ -1863,11 +2075,33 @@ void (__cdecl *__cdecl CScr_GetMethodProjectSpecific(const char **pName, int *ty
             return client_project_methods[i].actionFunc;
         }
     }
+    if (zombiemode->current.enabled)
+    {
+        static const auto methods = ZombieTemporaryMethods(std::make_index_sequence<ARRAY_COUNT(zombieTemporaryClientApis)>{});
+        for (size_t n = 0; n < ARRAY_COUNT(zombieTemporaryClientApis); ++n)
+            if (!strcmp(*pName, zombieTemporaryClientApis[n]))
+            {
+                *pName = zombieTemporaryClientApis[n];
+                *type = 0;
+                return methods[n];
+            }
+    }
     return 0;
 }
 
 void __cdecl CScr_SetUniqueClientScripts(ScriptFunctions *functions)
 {
+    if (zombiemode->current.enabled)
+    {
+        for (const ZombieClientScriptBinding &binding : zombieClientScriptBindings)
+            cg_scr_data.*binding.field = CScr_SetScriptAndLabel(functions, binding.file, binding.label, true);
+        cg_scr_data.destructible_callback = 0;
+        cg_scr_mp_data.dogstep = 0;
+        cg_scr_mp_data.airsupport = cg_scr_data.airsupport;
+        cg_scr_mp_data.demo_jump = 0;
+        cg_scr_mp_data.demo_playerSwitch = 0;
+        return;
+    }
     cg_scr_data.delete_ = CScr_SetScriptAndLabel(functions, "codescripts/delete", "main", 1);
     cg_scr_data.initstructs = CScr_SetScriptAndLabel(functions, "codescripts/struct", "initstructs", 1);
     cg_scr_data.createstruct = CScr_SetScriptAndLabel(functions, "codescripts/struct", "createstruct", 1);

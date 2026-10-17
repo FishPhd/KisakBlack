@@ -9,6 +9,11 @@
 #include "rb_resource.h"
 #include "r_pixelcost_load_obj.h"
 #include "r_outdoor.h"
+#ifdef KISAK_WEB
+#include <web/web_graphics.h>
+#include <web/web_assets.h>
+#include <emscripten.h>
+#endif
 
 const BuiltinImageConstructorTable constructorTable[12] =
 {
@@ -838,10 +843,19 @@ char __cdecl _Image_LoadFromFileWithReader(
 bool __cdecl Image_LoadFromFile(GfxImage *image, bool loadHighmip)
 {
     bool ret; // [esp+3h] [ebp-1h]
+#ifdef KISAK_WEB
+    // High here means all mips allowed by the existing picmip settings. Loading
+    // only the streaming tail would replace the prepared GPU texture in play.
+    loadHighmip = loadHighmip || Web_UseFullTexturePreparation();
+    const double imageBegan = emscripten_get_now();
+#endif
 
     Sys_LockWrite(&s_imageLoadLock);
     ret = Image_LoadFromFileWithReader(image, loadHighmip, FS_FOpenFileRead);
     Sys_UnlockWrite(&s_imageLoadLock);
+#ifdef KISAK_WEB
+    Web_ReportAssetWork("image-load-decode", image->name, imageBegan);
+#endif
     return ret;
 }
 

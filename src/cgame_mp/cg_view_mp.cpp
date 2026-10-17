@@ -5292,6 +5292,8 @@ void __cdecl CG_UpdateWaterSheetingFX(cg_s *cgameGlob)
 
 void __cdecl CG_UpdateFlameFX(cg_s *cgameGlob)
 {
+    if (cgameGlob->refdef.transportedFx.enabled)
+        cgameGlob->refdef.transportedFx.currentTime = cgameGlob->time;
     if ( Demo_IsThirdPersonCamera() || Demo_IsMovieCamera() )
     {
         cgameGlob->refdef.flameFx.enabled = 0;

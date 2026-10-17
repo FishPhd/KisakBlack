@@ -1,4 +1,5 @@
 #include "cg_scr_main.h"
+#include <game/actor.h>
 #include <clientscript/cscr_stringlist.h>
 #include <clientscript/scr_const.h>
 #include <cgame_mp/cg_scr_main_mp.h>
@@ -3971,11 +3972,14 @@ void __cdecl CScr_GetSpecies(centity_s *cent, const cent_field_s *pField)
             break;
         case 0x11:
         case 0x13:
-            if ( cent->nextState.lerp.u.loopFx.period )
-                Scr_AddString("unknown", SCRIPTINSTANCE_CLIENT);
-            else
-                Scr_AddString("dog", SCRIPTINSTANCE_CLIENT);
+        {
+            static const char *names[MAX_AI_SPECIES] = { "dog", "human", "zombie", "zombie_dog" };
+            const unsigned int species = cent->nextState.lerp.u.actor.species;
+            if (species >= MAX_AI_SPECIES)
+                Scr_Error(SCRIPTINSTANCE_CLIENT, "actor has an invalid species", 0);
+            else Scr_AddString(names[species], SCRIPTINSTANCE_CLIENT);
             break;
+        }
         default:
             Scr_Error(SCRIPTINSTANCE_CLIENT, ".species call on invalid ent type.", 0);
             break;
@@ -3995,7 +3999,8 @@ void __cdecl CScr_GetIsDog(centity_s *cent, const cent_field_s *pField)
     }
     if ( cent->nextState.eType == 17 || cent->nextState.eType == 19 )
     {
-        value = Flame_GetLocalClientSourceRange();
+        const int species = cent->nextState.lerp.u.actor.species;
+        value = species == AI_SPECIES_DOG || species == AI_SPECIES_ZOMBIE_DOG;
         Scr_AddBool(value, SCRIPTINSTANCE_CLIENT);
     }
     else

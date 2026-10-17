@@ -47,6 +47,7 @@ static const char *impactTypeNames[15 + 1] =
 };
 
 bool penetrationDepthTableLoaded;
+static bool penetrationDepthTableZombies;
 float penetrationDepthTable[4][31];
 
 void __cdecl BG_LoadPenetrationDepthTable()
@@ -54,10 +55,11 @@ void __cdecl BG_LoadPenetrationDepthTable()
     char *buffer; // [esp+0h] [ebp-400Ch]
     char loadBuffer[16388]; // [esp+4h] [ebp-4008h] BYREF
 
-    if ( !penetrationDepthTableLoaded )
+    const bool zombies = zombiemode && zombiemode->current.enabled;
+    if (!penetrationDepthTableLoaded || penetrationDepthTableZombies != zombies)
     {
         buffer = Com_LoadInfoString(
-                             (char*)"info/bullet_penetration_mp",
+                             (char*)(zombies ? "info/bullet_penetration_sp" : "info/bullet_penetration_mp"),
                              "bullet penetration table",
                              "BULLET_PEN_TABLE",
                              loadBuffer);
@@ -66,6 +68,7 @@ void __cdecl BG_LoadPenetrationDepthTable()
         BG_ParsePenetrationDepthTable("medium", penetrationDepthTable[2], buffer);
         BG_ParsePenetrationDepthTable("large", penetrationDepthTable[3], buffer);
         penetrationDepthTableLoaded = 1;
+        penetrationDepthTableZombies = zombies;
     }
 }
 

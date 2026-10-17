@@ -24,6 +24,21 @@
 #include <DynEntity/DynEntity_load_obj.h>
 #include <DynEntity/DynEntity_client.h>
 #include "r_rendercmds.h"
+#ifdef KISAK_WEB
+#include <web/web_assets.h>
+#include <web/web_graphics.h>
+#endif
+
+static bool R_StreamUsesEagerAssets()
+{
+#ifdef KISAK_WEB
+    // Zombies imports its client images eagerly; SP streaming jobs use an
+    // incompatible image table in the shared multiplayer runtime.
+    return Web_IsZombieBoot() || Web_UseFullTexturePreparation();
+#else
+    return false;
+#endif
+}
 
 #define TOTAL_IMAGE_PARTS 4608 // Same as POOLSIZE_IMAGE
 
@@ -1603,6 +1618,7 @@ void __cdecl R_CheckHighmipAabbs_r(GfxWorld *world, int aabbTreeNode, float *min
 
 char __cdecl R_StreamUpdate_TryBeginQuery()
 {
+    if (R_StreamUsesEagerAssets() || r_stream->current.integer <= 0) return 0;
     if (streamFrontendGlob.queryInProgress || !R_StreamIsEnabled())
         return 0;
     if (streamFrontendGlob.outputImageList)
@@ -1755,6 +1771,7 @@ void __cdecl R_StreamTouchImagesFromMaterial(const Material *remoteMaterial, flo
 
 void __cdecl R_StreamUpdatePerClient(const float *viewPos)
 {
+    if (R_StreamUsesEagerAssets() || r_stream->current.integer <= 0) return;
     StreamUpdateCmd updateCmd; // [esp+14h] [ebp-28h] BYREF
     float distanceScale[2]; // [esp+30h] [ebp-Ch] BYREF
     float maxDistSq; // [esp+38h] [ebp-4h]
@@ -2049,6 +2066,7 @@ void __cdecl R_StreamUpdate_AddDynamicXModelDistance(
 
 void __cdecl R_StreamUpdate_End()
 {
+    if (R_StreamUsesEagerAssets() || r_stream->current.integer <= 0) return;
     StreamCombineCmd combineCmd; // [esp+0h] [ebp-Ch] BYREF
     StreamSortCmd sortCmd; // [esp+4h] [ebp-8h] BYREF
 
@@ -2424,6 +2442,7 @@ void R_StreamUpdate_CombineImportance()
 
 void __cdecl R_StreamUpdateForXModel(const XModel *remoteModel, float distSq)
 {
+    if (R_StreamUsesEagerAssets() || r_stream->current.integer <= 0) return;
     float v2; // [esp+0h] [ebp-40h]
     float v3; // [esp+4h] [ebp-3Ch]
     float v4; // [esp+10h] [ebp-30h]

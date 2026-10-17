@@ -13,6 +13,7 @@
 #include <game_mp/g_misc_mp.h>
 #include <game_mp/g_spawn_mp.h>
 #include <cgame/cg_event.h>
+#include <clientscript/cscr_stringlist.h>
 
 int __cdecl G_GetActorCorpseIndex(gentity_s *ent)
 {
@@ -20,7 +21,7 @@ int __cdecl G_GetActorCorpseIndex(gentity_s *ent)
 
     for ( i = 0; i < 8; ++i )
     {
-        if ( *(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * i + 36] == ent->s.number )
+        if ( g_scr_data.actorCorpseInfo[i].entnum == ent->s.number )
             return i;
     }
     if ( !Assert_MyHandler(
@@ -81,7 +82,7 @@ int __cdecl G_GetFreeActorCorpseIndex(int reuse)
     found = 0;
     for ( i = 0; i < level.actorCorpseCount; ++i )
     {
-        if ( *(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * i + 36] == -1 )
+        if ( g_scr_data.actorCorpseInfo[i].entnum == -1 )
         {
             if ( reuse )
                 return i;
@@ -89,7 +90,7 @@ int __cdecl G_GetFreeActorCorpseIndex(int reuse)
         else
         {
             found = 1;
-            ent = &level.gentities[*(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * i + 36]];
+            ent = &level.gentities[g_scr_data.actorCorpseInfo[i].entnum];
             vDelta[0] = ent->r.currentOrigin[0] - vRefPos[0];
             vDelta[1] = ent->r.currentOrigin[1] - vRefPos[1];
             vDelta[2] = ent->r.currentOrigin[2] - vRefPos[2];
@@ -127,9 +128,9 @@ int __cdecl G_GetFreeActorCorpseIndex(int reuse)
         {
             bestIndex = farthestBehindIndex;
         }
-        ent = &level.gentities[*(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * bestIndex + 36]];
+        ent = &level.gentities[g_scr_data.actorCorpseInfo[bestIndex].entnum];
         G_FreeEntity(ent);
-        *(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * bestIndex + 36] = -1;
+        g_scr_data.actorCorpseInfo[bestIndex].entnum = -1;
         return bestIndex;
     }
     else
@@ -155,9 +156,9 @@ void __cdecl G_RemoveOneActorCorpse()
 
     for ( i = 0; i < level.actorCorpseCount; ++i )
     {
-        if ( *(int *)&g_scr_data.actorCorpseInfo[1504 * i + 36] >= 0 )
+        if ( g_scr_data.actorCorpseInfo[i].entnum >= 0 )
         {
-            G_FreeEntity(&level.gentities[*(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * i + 36]]);
+            G_FreeEntity(&level.gentities[g_scr_data.actorCorpseInfo[i].entnum]);
             return;
         }
     }
@@ -169,8 +170,8 @@ void __cdecl G_RemoveAllActorCorpses()
 
     for ( i = 0; i < level.actorCorpseCount; ++i )
     {
-        if ( *(int *)&g_scr_data.actorCorpseInfo[1504 * i + 36] >= 0 )
-            G_FreeEntity(&level.gentities[*(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * i + 36]]);
+        if ( g_scr_data.actorCorpseInfo[i].entnum >= 0 )
+            G_FreeEntity(&level.gentities[g_scr_data.actorCorpseInfo[i].entnum]);
     }
 }
 
@@ -191,8 +192,8 @@ void __cdecl G_RemoveActorCorpses(unsigned int allowedCorpseCount)
     }
     for ( i = allowedCorpseCount; i < level.actorCorpseCount; ++i )
     {
-        if ( *(int *)&g_scr_data.actorCorpseInfo[1504 * i + 36] >= 0 )
-            G_FreeEntity(&level.gentities[*(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * i + 36]]);
+        if ( g_scr_data.actorCorpseInfo[i].entnum >= 0 )
+            G_FreeEntity(&level.gentities[g_scr_data.actorCorpseInfo[i].entnum]);
     }
     level.actorCorpseCount = allowedCorpseCount;
 }
@@ -236,7 +237,7 @@ void __cdecl ActorCorpse_Free(gentity_s *ent)
     int actorCorpseIndex; // [esp+0h] [ebp-4h]
 
     actorCorpseIndex = G_GetActorCorpseIndex(ent);
-    if ( *(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * actorCorpseIndex + 36] != ent->s.number
+    if ( g_scr_data.actorCorpseInfo[actorCorpseIndex].entnum != ent->s.number
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_corpse.cpp",
                     401,
@@ -246,7 +247,7 @@ void __cdecl ActorCorpse_Free(gentity_s *ent)
     {
         __debugbreak();
     }
-    *(unsigned int *)&g_scr_data.actorCorpseInfo[1504 * actorCorpseIndex + 36] = -1;
+    g_scr_data.actorCorpseInfo[actorCorpseIndex].entnum = -1;
 }
 
 void __cdecl Actor_GetBodyPlantAngles(
@@ -658,7 +659,8 @@ int __cdecl Actor_BecomeCorpse(gentity_s *self)
     body->physicsObject = 1;
     body->s.eType = ET_ACTOR_CORPSE;
     dobj = Com_GetServerDObj(self->s.number);
-    tree = DObjGetTree(dobj);
+    tree = dobj ? DObjGetTree(dobj) : self->pAnimTree;
+    iassert(tree);
     for ( axis = 0; axis < 2; ++axis )
     {
         if ( body->s.lerp.pos.trDelta[axis] > g_clonePlayerMaxVelocity->current.value )
@@ -677,11 +679,21 @@ int __cdecl Actor_BecomeCorpse(gentity_s *self)
         __debugbreak();
     }
     body->item[0].ammoCount = level.time;
-    corpseInfo = (corpseInfo_t *)&g_scr_data.actorCorpseInfo[1504 * G_GetFreeActorCorpseIndex(1) + 32];
+    corpseInfo = &g_scr_data.actorCorpseInfo[G_GetFreeActorCorpseIndex(1)];
     corpseInfo->entnum = body->s.number;
     corpseInfo->time = level.time;
     corpseInfo->falling = 1;
+    // Corpse slots are shared by dogs and human Zombies. The tree allocation is
+    // fixed size, but its animation set must match the actor being cloned.
+    if (!corpseInfo->tree)
+        corpseInfo->tree = XAnimCreateTree(tree->anims, (void *(*)(unsigned int))Hunk_AllocActorXAnimServer);
+    else if (corpseInfo->tree->anims != tree->anims)
+    {
+        XAnimClearTree(corpseInfo->tree);
+        corpseInfo->tree->anims = tree->anims;
+    }
     XAnimCloneAnimTree(tree, corpseInfo->tree);
+    body->pAnimTree = corpseInfo->tree;
     body->s.groundEntityNum = 1023;
     if ( body->r.svFlags
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_corpse.cpp", 869, 0, "%s", "!body->r.svFlags") )
@@ -704,10 +716,17 @@ int __cdecl Actor_BecomeCorpse(gentity_s *self)
     //body->s.un2 = self->s.un2;
     body->s.animState = self->s.animState;
     body->clipmask = 65537;
-    body->r.contents = (int)&objBuf[1890][6];
+    body->r.contents = 0x4004000;
     body->nextthink = level.time + 300;
     body->handler = 3;
     body->model = self->model;
+    memcpy(body->s.partBits, self->s.partBits, sizeof(body->s.partBits));
+    body->attachIgnoreCollision = self->attachIgnoreCollision;
+    for (int i = 0; i < ARRAY_COUNT(body->attachModelNames); ++i)
+    {
+        body->attachModelNames[i] = self->attachModelNames[i];
+        Scr_SetString(&body->attachTagNames[i], self->attachTagNames[i], SCRIPTINSTANCE_SERVER);
+    }
     body->s.enemyModel = self->s.enemyModel;
     body->s.lerp.u.actor.actorNum = self->s.lerp.u.actor.actorNum;
     body->s.lerp.u.actor.team = self->s.lerp.u.actor.team;

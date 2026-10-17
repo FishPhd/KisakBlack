@@ -308,6 +308,18 @@ const dvar_s *r_reviveFX_edgeContrast;
 const dvar_s *r_reviveFX_edgeOffset;
 const dvar_s *r_reviveFX_edgeAmount;
 const dvar_s *r_reviveFX_edgeMaskAdjust;
+const dvar_s *r_reviveFX_contrastEdge;
+const dvar_s *r_reviveFX_brightnessEdge;
+const dvar_s *r_reviveFX_desaturationEdge;
+const dvar_s *r_reviveFX_darkTintEdge;
+const dvar_s *r_reviveFX_lightTintEdge;
+const dvar_s *r_reviveFX_blurRadiusEdge;
+const dvar_s *r_reviveFX_motionblurWeight;
+const dvar_s *r_reviveFX_contrastCenter;
+const dvar_s *r_reviveFX_brightnessCenter;
+const dvar_s *r_reviveFX_desaturationCenter;
+const dvar_s *r_reviveFX_darkTintCenter;
+const dvar_s *r_reviveFX_lightTintCenter;
 const dvar_s *r_genericFilter_enable;
 const dvar_s *r_superFlare_enable;
 const dvar_s *r_superFlare_debug;
@@ -1965,6 +1977,98 @@ void __cdecl R_RegisterDvars()
                                                                 1.0,
                                                                 0x5000u,
                                                                 "edge mask expansion contraction");
+    r_reviveFX_contrastEdge = _Dvar_RegisterFloat(
+                                                             "r_reviveFX_contrastEdge",
+                                                             0.0,
+                                                             0.0,
+                                                             4.0,
+                                                             0x5000u,
+                                                             "edge contrast level");
+    r_reviveFX_brightnessEdge = _Dvar_RegisterFloat(
+                                                               "r_reviveFX_brightnessEdge",
+                                                               0.0,
+                                                               -1.0,
+                                                               1.0,
+                                                               0x5000u,
+                                                               "edge brightness level");
+    r_reviveFX_desaturationEdge = _Dvar_RegisterFloat(
+                                                                 "r_reviveFX_desaturationEdge",
+                                                                 0.0,
+                                                                 0.0,
+                                                                 1.0,
+                                                                 0x5000u,
+                                                                 "edge desaturation level");
+    r_reviveFX_darkTintEdge = _Dvar_RegisterVec3(
+                                                        "r_reviveFX_darkTintEdge",
+                                                        (1.0),
+                                                        (1.0),
+                                                        (1.0),
+                                                        0.0,
+                                                        6.0,
+                                                        0x5000u,
+                                                        "edge dark tint");
+    r_reviveFX_lightTintEdge = _Dvar_RegisterVec3(
+                                                         "r_reviveFX_lightTintEdge",
+                                                         (1.0),
+                                                         (1.0),
+                                                         (1.0),
+                                                         0.0,
+                                                         6.0,
+                                                         0x5000u,
+                                                         "edge light tint");
+    r_reviveFX_blurRadiusEdge = _Dvar_RegisterFloat(
+                                                               "r_reviveFX_blurRadiusEdge",
+                                                               0.0,
+                                                               0.0,
+                                                               32.0,
+                                                               0x5000u,
+                                                               "edge blur radius");
+    r_reviveFX_motionblurWeight = _Dvar_RegisterFloat(
+                                                                 "r_reviveFX_motionblurWeight",
+                                                                 0.0,
+                                                                 0.0,
+                                                                 1.0,
+                                                                 0x5000u,
+                                                                 "motion blur weight");
+    r_reviveFX_contrastCenter = _Dvar_RegisterFloat(
+                                                               "r_reviveFX_contrastCenter",
+                                                               0.0,
+                                                               0.0,
+                                                               4.0,
+                                                               0x5000u,
+                                                               "center contrast level");
+    r_reviveFX_brightnessCenter = _Dvar_RegisterFloat(
+                                                                 "r_reviveFX_brightnessCenter",
+                                                                 0.0,
+                                                                 -1.0,
+                                                                 1.0,
+                                                                 0x5000u,
+                                                                 "center brightness level");
+    r_reviveFX_desaturationCenter = _Dvar_RegisterFloat(
+                                                                   "r_reviveFX_desaturationCenter",
+                                                                   0.0,
+                                                                   0.0,
+                                                                   1.0,
+                                                                   0x5000u,
+                                                                   "center desaturation level");
+    r_reviveFX_darkTintCenter = _Dvar_RegisterVec3(
+                                                          "r_reviveFX_darkTintCenter",
+                                                          (1.0),
+                                                          (1.0),
+                                                          (1.0),
+                                                          0.0,
+                                                          6.0,
+                                                          0x5000u,
+                                                          "center dark tint");
+    r_reviveFX_lightTintCenter = _Dvar_RegisterVec3(
+                                                           "r_reviveFX_lightTintCenter",
+                                                           (1.0),
+                                                           (1.0),
+                                                           (1.0),
+                                                           0.0,
+                                                           6.0,
+                                                           0x5000u,
+                                                           "center light tint");
     r_genericFilter_enable = _Dvar_RegisterBool("r_genericFilter_enable", 0, 0x4000u, "Enable the genericFilter material");
     r_superFlare_enable = _Dvar_RegisterBool("r_superFlare_enable", 1, 0x4000u, "Enable the superFlare effect");
     r_superFlare_debug = _Dvar_RegisterBool(

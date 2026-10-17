@@ -4,7 +4,7 @@
 #include <game_mp/actor_mp.h>
 #include "bullet.h"
 
-const float g_actorAssumedSpeed[1] = { 300.0 };
+const float g_actorAssumedSpeed[MAX_AI_SPECIES] = { 300.0f, 190.0f, 190.0f, 300.0f };
 
 
 void __fastcall Actor_TeamMoveBlocked(actor_s *self)

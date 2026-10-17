@@ -78,4 +78,4 @@ int __cdecl Actor_TeamMoveTrimPath(path_t *pPath, const team_move_context_t *con
 void __cdecl Actor_TeamMoveTooCloseMoveAway(const actor_s *self, int mask, team_move_context_t *context);
 char __cdecl Actor_TeamMoveCheckPileup(actor_s *self, actor_s *pOtherActor);
 
-extern const float g_actorAssumedSpeed[1];
+extern const float g_actorAssumedSpeed[MAX_AI_SPECIES];

@@ -4,6 +4,9 @@
 #include <clientscript/cscr_vm.h>
 #include "sentient.h"
 #include <game_mp/g_spawn_mp.h>
+#ifdef KISAK_WEB
+#include <qcommon/common.h>
+#endif
 
 const sentient_fields_s fields_2[20] =
 {
@@ -49,6 +52,13 @@ void __cdecl SentientScr_SetTeam(sentient_s *pSelf, const sentient_fields_s *pFi
     if ( !pSelf && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\sentient_fields.cpp", 79, 0, "%s", "pSelf") )
         __debugbreak();
     pszTeam = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
+#ifdef KISAK_WEB
+    if (zombiemode && zombiemode->current.enabled && !I_stricmp(pszTeam, "neutral"))
+    {
+        Sentient_SetTeam(pSelf, TEAM_FREE);
+        return;
+    }
+#endif
     if ( I_stricmp(pszTeam, "axis") )
     {
         if ( I_stricmp(pszTeam, "allies") )
@@ -101,6 +111,11 @@ void __cdecl SentientScr_GetTeam(sentient_s *pSelf, const sentient_fields_s *pFi
     switch ( pSelf->eTeam )
     {
         case TEAM_FREE:
+#ifdef KISAK_WEB
+            if (zombiemode && zombiemode->current.enabled)
+                Scr_AddString("neutral", SCRIPTINSTANCE_SERVER);
+            else
+#endif
             Scr_AddString("free", SCRIPTINSTANCE_SERVER);
             break;
         case TEAM_AXIS:
@@ -126,6 +141,12 @@ void __cdecl SentientScr_GetTeam(sentient_s *pSelf, const sentient_fields_s *pFi
 void __cdecl GScr_AddFieldsForSentient()
 {
     const sentient_fields_s *f; // [esp+4h] [ebp-4h]
+
+#ifdef KISAK_WEB
+    // SP scripts use self.team; MP names the same native sentient field aiteam.
+    if (zombiemode && zombiemode->current.enabled)
+        Scr_AddClassField(0, (char *)"team", 0x4000, SCRIPTINSTANCE_SERVER);
+#endif
 
     for ( f = fields_2; f->name; ++f )
     {

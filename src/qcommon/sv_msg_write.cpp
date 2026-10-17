@@ -6,6 +6,7 @@
 #include <server_mp/sv_init_mp.h>
 #include <cgame/cg_draw_debug.h>
 #include <flame/flame_system.h>
+#include <array>
 
 bool offsetsTested;
 const NetFieldList *__cdecl MSG_GetStateFieldListForEntityType(int eType, bool isDemoSnapshot)
@@ -19,6 +20,24 @@ const NetFieldList *__cdecl MSG_GetStateFieldListForEntityType(int eType, bool i
     }
     if ( isDemoSnapshot )
         return Demo_GetStateFieldListForEntityType(eType);
+#ifdef KISAK_WEB
+    if (zombiemode && zombiemode->current.enabled && eType >= 17 && eType <= 19)
+    {
+        // MP's one-bit species field cannot carry zombie or zombie_dog.
+        // Select the co-op descriptor on both snapshot writers and readers.
+        static const auto fields = [] {
+            std::array<NetField, ARRAY_COUNT(actorStateFields)> copy;
+            for (size_t i = 0; i < copy.size(); ++i)
+            {
+                copy[i] = actorStateFields[i];
+                if (!strcmp(copy[i].name, "lerp.u.actor.species")) copy[i].bits = 2;
+            }
+            return copy;
+        }();
+        static const NetFieldList list = { fields.data(), (unsigned int)fields.size(), "zombieActorStateFields" };
+        return &list;
+    }
+#endif
     if ( eType > 21 )
         v3 = 21;
     else

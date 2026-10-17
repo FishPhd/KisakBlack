@@ -170,6 +170,10 @@ gentity_s *__cdecl SpawnActor(gentity_s *ent, unsigned int targetname, enumForce
                 Actor_GetPerfectInfo(spawn->actor, pEnemy);
         }
         pSelf = spawn->actor;
+        // The stock type script sets the sentient team, species, model and weapons
+        // before animation initialization and the spawner's spawned notification.
+        if (zombiemode->current.enabled)
+            Actor_FinishSpawning(pSelf);
         if ( getEnemyInfo )
         {
             eTeam = spawn->sentient->eTeam;

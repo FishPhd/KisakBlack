@@ -1,4 +1,5 @@
 #include "cg_visionsets.h"
+#include <cstddef>
 #include <universal/com_memory.h>
 #include <universal/dvar.h>
 #include <universal/q_shared.h>
@@ -30,7 +31,7 @@ const dvar_s *showVisionSetDebugInfo;
 
 const char *MYDEFAULTVISIONNAME = "default";
 
-visField_t visionDefFields[68] =
+visField_t visionDefFields[80] =
 {
   { "r_filmEnable", 0, 0 },
   { "r_filmContrast", 92, 2 },
@@ -99,8 +100,26 @@ visField_t visionDefFields[68] =
   { "r_bloomStreakYInnerTint", 620, 2 },
   { "r_bloomStreakYOuterTint", 632, 2 },
   { "r_bloomStreakYTintControl", 644, 3 },
-  { "r_bloomStreakYTint", 660, 2 }
+  { "r_bloomStreakYTint", 660, 2 },
+  { "r_reviveFX_contrastEdge", 672, 1 },
+  { "r_reviveFX_brightnessEdge", 676, 1 },
+  { "r_reviveFX_desaturationEdge", 680, 1 },
+  { "r_reviveFX_darkTintEdge", 684, 2 },
+  { "r_reviveFX_lightTintEdge", 696, 2 },
+  { "r_reviveFX_blurRadiusEdge", 708, 1 },
+  { "r_reviveFX_motionblurWeight", 712, 1 },
+  { "r_reviveFX_contrastCenter", 716, 1 },
+  { "r_reviveFX_brightnessCenter", 720, 1 },
+  { "r_reviveFX_desaturationCenter", 724, 1 },
+  { "r_reviveFX_darkTintCenter", 728, 2 },
+  { "r_reviveFX_lightTintCenter", 740, 2 }
 };
+
+static_assert(offsetof(visionSetVars_t, reviveContrastEdge) == 672, "legacy revive fields follow bloom");
+static_assert(offsetof(visionSetVars_t, reviveLightTintCenter) == 740, "legacy revive tint offset");
+static_assert(offsetof(visionSetVars_t, name) == 752, "vision name follows legacy revive fields");
+static_assert(sizeof(visionSetVars_t) == 0x330, "visionSetVars_t size");
+static_assert(ARRAY_COUNT(visionDefFields) == 80, "vision field count");
 
 
 
@@ -322,7 +341,7 @@ void __cdecl UpdateVarsLerpCustom(
     {
         __debugbreak();
     }
-    for ( fieldNum = 0; fieldNum < 68; ++fieldNum )
+    for ( fieldNum = 0; fieldNum < (int)ARRAY_COUNT(visionDefFields); ++fieldNum )
     {
         voidFrom = &from->filmEnable + visionDefFields[fieldNum].offset;
         voidTo = &to->filmEnable + visionDefFields[fieldNum].offset;
@@ -504,7 +523,7 @@ void __cdecl UpdateVarsLerp(
                 v5 = v7;
             else
                 v5 = 0.0f;
-            for ( fieldNum = 0; fieldNum < 68; ++fieldNum )
+            for ( fieldNum = 0; fieldNum < (int)ARRAY_COUNT(visionDefFields); ++fieldNum )
             {
                 voidFrom = &from->filmEnable + visionDefFields[fieldNum].offset;
                 voidTo = &to->filmEnable + visionDefFields[fieldNum].offset;
@@ -671,7 +690,7 @@ char *__cdecl RawBufferOpen(const char *name, const char *formatFullPath)
 char __cdecl LoadVisionSettingsFromBuffer(const char *buffer, const char *filename, visionSetVars_t *settings)
 {
     signed int fieldNum; // [esp+0h] [ebp-5Ch]
-    unsigned __int8 wasRead[76]; // [esp+4h] [ebp-58h] BYREF
+    unsigned __int8 wasRead[ARRAY_COUNT(visionDefFields)]; // [esp+4h] [ebp-58h] BYREF
     const char *token; // [esp+58h] [ebp-4h]
 
     if ( !settings
@@ -679,7 +698,7 @@ char __cdecl LoadVisionSettingsFromBuffer(const char *buffer, const char *filena
     {
         __debugbreak();
     }
-    memset(wasRead, 0, 0x44u);
+    memset(wasRead, 0, sizeof(wasRead));
     Com_BeginParseSession(filename);
     while ( 1 )
     {
@@ -688,7 +707,7 @@ char __cdecl LoadVisionSettingsFromBuffer(const char *buffer, const char *filena
             break;
         for ( fieldNum = 0; ; ++fieldNum )
         {
-            if ( fieldNum >= 68 )
+            if ( fieldNum >= (int)ARRAY_COUNT(visionDefFields) )
             {
                 Com_PrintWarning(16, "WARNING: unknown dvar '%s' in file '%s'\n", token, filename);
                 goto next_var;
@@ -723,7 +742,7 @@ bool __cdecl ApplyTokenToField(unsigned int fieldNum, char *token, visionSetVars
     float tempVec3[3]; // [esp+3Ch] [ebp-10h] BYREF
     bool *boolField; // [esp+48h] [ebp-4h]
 
-    if ( fieldNum > 0x44
+    if ( fieldNum >= ARRAY_COUNT(visionDefFields)
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\cgame\\cg_visionsets.cpp",
                     237,
@@ -731,7 +750,7 @@ bool __cdecl ApplyTokenToField(unsigned int fieldNum, char *token, visionSetVars
                     "fieldNum not in [0, numVisionDefFields]\n\t%i not in [%i, %i]",
                     fieldNum,
                     0,
-                    68) )
+                    (int)ARRAY_COUNT(visionDefFields)) )
     {
         __debugbreak();
     }

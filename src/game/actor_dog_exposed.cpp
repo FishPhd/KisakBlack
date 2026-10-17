@@ -99,7 +99,7 @@ actor_think_result_t __fastcall Actor_Dog_Exposed_Think(actor_s *self)
     self->pszDebugInfo = "exposed";
     Actor_PreThink(self);
     enemy = Actor_GetTargetSentient(self);
-    v5 = (AnimScriptList *)self->pAnimScriptFunc == &g_scr_data.dogAnim
+    v5 = self->pAnimScriptFunc == &g_animScriptTable[self->species]->combat
         && Actor_IsAnimScriptAlive(self)
         && !self->safeToChangeScript;
     attackScriptRunning = v5;
@@ -170,10 +170,10 @@ actor_think_result_t __fastcall Actor_Dog_Exposed_Think(actor_s *self)
                 Actor_SetOrientMode(self, AI_ORIENT_TO_MOTION);
                 Actor_SetAnimScript(self, &g_animScriptTable[self->species]->turn, AI_MOVE_RUN, AI_ANIM_MOVE_CODE, AI_ANIM_FUNCTION_MOVE);
             }
-            else if ( (self->pAnimScriptFunc != &g_scr_data.dogAnim.jump
+            else if ( (self->pAnimScriptFunc != &g_animScriptTable[self->species]->jump
                             || !Actor_IsAnimScriptAlive(self)
                             || self->safeToChangeScript)
-                         && (self->pAnimScriptFunc != &g_scr_data.dogAnim.turn
+                         && (self->pAnimScriptFunc != &g_animScriptTable[self->species]->turn
                             || !Actor_IsAnimScriptAlive(self)
                             || self->safeToChangeScript) )
             {
@@ -220,7 +220,7 @@ void __cdecl Actor_Dog_Attack(actor_s *self)
     //if ( EntHandle::isDefined(&self->sentient->targetEnt) )
     if ( self->sentient->targetEnt.isDefined() )
     {
-        if ( (AnimScriptList *)self->pAnimScriptFunc == &g_scr_data.dogAnim && !Actor_IsAnimScriptAlive(self) )
+        if ( self->pAnimScriptFunc == &g_animScriptTable[self->species]->combat && !Actor_IsAnimScriptAlive(self) )
             Actor_KillAnimScript(self);
         Actor_SetAnimScript(self, &g_animScriptTable[self->species]->combat, AI_MOVE_STOP, AI_ANIM_MOVE_CODE, AI_ANIM_FUNCTION_STOP);
     }
@@ -312,7 +312,7 @@ bool __fastcall Actor_Dog_ShouldTurn(actor_s *self)
 {
     float angle; // [esp+8h] [ebp-4h]
 
-    if ( self->pAnimScriptFunc == &g_scr_data.dogAnim.turn && Actor_IsAnimScriptAlive(self) && !self->safeToChangeScript )
+    if ( self->pAnimScriptFunc == &g_animScriptTable[self->species]->turn && Actor_IsAnimScriptAlive(self) && !self->safeToChangeScript )
         return 0;
     if ( dog_turn_min_goal_dist->current.value > self->Path.fLookaheadDist )
         return 0;

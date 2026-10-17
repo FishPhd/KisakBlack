@@ -906,6 +906,9 @@ MenuList *__cdecl Load_ScriptMenuInternal(const char *pszMenu, int imageTrack)
     char szMenuFile[260]; // [esp+0h] [ebp-108h] BYREF
 
     strcpy(szMenuFile, "ui_mp/scriptmenus/");
+#ifdef KISAK_WEB
+    if (Web_IsZombieBoot()) strcpy(szMenuFile, "ui/scriptmenus/");
+#endif
     I_strncat(szMenuFile, 256, pszMenu);
     I_strncat(szMenuFile, 256, ".menu");
     return UI_LoadMenu(szMenuFile, imageTrack);
@@ -3606,6 +3609,11 @@ void UI_InitUIInfos()
     char menuname[132]; // [esp+8h] [ebp-90h] BYREF
     uiInfo_s *uiInfo; // [esp+90h] [ebp-8h]
     MenuList *menuList; // [esp+94h] [ebp-4h]
+    const char *menuDir = "ui_mp/";
+    const char *patchList = "patch.txt";
+#ifdef KISAK_WEB
+    if (Web_IsZombieBoot()) { menuDir = "ui/"; patchList = "patch_menus.txt"; }
+#endif
 
     for ( infoIndex = 0; infoIndex < 1; ++infoIndex )
     {
@@ -3897,6 +3905,9 @@ void __cdecl UI_LoadIngameMenus(int contextIndex)
     {
         g_ingameMenusLoaded[contextIndex] = 1;
         v1 = va("%singame.txt", "ui_mp/");
+#ifdef KISAK_WEB
+        if (Web_IsZombieBoot()) v1 = "ui/ingame.txt";
+#endif
         menuList = UI_LoadMenus(v1, 3);
         uiInfo = UI_UIContext_GetInfo(contextIndex);
         UI_AddMenuList(contextIndex, &uiInfo->uiDC, menuList, 1);
@@ -4017,6 +4028,297 @@ char *__cdecl UI_ToUpper(const char *sourceString)
 // ---------------------------------------------------------------------------------------------------------------
 static cmd_function_s UI_KisakDumpMenu_f_VAR;
 static cmd_function_s UI_KisakWager_f_VAR;
+#ifdef KISAK_WEB
+static char s_partyNames[32][32];
+static int s_partyRanks[32], s_partyPrestiges[32];
+static char s_partyCodeText[80] = "LOBBY CODE";
+static cmd_function_s s_partyClearCommand, s_partyMemberCommand, s_partyRoomCommand, s_partyCopyCommand, s_partyLoadCommand;
+static cmd_function_s s_refreshBrowserCommand;
+static void Web_RefreshBrowser_f()
+{
+    uiInfo_s *info = UI_GetInfo(0);
+    UiContext *dc = &info->uiDC;
+    for (int i = 0; i < dc->openMenuCount; ++i)
+    {
+        const auto *menu = dc->menuStack[i].menu;
+        if (!menu || !menu->window.name || !strstr(menu->window.name, "server_browser")) continue;
+        Cbuf_ExecuteBuffer(0, 0, va("findservers %d", Dvar_GetInt("ui_netSource")));
+        UI_BuildServerDisplayList(0, info, 1);
+        return;
+    }
+}
+static void Web_PartyClear_f() { memset(s_partyNames, 0, sizeof(s_partyNames)); }
+static void Web_PartyMember_f()
+{
+    if (Cmd_Argc() != 5) return;
+    const int id = atoi(Cmd_Argv(1)) - 2;
+    if (id >= 0 && id < 32)
+    {
+        I_strncpyz(s_partyNames[id], Cmd_Argv(2), sizeof(s_partyNames[id]));
+        s_partyRanks[id] = std::clamp(atoi(Cmd_Argv(3)), 0, 49);
+        s_partyPrestiges[id] = std::clamp(atoi(Cmd_Argv(4)), 0, 15);
+    }
+}
+static int Web_PartyMemberSlot(int index)
+{
+    for (int id = 0; id < 32; ++id) if (s_partyNames[id][0] && index-- == 0) return id;
+    return -1;
+}
+int Web_PartyMemberRank(int index) { const int id = Web_PartyMemberSlot(index); return id < 0 ? 0 : s_partyRanks[id]; }
+int Web_PartyMemberPrestige(int index) { const int id = Web_PartyMemberSlot(index); return id < 0 ? 0 : s_partyPrestiges[id]; }
+bool Web_PartyMemberIsHost(int index) { return Web_PartyMemberSlot(index) == 0; }
+static void Web_PartyRoom_f()
+{
+    if (Cmd_Argc() == 2) Com_sprintf(s_partyCodeText, sizeof(s_partyCodeText), "LOBBY CODE: %s  (COPY)", Cmd_Argv(1));
+}
+static void Web_PartyCopy_f()
+{
+    const int link = Cmd_Argc() > 1 && !strcmp(Cmd_Argv(1), "link");
+    MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakPartyCopy) Module.kisakPartyCopy($0 ? "link" : "code"); }, link);
+}
+static void Web_PartyLoad_f()
+{
+    if (Cmd_Argc() != 3 || !Dvar_GetBool("web_partyGuest")) return;
+    char map[64], mode[32];
+    I_strncpyz(map, Cmd_Argv(1), sizeof(map));
+    I_strncpyz(mode, Cmd_Argv(2), sizeof(mode));
+    Dvar_SetBoolByName("web_partyLoading", true);
+    UI_CloseAllMenus(0);
+    CL_SetupForNewServerMap(0, map, mode);
+}
+int Web_PartyMemberCount()
+{
+    int count = 0;
+    for (const auto &name : s_partyNames) if (name[0]) ++count;
+    return count;
+}
+const char *Web_PartyMemberName(int index)
+{
+    for (const auto &name : s_partyNames)
+        if (name[0] && index-- == 0) return name;
+    return "";
+}
+
+void Web_EnsurePartyMenu(UiContext *dc, menuDef_t *menu)
+{
+    if (!menu || !menu->window.name || Web_IsZombieBoot()) return;
+    if (!I_strnicmp(menu->window.name, "server_browser", 14))
+        // Discovery may have completed before this menu was opened. Refresh
+        // after the stock onOpen script selects the browser's network source.
+        Cbuf_AddText(0, "web_refresh_browser\n");
+    if (!I_stricmp(menu->window.name, "live_flyout"))
+    {
+        // Preserve the stock row actions, expressions and highlight graphics.
+        // Keep only functional actions, compacting every stock row layer and
+        // animation together so mouse and keyboard navigation agree.
+        itemDef_s *create = nullptr, *training = nullptr, *first = nullptr, *ranked = nullptr, *wager = nullptr;
+        for (int i = 0; i < menu->itemCount; ++i)
+        {
+            itemDef_s *it = menu->items[i];
+            if (!it->window.name) continue;
+            if (!strcmp(it->window.name, "FifthFlyout")) create = it;
+            if (!strcmp(it->window.name, "FourthFlyout")) training = it;
+            if (!strcmp(it->window.name, "FirstFlyout")) first = it;
+            if (!strcmp(it->window.name, "SecondFlyout")) ranked = it;
+            if (!strcmp(it->window.name, "ThirdFlyout")) wager = it;
+        }
+        if (!create || !training || !first || !ranked || !wager || (create->typeData.textDef
+            && create->typeData.textDef->text && !strcmp(create->typeData.textDef->text, "CREATE A GAME"))) return;
+        const float top = first->window.rectClient.y, old = create->window.rectClient.y;
+        const float hidden = training->window.rectClient.y;
+        const float rankedY = ranked->window.rectClient.y, wagerY = wager->window.rectClient.y;
+        const float step = (old - top) / 4;
+        // Stock labels fade in through a chain of named rows. Removing a row
+        // must also bypass it, otherwise the remaining buttons stay transparent.
+        for (GenericEventHandler *h = menu->onEvent; h; h = h->next)
+        {
+            if (!h->name || !h->eventScript) continue;
+            if (!strcmp(h->name, "onOpen"))
+                h->eventScript->action = "execNow ui_animate live_flyout ButtonBackground Fly 200 ; execNow ui_animate live_flyout FifthFlyout FadeIn ( 200 / 3 ) ; execNow set ui_flownOut 0 ; setDvar ui_flyoutHasFocus 1 ;";
+            else if (!strcmp(h->name, "onClose"))
+                h->eventScript->action = "execNow ui_animate live_flyout ButtonBackground Default 0 ; execNow ui_animate live_flyout FifthFlyout Default 0 ; execNow ui_animate live_flyout FirstFlyout Default 0 ; execNow ui_animate live_flyout ThirdFlyout Default 0 ; execNow set ui_flownOut 0 ; setDvar ui_flyoutHasFocus 0 ;";
+        }
+        const auto chainFade = [](itemDef_s *it, const char *action) {
+            if (!it->animInfo) return;
+            for (int a = 0; a < it->animInfo->animStateCount; ++a)
+            {
+                animParamsDef_t *state = it->animInfo->animStates[a];
+                if (!state->name || strcmp(state->name, "FadeIn")) continue;
+                for (GenericEventHandler *h = state->onEvent; h; h = h->next)
+                    if (h->name && !strcmp(h->name, "onEnter") && h->eventScript)
+                        h->eventScript->action = action;
+            }
+        };
+        chainFade(create, "execNow ui_animate live_flyout FirstFlyout FadeIn ( 200 / 3 ) ;");
+        chainFade(first, "execNow ui_animate live_flyout ThirdFlyout FadeIn ( 200 / 3 ) ;");
+        chainFade(wager, "execNow set ui_flownOut 1 ;");
+        itemDef_s *removedItems[6]{};
+        int removedCount = 0;
+        const auto moveRow = [](itemDef_s *it, float next) {
+            const float delta = next - it->window.rectClient.y;
+            it->window.rectClient.y = it->window.rect.y = next;
+            if (it->rectExpData) it->rectExpData->rectYExp = {};
+            if (it->animInfo)
+            {
+                it->animInfo->currentAnimState.rectClient.y += delta;
+                it->animInfo->nextAnimState.rectClient.y += delta;
+                for (int a = 0; a < it->animInfo->animStateCount; ++a)
+                    it->animInfo->animStates[a]->rectClient.y += delta;
+            }
+        };
+        for (int i = 0; i < menu->itemCount; ++i)
+        {
+            itemDef_s *it = menu->items[i];
+            if (it->window.name && !strcmp(it->window.name, "ButtonBackground"))
+            {
+                moveRow(it, top);
+                it->window.rectClient.h = it->window.rect.h = 3 * step;
+                if (it->rectExpData) it->rectExpData->rectHExp = {};
+                if (it->animInfo)
+                {
+                    it->animInfo->currentAnimState.rectClient.h = it->animInfo->nextAnimState.rectClient.h = 3 * step;
+                    for (int a = 0; a < it->animInfo->animStateCount; ++a)
+                        it->animInfo->animStates[a]->rectClient.h = 3 * step;
+                }
+                continue;
+            }
+            if (it->window.rectClient.x == -60 && it->window.rectClient.y == 130) moveRow(it, top + 3 * step + 5);
+            if (it->window.rectClient.x == -70 && it->window.rectClient.y == 131) moveRow(it, top + 3 * step + 6);
+            if (it->window.rectClient.x != create->window.rectClient.x
+                || it->window.rectClient.w != create->window.rectClient.w
+                || it->window.rectClient.h != create->window.rectClient.h) continue;
+            const float y = it->window.rectClient.y;
+            if (y == hidden || y == rankedY) { if (removedCount < 6) removedItems[removedCount++] = it; continue; }
+            const float next = y == old ? top : y == top ? top + step : y == wagerY ? top + 2 * step : y;
+            moveRow(it, next);
+            if (it == create || it == wager)
+            {
+                it->visibleExp = {}; it->showBits = 0; it->hideBits = ~0ull;
+                it->dvarFlags = 0;
+            }
+            if (y == old && Item_IsTextDefType(it) && it->typeData.textDef)
+            {
+                it->typeData.textDef->textExpData = nullptr;
+                it->typeData.textDef->text = "CREATE A GAME";
+            }
+        }
+        static itemDef_s *playItems[512];
+        int count = 0;
+        for (int i = 0; i < menu->itemCount; ++i)
+        {
+            itemDef_s *it = menu->items[i];
+            bool removed = false;
+            for (int r = 0; r < removedCount; ++r) removed = removed || it == removedItems[r];
+            if (removed) continue;
+            playItems[count++] = it;
+        }
+        // Keyboard traversal follows item order, so move all three create-row
+        // layers before the first stock row, retaining their drawing order.
+        for (int i = 5; i < count; ++i)
+        {
+            itemDef_s *it = playItems[i];
+            int j = i;
+            while (j > 4 && playItems[j - 1]->window.rectClient.y > it->window.rectClient.y)
+            { playItems[j] = playItems[j - 1]; --j; }
+            playItems[j] = it;
+        }
+        menu->items = playItems; menu->itemCount = count;
+        return;
+    }
+    if (I_stricmp(menu->window.name, "menu_xboxlive_privatelobby")) return;
+    static itemDef_s roster{};
+    static textDef_s text{};
+    static focusItemDef_s focus{};
+    static listBoxDef_s list{};
+    static itemDef_s *items[512];
+    for (int i = 0; i < menu->itemCount; ++i) if (menu->items[i] == &roster) return;
+    if (menu->itemCount >= 508) return;
+    for (int i = 0; i < menu->itemCount; ++i)
+    {
+        itemDef_s *it = menu->items[i];
+        // The stock title is generated by a text expression.
+        if (Item_IsTextDefType(it) && it->window.rectClient.y == 0 && it->window.rectClient.w == 180)
+        {
+            it->typeData.textDef->textExpData = nullptr;
+            it->typeData.textDef->text = "CREATE A GAME";
+        }
+        bool hostControl = it->dvar && !strcmp(it->dvar, "kisak_pm_bots");
+        for (GenericEventHandler *h = it->onEvent; h; h = h->next)
+            if (h->name && !strcmp(h->name, "action"))
+                for (GenericEventScript *s = h->eventScript; s; s = s->next)
+                    if (s->action && (strstr(s->action, "StartListenServer") || strstr(s->action, "open select_map")
+                        || strstr(s->action, "open select_game_mode") || strstr(s->action, "open custom_game_create")
+                        || strstr(s->action, "open server_settings"))) hostControl = true;
+        if (hostControl)
+        {
+            it->dvarTest = "web_partyGuest";
+            it->enableDvar = "0";
+            it->dvarFlags = (it->dvarFlags & ~3) | 1;
+        }
+        items[i] = it;
+    }
+    roster = {}; text = {}; focus = {}; list = {};
+    roster.parent = menu;
+    roster.window.name = "room_members";
+    roster.window.rectClient = {-274, 35, 270, 260, 3, 1};
+    roster.window.rect = roster.window.rectClient;
+    roster.window.dynamicFlags[0] = 4;
+    roster.window.backColor[0] = roster.window.backColor[1] = roster.window.backColor[2] = 1;
+    roster.window.backColor[3] = 0.35f;
+    roster.hideBits = ~0ull;
+    for (float &f : roster.window.foreColor) f = 1;
+    roster.type = roster.dataType = 4;
+    roster.typeData.textDef = &text;
+    text.textscale = 0.25f; text.textaligny = -4;
+    text.textTypeData.focusItemDef = &focus;
+    focus.focusTypeData.listBox = &list;
+    list.special = 34; // Existing system-link lobby member feeder.
+    list.elementHeight = 20; list.elementWidth = 270;
+    list.numColumns = 4;
+    list.columnInfo[0].rect = {8, 0, 18, 20, 0, 0};
+    list.columnInfo[1].rect = {30, 0, 24, 20, 0, 0};
+    list.columnInfo[2].rect = {58, 0, 178, 20, 0, 0};
+    list.columnInfo[3].rect = {240, 0, 16, 20, 0, 0};
+    for (auto &column : list.columnInfo) column.maxChars = 31;
+    list.notselectable = 1; list.noScrollBars = 1;
+    for (float &f : list.disableColor) f = 1;
+    for (float &f : list.focusColor) f = 1;
+    list.backgroundItemListbox = Material_RegisterHandle("menu_mp_lobby_bar_name", 7);
+    items[menu->itemCount++] = &roster;
+    // Standard engine buttons and fonts keep invitations in the BO1 lobby.
+    static itemDef_s invite[3];
+    static textDef_s inviteText[3];
+    static focusItemDef_s inviteFocus[3];
+    static GenericEventHandler inviteAction[2];
+    static GenericEventScript inviteScript[2];
+    const char *labels[] = {s_partyCodeText, "COPY INVITE LINK", "@web_partyInviteNote"};
+    for (int i = 0; i < 3; ++i)
+    {
+        invite[i] = {}; inviteText[i] = {}; inviteFocus[i] = {};
+        auto &row = invite[i];
+        row.parent = menu; row.hideBits = ~0ull;
+        row.window.name = i == 0 ? "copy_lobby_code" : i == 1 ? "copy_invite_link" : "invite_note";
+        row.window.rectClient = {-274, float(320 + i * 24), 270, 20, 3, 1};
+        row.window.rect = row.window.rectClient; row.window.dynamicFlags[0] = 4;
+        for (float &f : row.window.foreColor) f = 1;
+        row.type = row.dataType = i < 2 ? 3 : 1;
+        row.typeData.textDef = &inviteText[i];
+        inviteText[i].text = i < 2 ? labels[i] : nullptr;
+        if (i == 2) row.dvar = "web_partyInviteNote";
+        inviteText[i].textscale = 0.25f; inviteText[i].textaligny = 16;
+        inviteText[i].textTypeData.focusItemDef = &inviteFocus[i];
+        if (i < 2)
+        {
+            inviteScript[i] = {}; inviteAction[i] = {};
+            inviteScript[i].action = i == 0 ? "exec web_party_copy code ;" : "exec web_party_copy link ;";
+            inviteAction[i].name = "action"; inviteAction[i].eventScript = &inviteScript[i];
+            row.onEvent = &inviteAction[i];
+        }
+        items[menu->itemCount++] = &row;
+    }
+    menu->items = items;
+}
+#endif
 
 static void __cdecl UI_KisakWager_f()
 {

@@ -1,4 +1,17 @@
 #include "cg_weapons.h"
+#ifdef KISAK_WEB
+#include <web/web_graphics.h>
+#endif
+
+static bool CG_WeaponFiringEffectsEnabled()
+{
+#ifdef KISAK_WEB
+    return !web_disableWeaponFiringEffects || !web_disableWeaponFiringEffects->current.enabled;
+#else
+    return true;
+#endif
+}
+extern bool CG_IsZombieViewModelHidden(int localClientNum);
 #include <bgame/bg_local.h>
 #include <cgame_mp/cg_local_mp.h>
 #include <bgame/bg_weapons.h>
@@ -1219,7 +1232,7 @@ void __cdecl WeaponFlash(
         viewFlashEffect = weapDef->viewFlashEffect;
     else
         viewFlashEffect = weapDef->worldFlashEffect;
-    if ( viewFlashEffect )
+    if ( viewFlashEffect && CG_WeaponFiringEffectsEnabled() )
         CG_PlayBoltedEffect(localClientNum, viewFlashEffect, dobjHandle, flashTag);
 }
 
@@ -3706,6 +3719,8 @@ void __cdecl CG_AddViewWeapon(int localClientNum)
     cgameGlob->refdef.dof.viewModelStart = 0.0f;
     cgameGlob->refdef.dof.viewModelEnd = 0.0f;
     CG_TouchViewModels(localClientNum);
+    if (zombiemode && zombiemode->current.enabled && CG_IsZombieViewModelHidden(localClientNum))
+        return;
     if ( ps->pm_type != 4
         && ps->pm_type != 5
         && (ps->eFlags & 0x300) == 0
@@ -4701,7 +4716,7 @@ void __cdecl CG_EjectWeaponBrass(int localClientNum, const entityState_s *ent, i
     const FxEffectDef *fxDef; // [esp+24h] [ebp-8h]
     const WeaponDef *weaponDef; // [esp+28h] [ebp-4h]
 
-    if ( cg_brass->current.enabled && ent->eType < 21 && weapon )
+    if ( CG_WeaponFiringEffectsEnabled() && cg_brass->current.enabled && ent->eType < 21 && weapon )
     {
         if ( weapon < BG_GetNumWeapons() )
         {
@@ -6034,6 +6049,9 @@ void __cdecl CG_SpawnTracer(
     int startTime; // [esp+64h] [ebp-8h]
     localEntity_s *le; // [esp+68h] [ebp-4h]
 
+    if ( !CG_WeaponFiringEffectsEnabled() )
+        return;
+
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     if ( cgameGlob->frametime )
         v6 = rand() % cgameGlob->frametime / 2;
@@ -6106,6 +6124,8 @@ void __cdecl CG_SpawnTracer(
 
 void __cdecl CG_DrawTracer(const float *start, const float *finish, const refdef_s *refdef, localEntity_s *le)
 {
+    if ( !CG_WeaponFiringEffectsEnabled() )
+        return;
     leType_t leType; // [esp+0h] [ebp-70h]
     float finishWidth; // [esp+14h] [ebp-5Ch] BYREF
     FxBeam beam; // [esp+18h] [ebp-58h] BYREF
@@ -6736,6 +6756,8 @@ void __cdecl CG_BulletHitEvent_Internal(
         if ( !attacker || !weapDef || attacker->pose.eType != 14 || weapDef->weapType != WEAPTYPE_PROJECTILE )
             CG_ImpactEffectForWeapon(weaponIndex, surfType, eventParam, &fx, &hitSound);
     }
+    if ( !CG_WeaponFiringEffectsEnabled() )
+        fx = nullptr;
     if ( fx && surfType == 7 )
     {
         cent = CG_GetEntity(localClientNum, targetEntityNum);
@@ -7064,6 +7086,11 @@ void __cdecl CG_MeleeBloodEvent(int localClientNum, const centity_s *cent, int e
 void __cdecl CG_SetBaseWeaponForStats(const WeaponVariantDef *weapVariantDef)
 {
     int itemIndex; // [esp+0h] [ebp-4h]
+
+    // Zombies weapons come from the map's weapon assets and are not entries in
+    // the multiplayer unlockables table. Their registration still occurs below
+    // in CG_SetupWeaponConfigString; only MP progression indexing is omitted.
+    if (zombiemode->current.enabled) return;
 
     if ( weapVariantDef->weapDef )
     {

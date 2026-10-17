@@ -1,4 +1,6 @@
 #include "g_utils_mp.h"
+#include "g_scripted_anim.h"
+#include "g_actor_anim_bridge.h"
 #include <qcommon/dobj_management.h>
 #include <clientscript/cscr_stringlist.h>
 #include <server_mp/sv_init_mp.h>
@@ -6,6 +8,7 @@
 #include <clientscript/cscr_vm.h>
 #include "g_main_mp.h"
 #include <server/sv_game.h>
+#include <xanim/xmodel.h>
 #include <xanim/xmodel_load_obj.h>
 #include <universal/com_math_anglevectors.h>
 #include <universal/com_memory.h>
@@ -16,6 +19,7 @@
 #include <server/sv_world.h>
 #include <game/actor_script_cmd.h>
 #include <xanim/dobj_skel.h>
+#include <xanim/dobj_utils.h>
 #include <game/g_missile.h>
 #include <game/g_targets.h>
 #include "actor_mp.h"
@@ -27,6 +31,181 @@
 #include <bgame/bg_misc.h>
 #include <sound/snd_utils.h>
 #include <stringed/stringed_hooks.h>
+#include <vector>
+#include <string>
+#include <mutex>
+
+namespace
+{
+struct ScriptSoundNotify
+{
+    unsigned int token;
+    int entityNum;
+    int useCount;
+    std::string name;
+    int finishTime;
+};
+std::vector<ScriptSoundNotify> scriptSoundNotifies;
+unsigned int nextSoundNotifyToken;
+#ifdef KISAK_WEB
+struct LocalActorAnimation
+{
+    XAnimTree_s *tree;
+    int entityNum;
+    int useCount;
+    bool active;
+    DObjModel_s models[32];
+    unsigned short numModels;
+    unsigned int hidePartBits[5];
+};
+LocalActorAnimation localActorAnimations[24];
+std::mutex localActorAnimationMutex;
+
+void ClearLocalActorAnimationNotifies(XAnimTree_s *tree, unsigned int index)
+{
+    while (index)
+    {
+        XAnimInfo *info = GetAnimInfo(index);
+        XAnimClearServerNotify(info, (scriptInstance_t)tree->inst);
+        info->notifyType = 0;
+        ClearLocalActorAnimationNotifies(tree, info->children);
+        index = info->next;
+    }
+}
+#endif
+}
+
+void G_ClearLocalActorAnimations()
+{
+#ifdef KISAK_WEB
+    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
+    for (auto &frame : localActorAnimations)
+    {
+        if (frame.tree) Com_XAnimFreeSmallTree(frame.tree);
+        frame = {};
+    }
+#endif
+}
+
+void G_PublishLocalActorAnimations()
+{
+#ifdef KISAK_WEB
+    if (!zombiemode || !zombiemode->current.enabled) return;
+    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
+    for (auto &frame : localActorAnimations) frame.active = false;
+    for (int i = 0; i < level.num_entities; ++i)
+    {
+        const gentity_s *ent = &g_entities[i];
+        if (!ent->r.inuse) continue;
+        const int slot = ent->s.eType == ET_ACTOR ? ent->s.lerp.u.actor.actorNum
+            : ent->s.eType == ET_ACTOR_CORPSE ? 16 + ent->s.number - 36 : -1;
+        if (slot < 0 || slot >= ARRAY_COUNT(localActorAnimations)) continue;
+        XAnimTree_s *source = G_GetEntAnimTree(const_cast<gentity_s *>(ent));
+        if (!source) continue;
+        auto &frame = localActorAnimations[slot];
+        if (frame.tree && frame.tree->anims != source->anims)
+        {
+            Com_XAnimFreeSmallTree(frame.tree);
+            frame.tree = nullptr;
+        }
+        if (!frame.tree) frame.tree = Com_XAnimCreateSmallTree(source->anims);
+        DObj *obj = Com_GetServerDObj(ent->s.number);
+        if (!obj) continue;
+        XAnimTree_s *modelTree;
+        unsigned short modelEntity;
+        DObjGetCreateParms(obj, frame.models, &frame.numModels, &modelTree, &modelEntity);
+        DObjGetHidePartBits(obj, frame.hidePartBits);
+        XAnimCloneAnimTree(source, frame.tree);
+        // Gameplay notifications belong to the server's original tree.
+        ClearLocalActorAnimationNotifies(frame.tree, frame.tree->children);
+        frame.entityNum = ent->s.number;
+        frame.useCount = ent->s.lerp.useCount & 63; // USE_COUNT_BITS in native snapshots.
+        frame.active = true;
+    }
+#endif
+}
+
+bool G_CopyLocalActorAnimation(int entityNum, int useCount, XAnimTree_s *target)
+{
+#ifdef KISAK_WEB
+    if (!target || !zombiemode || !zombiemode->current.enabled
+        || !com_sv_running || !com_sv_running->current.enabled) return false;
+    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
+    for (const auto &frame : localActorAnimations)
+        if (frame.active && frame.entityNum == entityNum && frame.useCount == useCount)
+        {
+            if (target->anims != frame.tree->anims)
+            {
+                XAnimClearTree(target);
+                target->anims = frame.tree->anims;
+            }
+            XAnimCloneAnimTree(frame.tree, target);
+            return true;
+        }
+#endif
+    return false;
+}
+
+int G_CopyLocalActorModels(int entityNum, int useCount, DObjModel_s *models,
+    int capacity, unsigned int *hidePartBits)
+{
+#ifdef KISAK_WEB
+    if (!zombiemode || !zombiemode->current.enabled || !com_sv_running
+        || !com_sv_running->current.enabled) return 0;
+    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
+    for (const auto &frame : localActorAnimations)
+        if (frame.active && frame.entityNum == entityNum && frame.useCount == useCount
+            && frame.numModels > 0 && frame.numModels <= capacity)
+        {
+            memcpy(models, frame.models, frame.numModels * sizeof(*models));
+            memcpy(hidePartBits, frame.hidePartBits, sizeof(frame.hidePartBits));
+            return frame.numModels;
+        }
+#endif
+    return 0;
+}
+
+void G_ClearSoundNotifies()
+{
+    scriptSoundNotifies.clear();
+}
+
+void G_ReceiveSoundLengthNotify(unsigned int token, unsigned int lengthMs)
+{
+    for (auto &sound : scriptSoundNotifies)
+        if (sound.token == token && sound.finishTime < 0)
+        {
+            // The sound thread reports the decoded voice duration once. Keep
+            // completion on server time, including while the browser is paused.
+            const unsigned int remaining = 0x7fffffffU - (unsigned int)level.time;
+            if (lengthMs > remaining) return;
+            sound.finishTime = level.time + (int)lengthMs;
+            return;
+        }
+}
+
+void G_UpdateSoundNotifies()
+{
+    for (size_t i = 0; i < scriptSoundNotifies.size();)
+    {
+        const auto &sound = scriptSoundNotifies[i];
+        gentity_s *ent = &g_entities[sound.entityNum];
+        const bool alive = ent->r.inuse && ent->useCount == sound.useCount;
+        if (!alive || (sound.finishTime >= 0 && level.time >= sound.finishTime))
+        {
+            // A notification can execute script and enqueue another sound.
+            const std::string name = sound.name;
+            scriptSoundNotifies.erase(scriptSoundNotifies.begin() + i);
+            if (alive)
+            {
+                const unsigned int notify = SL_GetString(const_cast<char *>(name.c_str()), 0, SCRIPTINSTANCE_SERVER);
+                Scr_Notify(ent, notify, 0);
+                SL_RemoveRefToString(SCRIPTINSTANCE_SERVER, notify);
+            }
+        }
+        else ++i;
+    }
+}
 
 const char *origErrorMsg = "localized string";
 
@@ -174,7 +353,7 @@ int __cdecl G_ModelIndex(char *name)
 
     iassert(name);
 
-    if (!name[0])
+    if (!XModel_NameIsUsable(name))
         return 0;
 
     nameString = SL_FindLowercaseString(name, SCRIPTINSTANCE_SERVER);
@@ -1749,6 +1928,7 @@ void __cdecl G_FreeEntity(gentity_s *ed)
     XAnimTree_s *tree; // [esp+0h] [ebp-8h]
     int useCount; // [esp+4h] [ebp-4h]
 
+    G_ClearScriptedAnimation(ed);
     G_EntUnlink(ed);
     while ( ed->tagChildren )
         G_EntUnlink(ed->tagChildren);
@@ -2017,23 +2197,21 @@ gentity_s *__cdecl G_PlaySoundAlias(gentity_s *ent, unsigned int alias, unsigned
     gentity_s *tmp; // [esp+0h] [ebp-4h]
 
     tmp = 0;
-    if ( notifyString
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_utils_mp.cpp",
-                    2481,
-                    0,
-                    "%s",
-                    "notifyString == 0") )
-    {
-        __debugbreak();
-    }
     if ( alias )
     {
-        tmp = G_TempEntity(ent->r.currentOrigin, EV_SOUND_ALIAS);
+        tmp = G_TempEntity(ent->r.currentOrigin, notifyString ? EV_SOUND_ALIAS_NOTIFY : EV_SOUND_ALIAS);
         tmp->r.svFlags |= 8u;
         tmp->s.loopSoundId = alias;
         AssignToSmallerType<short>(&tmp->s.otherEntityNum, ent->s.number);
         tmp->s.un3.item = bone;
+        if (notifyString)
+        {
+            nextSoundNotifyToken = (nextSoundNotifyToken + 1) & 0x7fffffffU;
+            if (!nextSoundNotifyToken) ++nextSoundNotifyToken;
+            tmp->s.time2 = nextSoundNotifyToken;
+            scriptSoundNotifies.push_back({ nextSoundNotifyToken, ent->s.number,
+                ent->useCount, SL_ConvertToString(notifyString, SCRIPTINSTANCE_SERVER), -1 });
+        }
     }
     return tmp;
 }

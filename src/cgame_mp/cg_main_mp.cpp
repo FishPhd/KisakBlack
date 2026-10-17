@@ -1,4 +1,8 @@
 #include "cg_main_mp.h"
+#include <database/db_registry.h>
+extern void CG_ResetZombiePlayerPresentation(int localClientNum);
+#include "cg_zombie_script_bindings.h"
+#include <clientscript/cscr_binding_audit.h>
 #include <universal/q_shared.h>
 #include <universal/com_memory.h>
 #include <universal/assertive.h>
@@ -2418,7 +2422,7 @@ void __cdecl CGScr_LoadLevelScript(scriptInstance_t inst, const char *mapname, S
     char filename[68]; // [esp+4h] [ebp-48h] BYREF
 
     if ( inst )
-        Com_sprintf(filename, 64, "%s%s", "clientscripts/mp/", mapname);
+        Com_sprintf(filename, 64, "%s%s", zombiemode->current.enabled ? "clientscripts/" : "clientscripts/mp/", mapname);
     else
         Com_sprintf(filename, 64, "%s%s", "maps/mp/", mapname);
     CGScr_LoadScriptAndLabel(inst, filename, "main", functions);
@@ -2427,6 +2431,22 @@ void __cdecl CGScr_LoadLevelScript(scriptInstance_t inst, const char *mapname, S
 void __cdecl CGScr_LoadClientScripts(const char *mapname, ScriptFunctions *functions)
 {
     Scr_BeginLoadScripts(SCRIPTINSTANCE_CLIENT, 0);
+    if (zombiemode->current.enabled)
+    {
+        const dvar_t *audit = _Dvar_RegisterBool("web_auditClientBindings", false, 0,
+            "Compile-only inventory of missing Zombies client bindings; never runs client scripts");
+        Scr_BeginBindingAudit(audit->current.enabled, SCRIPTINSTANCE_CLIENT);
+        for (const ZombieClientScriptBinding &binding : zombieClientScriptBindings)
+            CGScr_LoadScriptAndLabel(SCRIPTINSTANCE_CLIENT, binding.file, binding.label, functions);
+        CGScr_LoadLevelScript(SCRIPTINSTANCE_CLIENT, mapname, functions);
+        Scr_PostCompileScripts(SCRIPTINSTANCE_CLIENT);
+        unsigned int unresolved = 0;
+        if (Scr_EndBindingAudit(&unresolved))
+            Com_Error(ERR_DROP, "Client script binding audit finished: %u unresolved references; client scripts were not started", unresolved);
+        CScr_PostLoadScripts();
+        Scr_PrecacheAnimTrees(SCRIPTINSTANCE_CLIENT, (void *(__cdecl *)(int))Hunk_AllocXAnimCreate, 0, 1);
+        return;
+    }
     CGScr_LoadScriptAndLabel(SCRIPTINSTANCE_CLIENT, "codescripts/delete", "main", functions);
     CGScr_LoadScriptAndLabel(SCRIPTINSTANCE_CLIENT, "codescripts/struct", "initstructs", functions);
     CGScr_LoadScriptAndLabel(SCRIPTINSTANCE_CLIENT, "codescripts/struct", "createstruct", functions);
@@ -2791,6 +2811,7 @@ void __cdecl CG_Init(int localClientNum, int serverMessageNum, int serverCommand
 
     memset(cgs, 0, sizeof(cgs_t));
     memset(cgameGlob, 0, sizeof(cg_s));
+    CG_ResetZombiePlayerPresentation(localClientNum);
     memset(&cgDC[localClientNum], 0, sizeof(UiContext));
     memset(cg_entitiesArray[localClientNum], 0, 1024 * sizeof(centity_s)/*0xCA000u*/);
     memset(cg_weaponsArray[localClientNum], 0, 2048 * sizeof(weaponInfo_s) /*0x12000u*/);
@@ -3329,6 +3350,29 @@ void __cdecl CG_RegisterGraphics(int localClientNum, const char *mapname)
 
 void __cdecl CG_LoadHudMenu(int localClientNum)
 {
+    if (zombiemode && zombiemode->current.enabled)
+    {
+        // These MenuList paths are shipped in the SP code_post_gfx zone.
+        // Zombies' permanent score/ammo HUD lives in menus; GSC score hudelems
+        // only draw the temporary point-change highlights.
+        const char *paths[] = { "ui/hud.txt", "ui/hud_zombie.txt", "ui/hud_demo.txt" };
+        const bool deadOps = !strcmp(Dvar_GetString("mapname"), "zombietron");
+        for (const char *path : paths)
+        {
+            // Dead Ops creates its HUD in _zombietron scripts and has no
+            // dedicated stock MenuList; do not overlay the survival HUD.
+            if (deadOps && !strcmp(path, "ui/hud_zombie.txt")) continue;
+            MenuList *hud = DB_FindXAssetHeader(ASSET_TYPE_MENULIST,
+                const_cast<char *>(path), false, -1).menuList;
+            if (!hud || !hud->menuCount || !hud->name || strcmp(hud->name, path))
+            {
+                Com_Printf(14, "Zombies: missing HUD MenuList '%s'\n", path);
+                continue;
+            }
+            UI_AddMenuList(localClientNum, &cgDC[localClientNum], hud, 0);
+        }
+        return;
+    }
     MenuList *Menus; // eax
     MenuList *v2; // eax
     const char *String; // eax
@@ -3664,7 +3708,7 @@ void __cdecl CG_LoadAnimTreeInstances(int localClientNum)
         //*(unsigned int *)&cgs->corpseinfo[1480 * ia + 1332] = (unsigned int)XAnimCreateTree(generic_human, Hunk_AllocXAnimClient);
     }
 
-    anims = Dog_GetAnims();
+    anims = zombiemode->current.enabled ? generic_human : Dog_GetAnims();
 
     iassert(anims);
 
@@ -3746,6 +3790,7 @@ void __cdecl CG_Shutdown(int localClientNum)
     CG_FreeAnimTreeInstances(localClientNum);
     cgameGlob->nextSnap = 0;
     memset(cgameGlob, 0, sizeof(cg_s));
+    CG_ResetZombiePlayerPresentation(localClientNum);
     if ( cgameGlob->nextSnap
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\cgame_mp\\cg_main_mp.cpp",

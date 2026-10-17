@@ -1,4 +1,9 @@
 #include "actor_threat.h"
+#include "actor_threat_scripts.h"
+#include <game_mp/g_scr_main_mp.h>
+#include <clientscript/cscr_vm.h>
+#include <clientscript/cscr_stringlist.h>
+#include <climits>
 #include "actor.h"
 #include <game_mp/actor_mp.h>
 #include <game_mp/g_main_mp.h>
@@ -45,16 +50,69 @@ bool __fastcall Actor_CheckIgnore(sentient_s *self, sentient_s *enemy)
 
 void __cdecl Actor_InitThreatBiasGroups()
 {
-    *(unsigned int *)g_threatBias.groupName = 0;
-    *(unsigned int *)&g_threatBias.groupName[2] = 0;
-    *(unsigned int *)&g_threatBias.groupName[4] = 0;
-    *(unsigned int *)&g_threatBias.groupName[6] = 0;
-    *(unsigned int *)&g_threatBias.groupName[8] = 0;
-    *(unsigned int *)&g_threatBias.groupName[10] = 0;
-    *(unsigned int *)&g_threatBias.groupName[12] = 0;
-    *(unsigned int *)&g_threatBias.groupName[14] = 0;
+    for (unsigned short &name : g_threatBias.groupName)
+        Scr_SetString(&name, 0, SCRIPTINSTANCE_SERVER);
     memset(g_threatBias.threatTable, 0, sizeof(g_threatBias.threatTable));
     g_threatBias.threatGroupCount = 1;
+}
+
+static int ThreatGroupIndex(unsigned int name)
+{
+    for (int i = 1; i < g_threatBias.threatGroupCount; ++i)
+        if (g_threatBias.groupName[i] == name) return i;
+    return -1;
+}
+
+static int ThreatGroupParameter(unsigned int parameter)
+{
+    const int index = ThreatGroupIndex(Scr_GetConstString(parameter, SCRIPTINSTANCE_SERVER));
+    if (index < 0) Scr_ParamError(parameter, "threat bias group has not been created", SCRIPTINSTANCE_SERVER);
+    return index;
+}
+
+void GScr_CreateThreatBiasGroup()
+{
+    const unsigned int name = Scr_GetConstString(0, SCRIPTINSTANCE_SERVER);
+    if (ThreatGroupIndex(name) >= 0) return;
+    if (g_threatBias.threatGroupCount >= ARRAY_COUNT(g_threatBias.groupName))
+        Scr_Error("threat bias group limit reached", 0);
+    Scr_SetString(&g_threatBias.groupName[g_threatBias.threatGroupCount++], name, SCRIPTINSTANCE_SERVER);
+}
+
+void GScr_ThreatBiasGroupExists()
+{
+    Scr_AddBool(ThreatGroupIndex(Scr_GetConstString(0, SCRIPTINSTANCE_SERVER)) >= 0, SCRIPTINSTANCE_SERVER);
+}
+
+void GScr_SetThreatBias()
+{
+    const int from = ThreatGroupParameter(0), to = ThreatGroupParameter(1);
+    const int value = Scr_GetType(2, SCRIPTINSTANCE_SERVER) == 2
+        && !I_stricmp(Scr_GetString(2, SCRIPTINSTANCE_SERVER), "ignore")
+        ? INT_MIN : Scr_GetInt(2, SCRIPTINSTANCE_SERVER);
+    g_threatBias.threatTable[from][to] = value;
+}
+
+void GScr_GetThreatBias()
+{
+    Scr_AddInt(Actor_GetThreatBias(ThreatGroupParameter(0), ThreatGroupParameter(1)), SCRIPTINSTANCE_SERVER);
+}
+
+void GScr_SetThreatBiasGroup(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (!ent->sentient) Scr_ObjectError("entity is not sentient", SCRIPTINSTANCE_SERVER);
+    ent->sentient->iThreatBiasGroupIndex = ThreatGroupParameter(0);
+}
+
+void GScr_GetThreatBiasGroup(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (!ent->sentient) Scr_ObjectError("entity is not sentient", SCRIPTINSTANCE_SERVER);
+    const int index = ent->sentient->iThreatBiasGroupIndex;
+    if (index > 0 && index < g_threatBias.threatGroupCount)
+        Scr_AddConstString(g_threatBias.groupName[index], SCRIPTINSTANCE_SERVER);
+    else Scr_AddUndefined(SCRIPTINSTANCE_SERVER);
 }
 
 int __fastcall Actor_GetThreatBias(int groupSelf, int groupEnemy)

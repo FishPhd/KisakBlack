@@ -87,6 +87,9 @@ void __cdecl G_AddPredictableEvent(gentity_s *ent, unsigned int event, unsigned 
 void __cdecl G_AddEvent(gentity_s *ent, unsigned int event, unsigned int eventParm);
 gentity_s *__cdecl G_PlaySoundAliasAtPoint(const float *origin, unsigned int alias);
 gentity_s *__cdecl G_PlaySoundAlias(gentity_s *ent, unsigned int alias, unsigned int notifyString, unsigned int bone);
+void G_ReceiveSoundLengthNotify(unsigned int token, unsigned int lengthMs);
+void G_UpdateSoundNotifies();
+void G_ClearSoundNotifies();
 void __cdecl G_AnimScriptSound(int client, snd_alias_list_t *aliasList);
 void __cdecl G_SetOrigin(gentity_s *ent, const float *origin);
 void __cdecl G_SetAngle(gentity_s *ent, const float *angle);

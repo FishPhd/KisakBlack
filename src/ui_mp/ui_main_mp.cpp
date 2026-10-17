@@ -2362,6 +2362,27 @@ void __cdecl UI_Project_RunMenuScript(
     }
     if ( !I_stricmp(name, "sendMenuNotify") )
     {
+#ifdef KISAK_WEB
+        // The stock solo picker normally notifies the SP frontend's startlevel script.
+        // This client uses the shared engine without running the campaign frontend map.
+        if (Web_IsZombieBoot())
+        {
+            char notification[128];
+            if (String_Parse(args, notification, sizeof(notification))
+                && !I_strncmp(notification, "startlevel ", 11))
+            {
+                const char *map = Dvar_GetString("ui_load_level");
+                if (!I_strncmp(map, "zombie_", 7) && DB_FileExists(map, FFD_DEFAULT))
+                {
+                    Dvar_SetBoolByName("zombiemode", true);
+                    Dvar_SetStringByName("g_gametype", (char *)"zclassic");
+                    Dvar_SetIntByName("sv_maxclients", 1);
+                    UI_SetActiveMenu(localClientNum, UIMENU_NONE);
+                    Cbuf_AddText(localClientNum, va("map %s\n", map));
+                }
+            }
+        }
+#endif
         // Notifications are only consumed by the online services; ignore offline.
         return;
     }
@@ -2727,6 +2748,17 @@ int __cdecl UI_SetActiveMenu(int localClientNum, uiMenuCommand_t menu)
             break;
         case UIMENU_MAIN:
             Key_SetCatcher(localClientNum, 16);
+#ifdef KISAK_WEB
+            if (Web_IsZombieBoot())
+            {
+                Menus_CloseAll(localClientNum, &uiInfo->uiDC);
+                Dvar_SetBoolByName("zombiemode", true);
+                Dvar_SetBoolByName("ui_zombiemode", true);
+                Menus_OpenByName(localClientNum, &uiInfo->uiDC, "main_online");
+                SND_FadeIn();
+                return 1;
+            }
+#endif
             Menus_OpenByName(localClientNum, &uiInfo->uiDC, "main");
             buf = Dvar_GetString("com_errorMessage");
             if ( strlen(buf) )

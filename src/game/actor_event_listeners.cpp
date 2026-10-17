@@ -41,7 +41,31 @@ unsigned __int16 *g_AIEV_scrConst_table[28] =
 
 int g_listenerCount;
 AIEventListener g_AIEVlisteners[32];
-unsigned int array[63];
+
+void Actor_EventListener_Init()
+{
+    g_listenerCount = 0;
+    for (AIEventListener &listener : g_AIEVlisteners)
+    {
+        listener.entIndex = 1023;
+        listener.events = 0;
+    }
+}
+
+bool Actor_EventListener_Add(int entIndex, unsigned int events)
+{
+    for (int i = 0; i < g_listenerCount; ++i)
+    {
+        if (g_AIEVlisteners[i].entIndex == entIndex)
+        {
+            g_AIEVlisteners[i].events |= events;
+            return true;
+        }
+    }
+    if (g_listenerCount >= ARRAY_COUNT(g_AIEVlisteners)) return false;
+    g_AIEVlisteners[g_listenerCount++] = {entIndex, events};
+    return true;
+}
 
 void __cdecl RemoveSwapWithLast(unsigned int listenerIndex)
 {
@@ -61,12 +85,11 @@ void __cdecl RemoveSwapWithLast(unsigned int listenerIndex)
     removeIndex = listenerIndex;
     if ( (int)listenerIndex < --g_listenerCount )
     {
-        g_AIEVlisteners[listenerIndex].entIndex = g_AIEVlisteners[g_listenerCount].entIndex;
-        array[2 * listenerIndex] = array[2 * g_listenerCount];
+        g_AIEVlisteners[listenerIndex] = g_AIEVlisteners[g_listenerCount];
         removeIndex = g_listenerCount;
     }
     g_AIEVlisteners[removeIndex].entIndex = 1023;
-    array[2 * removeIndex] = 0;
+    g_AIEVlisteners[removeIndex].events = 0;
 }
 
 void __cdecl Actor_EventListener_RemoveEntity(int entIndex)
@@ -95,7 +118,7 @@ int __cdecl Actor_EventListener_Next(int index, ai_event_t event, int teamFlags)
 
     for ( i = index + 1; i < g_listenerCount; ++i )
     {
-        if (Com_BitCheckAssert(&array[2 * i], event, 0xFFFFFFF))
+        if (Com_BitCheckAssert(&g_AIEVlisteners[i].events, event, AI_EV_NUM_EVENTS))
         {
             sentient = g_entities[g_AIEVlisteners[i].entIndex].sentient;
             if ( !sentient || (teamFlags & (1 << sentient->eTeam)) != 0 )

@@ -1,5 +1,11 @@
 #include "g_scr_main_mp.h"
+#include "g_scripted_anim.h"
+#include "actor_spawn_limit.h"
+#include <game/actor_event_listeners.h>
+#include <game/actor_threat_scripts.h>
+#include <game/g_bsp.h>
 #include <clientscript/cscr_vm.h>
+#include <clientscript/cscr_binding_audit.h>
 #include "g_main_mp.h"
 #include <cgame/cg_scr_main.h>
 #include "g_spawn_mp.h"
@@ -33,6 +39,8 @@
 #include <universal/surfaceflags.h>
 #include <universal/com_math_anglevectors.h>
 #include <cstring>
+#include <string>
+#include <vector>
 #include <bgame/bg_misc.h>
 #include <database/db_assetnames.h>
 #include <glass/glass_server.h>
@@ -71,8 +79,59 @@
 #include <gfx_d3d/r_dpvs.h>
 #include <sound/snd_bank.h>
 #include <gfx_d3d/r_primarylights.h>
+#include "g_zombie_api_probe.h"
 
 scr_data_t g_scr_data;
+
+static std::vector<std::string> zombieActorTypes;
+static int zombieTransportDuration[1024];
+static int zombieTransportSpawnTime[1024];
+
+static void GScr_LoadActorTypes(scriptInstance_t inst)
+{
+    zombieActorTypes.clear();
+    DB_EnumXAssets_FastFile(ASSET_TYPE_RAWFILE, [](XAssetHeader header, void *) {
+        const char *name = header.rawfile->name;
+        if (!name || strncmp(name, "aitype/", 7)) return;
+        const size_t len = strlen(name);
+        if (len <= 11 || strcmp(name + len - 4, ".gsc")) return;
+        zombieActorTypes.emplace_back(name + 7, len - 11);
+    }, nullptr, false);
+    for (const auto &name : zombieActorTypes)
+    {
+        const std::string file = "aitype/" + name;
+        auto *type = static_cast<AITypeScript *>(Hunk_FindDataForFile(0, name.c_str()));
+        if (!type)
+        {
+            type = reinterpret_cast<AITypeScript *>(Hunk_AllocLow(sizeof(AITypeScript), "AITypeScript", 5));
+            Hunk_SetDataForFile(0, name.c_str(), type, [](int size) -> void * {
+                return Hunk_AllocLow(size, "AITypeScriptCache", 5);
+            });
+        }
+        type->main = GScr_LoadScriptAndLabel(inst, file.c_str(), "main", true);
+        type->precache = GScr_LoadScriptAndLabel(inst, file.c_str(), "precache", true);
+        type->spawner = GScr_LoadScriptAndLabel(inst, file.c_str(), "spawner", true);
+    }
+}
+
+void GScr_InitActorTypes()
+{
+    if (!zombiemode->current.enabled) return;
+    for (const auto &name : zombieActorTypes)
+    {
+        auto *type = static_cast<AITypeScript *>(Hunk_FindDataForFile(0, name.c_str()));
+        Scr_FreeThread(Scr_ExecThread(SCRIPTINSTANCE_SERVER, type->precache, 0), SCRIPTINSTANCE_SERVER);
+    }
+    for (int i = 0; i < level.num_entities; ++i)
+    {
+        gentity_s *ent = &g_entities[i];
+        if (!ent->r.inuse || ent->s.eType != ET_ACTOR_SPAWNER) continue;
+        const char *classname = SL_ConvertToString(ent->classname, SCRIPTINSTANCE_SERVER);
+        auto *type = static_cast<AITypeScript *>(Hunk_FindDataForFile(0, classname + 6));
+        if (!type) Com_Error(ERR_DROP, "Missing actor type '%s'", classname);
+        Scr_FreeThread(Scr_ExecEntThread(ent, type->spawner, 0), SCRIPTINSTANCE_SERVER);
+    }
+}
 
 void assertCmd()
 {
@@ -139,6 +198,7 @@ unsigned int __cdecl    GScr_AllocString(const char *s)
 
 void __cdecl Scr_LoadLevel()
 {
+    for (int &duration : zombieTransportDuration) duration = -1;
     unsigned __int16 t; // [esp+0h] [ebp-4h]
 
     if ( g_scr_data.levelscript )
@@ -290,6 +350,10 @@ void GScr_DumpLoadedScripts()
 
 void __cdecl    GScr_LoadScripts(scriptInstance_t inst)
 {
+    for (int &duration : zombieTransportDuration) duration = -1;
+    const dvar_t *audit = _Dvar_RegisterBool("web_auditScriptBindings", false, 0, "Compile-only inventory of missing server script bindings; never runs gameplay");
+    _Dvar_RegisterBool("web_probeZombieRuntime", false, 0, "Developer probe: missing Zombie APIs terminate at first invocation instead of returning a startup stub");
+    Scr_BeginBindingAudit(zombiemode->current.enabled && audit->current.enabled);
     Scr_BeginLoadScripts(inst, 1);
 
     g_scr_data.delete_ = GScr_LoadScriptAndLabel(inst, "codescripts/delete", "main", 1);
@@ -307,12 +371,56 @@ void __cdecl    GScr_LoadScripts(scriptInstance_t inst)
         "CodeCallback_UpdateSpawnPoints",
         1);
     if (!zombiemode->current.enabled) GScr_LoadDogAnimScripts(inst);
+    else
+    {
+        // Keep script handles outside scr_data_t to preserve its decompiled layout.
+        static AnimScriptList zombieAnim, zombieDogAnim;
+        zombieAnim = {};
+        zombieDogAnim = {};
+        const auto load = [inst](scr_animscript_t &anim, const char *name) {
+            char filename[96];
+            Com_sprintf(filename, sizeof(filename), "animscripts/%s", name);
+            anim.name = GScr_AllocString(name);
+            anim.func = GScr_LoadScriptAndLabel(inst, filename, "main", true);
+        };
+        load(zombieAnim.init, "zombie_init");
+        load(zombieAnim.combat, "zombie_combat");
+        load(zombieAnim.death, "zombie_death");
+        load(zombieAnim.pain, "zombie_pain");
+        load(zombieAnim.move, "zombie_move");
+        load(zombieAnim.stop, "zombie_stop");
+        load(zombieAnim.scripted, "zombie_scripted");
+        // Dead Ops ships its own actor scripts and deliberately omits common.ff,
+        // which supplies the survival-only human flash response. Its stock
+        // scripts never request that response; do not force an absent dependency.
+        if (strcmp(Dvar_GetString("mapname"), "zombietron"))
+            load(zombieAnim.flashed, "flashed");
+        load(zombieDogAnim.init, "zombie_dog_init");
+        load(zombieDogAnim.combat, "zombie_dog_combat");
+        load(zombieDogAnim.death, "zombie_dog_death");
+        load(zombieDogAnim.pain, "zombie_dog_pain");
+        load(zombieDogAnim.move, "zombie_dog_move");
+        load(zombieDogAnim.stop, "zombie_dog_stop");
+        load(zombieDogAnim.scripted, "zombie_dog_scripted");
+        load(zombieDogAnim.flashed, "zombie_dog_flashed");
+        // Dog traversal scripts use the stock shared negotiation path.
+        zombieDogAnim.jump = zombieDogAnim.scripted;
+        zombieDogAnim.turn = zombieDogAnim.move;
+        g_animScriptTable[AI_SPECIES_DOG] = &zombieDogAnim;
+        g_animScriptTable[AI_SPECIES_HUMAN] = &zombieAnim;
+        g_animScriptTable[AI_SPECIES_ZOMBIE] = &zombieAnim;
+        g_animScriptTable[AI_SPECIES_ZOMBIE_DOG] = &zombieDogAnim;
+    }
 
     GScr_SetScriptsForPathNodes();
     if (!zombiemode->current.enabled) GScr_LoadPreGameScript();
     GScr_LoadGameTypeScript();
     GScr_LoadLevelScript();
+    if (zombiemode->current.enabled) GScr_LoadActorTypes(inst);
     Scr_PostCompileScripts(inst);
+    unsigned int unresolved = 0;
+    if (Scr_EndBindingAudit(&unresolved))
+        Com_Error(ERR_DROP, "Script binding audit finished: %u unresolved references; gameplay was not started", unresolved);
     GScr_PostLoadScripts(inst);
 
     Scr_EndLoadScripts(inst);
@@ -376,7 +484,8 @@ void __cdecl GScr_SetScriptsForPathNode(scriptInstance_t inst, pathnode_t *loadN
                 loadNode->constant.animscriptfunc = (int)Hunk_FindDataForFile(1, animscript);
                 if ( !loadNode->constant.animscriptfunc )
                 {
-                    Com_sprintf(filename, 0x40u, "maps/mp/animscripts/traverse/%s", animscript);
+                    Com_sprintf(filename, 0x40u, zombiemode->current.enabled
+                        ? "animscripts/traverse/%s" : "maps/mp/animscripts/traverse/%s", animscript);
                     loadNode->constant.animscriptfunc = GScr_LoadScriptAndLabel(inst, filename, "main", 1);
                     Hunk_SetDataForFile(
                         1,
@@ -1483,6 +1592,15 @@ void GScr_SetDvar()
     Dvar_AddFlags(dvar, 1024);
 }
 
+static void GScr_SetSavedDvar()
+{
+    GScr_SetDvar();
+    // Web Zombies has an isolated profile; archived settings survive reloads
+    // through the same config writer used by the shared multiplayer engine.
+    const dvar_t *dvar = Dvar_FindVar(Scr_GetString(0, SCRIPTINSTANCE_SERVER));
+    if (dvar) Dvar_AddFlags(dvar, 1);
+}
+
 void __cdecl CleanDvarValue(const char *dvarValue, char *outString, int size)
 {
     int i; // [esp+0h] [ebp-8h]
@@ -2385,6 +2503,26 @@ void __cdecl G_EntityStateGetPartBits(const gentity_s *ent, unsigned int *partBi
     partBits[4] = ent->s.partBits[4];
 }
 
+static void ScrCmd_UseWeaponHideTags(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    DObj *obj = Com_GetServerDObj(ent->s.number);
+    if (!obj) Scr_Error("entity has no model", 0);
+    const unsigned int weapon = G_GetWeaponIndexForName(Scr_GetString(0, SCRIPTINSTANCE_SERVER));
+    if (!weapon) Scr_ParamError(0, "unknown weapon", SCRIPTINSTANCE_SERVER);
+    const WeaponVariantDef *definition = BG_GetWeaponVariantDef(weapon);
+    unsigned int partBits[5];
+    G_EntityStateGetPartBits(ent, partBits);
+    for (int i = 0; i < 32 && definition->hideTags[i]; ++i)
+    {
+        unsigned char boneIndex = 254;
+        if (DObjGetBoneIndex(obj, definition->hideTags[i], &boneIndex, -1))
+            partBits[boneIndex >> 5] |= 0x80000000u >> (boneIndex & 31);
+    }
+    DObjSetHidePartBits(obj, partBits);
+    G_EntityStateSetPartBits(ent, partBits);
+}
+
 void __cdecl ScrCmd_hidepart(scr_entref_t entref)
 {
     char *v1; // eax
@@ -3282,7 +3420,9 @@ void __cdecl ScrCmd_PlaySound(scr_entref_t entref)
     gentity_s *Entity; // eax
     unsigned int AliasId; // [esp-Ch] [ebp-Ch]
 
-    if ( Scr_GetNumParam(SCRIPTINSTANCE_SERVER) != 1 )
+    const unsigned int numParams = Scr_GetNumParam(SCRIPTINSTANCE_SERVER);
+    const bool zombieNotify = zombiemode && zombiemode->current.enabled && numParams == 2;
+    if ( numParams != 1 && !zombieNotify )
     {
         NumParam = Scr_GetNumParam(SCRIPTINSTANCE_SERVER);
         v2 = va("playsound has %d parameters.    There should be exactly one.", NumParam);
@@ -3291,7 +3431,8 @@ void __cdecl ScrCmd_PlaySound(scr_entref_t entref)
     String = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
     AliasId = SND_FindAliasId(String);
     Entity = GetEntity(entref);
-    G_PlaySoundAlias(Entity, AliasId, 0, 0);
+    const unsigned int notify = zombieNotify ? Scr_GetConstString(1, SCRIPTINSTANCE_SERVER) : 0;
+    G_PlaySoundAlias(Entity, AliasId, notify, 0);
 }
 
 static void ScrCmd_StopSound(scr_entref_t entref)
@@ -3305,6 +3446,34 @@ static void ScrCmd_StopSound(scr_entref_t entref)
     event->r.svFlags |= 8u;
     event->s.loopSoundId = alias;
     event->s.otherEntityNum = ent->s.number;
+}
+
+static void ScrCmd_IsLookingAt(scr_entref_t entref)
+{
+    gentity_s *viewer = GetEntity(entref);
+    gentity_s *target = Scr_GetEntity(0);
+    if (!viewer->client)
+        Scr_ObjectError("islookingat requires a player", SCRIPTINSTANCE_SERVER);
+    float eye[3], forward[3], center[3], end[3];
+    G_GetPlayerViewOrigin(&viewer->client->ps, eye);
+    G_GetPlayerViewDirection(viewer, forward, nullptr, nullptr);
+    G_EntityCentroid(target, center);
+    const float distance = Vec3Distance(eye, center) + Vec3Distance(target->r.mins, target->r.maxs);
+    for (int i = 0; i < 3; ++i) end[i] = eye[i] + forward[i] * distance;
+    trace_t trace;
+    col_context_t context;
+    G_TraceCapsule(&trace, eye, vec3_origin, vec3_origin, end,
+        viewer->s.number, 0x2806831 | target->r.contents, &context);
+    Scr_AddBool(trace.hitType == TRACE_HITTYPE_ENTITY && trace.hitId == target->s.number,
+        SCRIPTINSTANCE_SERVER);
+}
+
+static void ScrCmd_StopSounds(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    ent->s.loopSoundId = 0;
+    ent->s.loopSoundFade = 0;
+    G_AddEvent(ent, EV_STOPSOUNDS, 0);
 }
 
 void __cdecl ScrCmd_PlaySoundOnTag(scr_entref_t entref)
@@ -5069,15 +5238,23 @@ void Scr_Objective_Add()
         Scr_ParamError(1u, v2, SCRIPTINSTANCE_SERVER);
     }
     obj->state = state;
-    if ( numParam >= 3 )
+    unsigned int positionParam = 2;
+#ifdef KISAK_WEB
+    // SP/Zombies inserts an objective label before the position; MP omits it.
+    if (zombiemode && zombiemode->current.enabled && numParam >= 3
+        && (Scr_GetType(2, SCRIPTINSTANCE_SERVER) == VAR_STRING
+            || Scr_GetType(2, SCRIPTINSTANCE_SERVER) == VAR_ISTRING))
+        positionParam = 3;
+#endif
+    if ( numParam > (int)positionParam )
     {
-        Scr_GetVector(2u, obj->origin, SCRIPTINSTANCE_SERVER);
+        Scr_GetVector(positionParam, obj->origin, SCRIPTINSTANCE_SERVER);
         obj->origin[0] = (float)(int)obj->origin[0];
         obj->origin[1] = (float)(int)obj->origin[1];
         obj->origin[2] = (float)(int)obj->origin[2];
         obj->entNum = 1023;
-        if ( numParam >= 4 )
-            SetObjectiveIcon(obj, 3u);
+        if ( numParam > (int)positionParam + 1 )
+            SetObjectiveIcon(obj, positionParam + 1);
     }
     obj->teamNum = 0;
 }
@@ -8727,6 +8904,453 @@ void GScr_GetNorthYaw()
     Scr_AddFloat(atof(northYawString), SCRIPTINSTANCE_SERVER);
 }
 
+static void GScr_IsSentient()
+{
+    Scr_AddBool(Scr_GetEntity(0)->sentient != nullptr, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_Distance2DSquared()
+{
+    float a[3], b[3];
+    Scr_GetVector(0, a, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(1, b, SCRIPTINSTANCE_SERVER);
+    const float x = a[0] - b[0], y = a[1] - b[1];
+    Scr_AddFloat(x * x + y * y, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_GetAIArray()
+{
+    int team = -1;
+    if (Scr_GetNumParam(SCRIPTINSTANCE_SERVER) && Scr_GetType(0, SCRIPTINSTANCE_SERVER))
+    {
+        const char *name = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
+        if (!strcmp(name, "axis")) team = TEAM_AXIS;
+        else if (!strcmp(name, "allies")) team = TEAM_ALLIES;
+        else if (!strcmp(name, "neutral")) team = TEAM_FREE;
+        else if (strcmp(name, "all")) Scr_ParamError(0, "unknown actor team", SCRIPTINSTANCE_SERVER);
+    }
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (int i = 0; i < level.num_entities; ++i)
+    {
+        gentity_s *ent = &g_entities[i];
+        if (ent->r.inuse && ent->actor && ent->sentient && (team < 0 || ent->sentient->eTeam == team))
+        {
+            Scr_AddEntity(ent, SCRIPTINSTANCE_SERVER);
+            Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        }
+    }
+}
+
+static void GScr_GetAISpeciesArray()
+{
+    const char *teamName = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
+    int team = -1;
+    if (!strcmp(teamName, "axis")) team = TEAM_AXIS;
+    else if (!strcmp(teamName, "allies")) team = TEAM_ALLIES;
+    else if (!strcmp(teamName, "neutral")) team = TEAM_FREE;
+    else if (strcmp(teamName, "all")) Scr_ParamError(0, "unknown actor team", SCRIPTINSTANCE_SERVER);
+    const char *species = Scr_GetNumParam(SCRIPTINSTANCE_SERVER) > 1 && Scr_GetType(1, SCRIPTINSTANCE_SERVER)
+        ? Scr_GetString(1, SCRIPTINSTANCE_SERVER) : "all";
+    const bool all = !strcmp(species, "all");
+    if (!all && strcmp(species, "dog") && strcmp(species, "human") &&
+        strcmp(species, "zombie") && strcmp(species, "zombie_dog"))
+        Scr_ParamError(1, "unknown AI species", SCRIPTINSTANCE_SERVER);
+
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (int i = 0; i < level.num_entities; ++i)
+    {
+        gentity_s *ent = &g_entities[i];
+        if (!ent->r.inuse || !ent->actor || !ent->sentient ||
+            (team >= 0 && ent->sentient->eTeam != team)) continue;
+        const AISpecies type = ent->actor->species;
+        if (!all && (type < AI_SPECIES_DOG || type >= MAX_AI_SPECIES ||
+            strcmp(species, SL_ConvertToString(*g_AISpeciesNames[type], SCRIPTINSTANCE_SERVER))))
+            continue;
+        Scr_AddEntity(ent, SCRIPTINSTANCE_SERVER);
+        Scr_AddArray(SCRIPTINSTANCE_SERVER);
+    }
+}
+
+static void GScr_SetAILimit()
+{
+    const int requested = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
+    if (requested < 0) Scr_ParamError(0, "AI limit must be nonnegative", SCRIPTINSTANCE_SERVER);
+    const int actual = Actor_SetSpawnLimit(requested);
+    if (actual != requested)
+        Com_Printf(23, "AI limit %d capped at the shared engine's %d simultaneous actor slots\n", requested, actual);
+}
+
+static void GScr_WaterSimEnable()
+{
+    Dvar_SetBoolByName("r_watersim_enabled", Scr_GetInt(0, SCRIPTINSTANCE_SERVER) != 0);
+    const dvar_t *dvar = Dvar_FindVar("r_watersim_enabled");
+    if (dvar) Dvar_AddFlags(dvar, 1024);
+}
+
+static void GScr_IsSaveRecentlyLoaded()
+{
+    // The shared runtime restores live script state through savepersist on
+    // retained-state restarts; a newly loaded Zombies level starts fresh.
+    Scr_AddBool(G_GetSavePersist() != 0, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_GetDifficulty()
+{
+    static const char *names[] = {"easy", "medium", "hard", "fu"};
+    const dvar_t *skill = _Dvar_RegisterInt("g_gameskill", 1, 0, 3, 1,
+        "Solo/co-op difficulty: recruit, regular, hardened, veteran");
+    Scr_AddString(names[skill->current.integer], SCRIPTINSTANCE_SERVER);
+}
+
+static void ScrCmd_SetSpawnerTeam(scr_entref_t ref)
+{
+    gentity_s *ent = GetEntity(ref);
+    if (ent->s.eType != ET_ACTOR_SPAWNER) Scr_Error("setspawnerteam requires an actor spawner", 0);
+    const char *team = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
+    if (!strcmp(team, "axis")) ent->s.lerp.u.actor.team = TEAM_AXIS;
+    else if (!strcmp(team, "allies")) ent->s.lerp.u.actor.team = TEAM_ALLIES;
+    else if (!strcmp(team, "neutral")) ent->s.lerp.u.actor.team = TEAM_FREE;
+    else Scr_ParamError(0, "spawner team must be axis, allies or neutral", SCRIPTINSTANCE_SERVER);
+}
+
+static void ScrCmd_GetClosestEnemySqDist(scr_entref_t ref)
+{
+    gentity_s *ent = GetEntity(ref);
+    if (!ent->actor || !ent->sentient) Scr_Error("getclosestenemysqdist requires an actor", 0);
+    const int teams = 1 << Sentient_EnemyTeam(ent->sentient->eTeam);
+    float closest = 0;
+    bool found = false;
+    for (sentient_s *enemy = Sentient_FirstSentient(teams); enemy; enemy = Sentient_NextSentient(enemy, teams))
+    {
+        if (enemy->bIgnoreMe || !enemy->ent->r.inuse || enemy->ent->health <= 0) continue;
+        const float distance = Vec3DistanceSq(ent->r.currentOrigin, enemy->ent->r.currentOrigin);
+        if (!found || distance < closest) closest = distance;
+        found = true;
+    }
+    if (found) Scr_AddFloat(closest, SCRIPTINSTANCE_SERVER);
+    else Scr_AddUndefined(SCRIPTINSTANCE_SERVER);
+}
+
+// The MP actor ABI has no ranged engagement envelope. Preserve the stock
+// configuration in entity script storage; Zombies' melee distance remains
+// controlled by its stock combat script and the native melee fields.
+static void ScrCmd_SetEngagementDistances(scr_entref_t ref, const char *name)
+{
+    gentity_s *ent = GetEntity(ref);
+    if (!ent->actor) Scr_Error("engagement distances require an actor", 0);
+    float values[3] = {Scr_GetFloat(0, SCRIPTINSTANCE_SERVER), Scr_GetFloat(1, SCRIPTINSTANCE_SERVER), 0};
+    if (values[0] < 0 || values[1] < 0) Scr_Error("engagement distances must be nonnegative", 0);
+    const unsigned int field = SL_GetString(const_cast<char *>(name), 0, SCRIPTINSTANCE_SERVER);
+    Scr_AddVector(values, SCRIPTINSTANCE_SERVER);
+    Scr_SetDynamicEntityField(ent->s.number, 0, field, SCRIPTINSTANCE_SERVER, 0);
+    SL_RemoveRefToString(SCRIPTINSTANCE_SERVER, field);
+}
+
+static void ScrCmd_SetEngagementMinDist(scr_entref_t ref)
+{
+    ScrCmd_SetEngagementDistances(ref, "engagementmindist");
+}
+
+static void ScrCmd_SetEngagementMaxDist(scr_entref_t ref)
+{
+    ScrCmd_SetEngagementDistances(ref, "engagementmaxdist");
+}
+
+static void GScr_GetSpawnerArray()
+{
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (int i = 0; i < level.num_entities; ++i)
+    {
+        gentity_s *ent = &g_entities[i];
+        if (ent->r.inuse && ent->s.eType == ET_ACTOR_SPAWNER)
+        {
+            Scr_AddEntity(ent, SCRIPTINSTANCE_SERVER);
+            Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        }
+    }
+}
+
+static void GScr_GetAnyNodeArray()
+{
+    float origin[3];
+    Scr_GetVector(0, origin, SCRIPTINSTANCE_SERVER);
+    const float radius = Scr_GetFloat(1, SCRIPTINSTANCE_SERVER);
+    if (!(radius >= 0.0f)) Scr_ParamError(1, "node radius must be nonnegative", SCRIPTINSTANCE_SERVER);
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (unsigned int i = 0; i < g_path.actualNodeCount; ++i)
+    {
+        pathnode_t *node = &gameWorldCurrent->path.nodes[i];
+        const float *pos = node->constant.vOrigin;
+        const float x = pos[0] - origin[0], y = pos[1] - origin[1], z = pos[2] - origin[2];
+        if (x * x + y * y + z * z <= radius * radius)
+        {
+            Scr_AddPathnode(node);
+            Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        }
+    }
+}
+
+static void GScr_GetLinkedEnt(scr_entref_t entref)
+{
+    const gentity_s *ent = GetEntity(entref);
+    if (ent->tagInfo) Scr_AddEntity(ent->tagInfo->parent, SCRIPTINSTANCE_SERVER);
+    else Scr_AddUndefined(SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_SetExploderId(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (ent->s.eType != ET_SCRIPTMOVER)
+        Scr_ObjectError("setexploderid requires a script model or brush model", SCRIPTINSTANCE_SERVER);
+    const int id = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
+    if (id < 0 || id > 4095)
+        Scr_ParamError(0, "exploder ID must fit the 12-bit snapshot field", SCRIPTINSTANCE_SERVER);
+    ent->s.lerp.u.scriptMover.exploderIndex = static_cast<short>(id);
+}
+
+static void GScr_TransmitTargetName(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (!ent->targetname) { ent->s.targetname = 0; return; }
+    const char *name = SL_ConvertToString(ent->targetname, SCRIPTINSTANCE_SERVER);
+    // Real client entities use the client-sized hash for getent/getentarray.
+    // Script string IDs are local to each VM and must not cross the network.
+    ent->s.targetname = static_cast<unsigned short>(Scr_GetHashCode(SCRIPTINSTANCE_CLIENT, name, strlen(name)));
+}
+
+static void GScr_GetPlayerViewHeight(scr_entref_t entref)
+{
+    Scr_AddFloat(GetPlayerEntity(entref)->client->ps.viewHeightCurrent, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_GetCurrentWeaponClipAmmo(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (!ent->client)
+    {
+#ifdef KISAK_WEB
+        // Armed actor clips are not represented by this MP actor reconstruction.
+        // Keep their existing explicit missing-API probe rather than claiming
+        // that a player's ammo implementation supports actors as well.
+        const char *name = "getcurrentweaponclipammo";
+        int type = 0;
+        const int probe = ZombieProbeIndex(&name, &type);
+        if (probe >= 0) { zombieProbeMethods[probe](entref); return; }
+#endif
+        Scr_ObjectError("getcurrentweaponclipammo requires a player; actor clips are unsupported", SCRIPTINSTANCE_SERVER);
+        return;
+    }
+    const playerState_s *ps = &ent->client->ps;
+    Scr_AddInt(BG_GetAmmoInClip(ps, ps->weapon), SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_ReloadButtonPressed(scr_entref_t entref)
+{
+    const gclient_s *client = GetPlayerEntity(entref)->client;
+    // Match the other button queries: retain a press that arrived between
+    // script frames as well as a button currently held down. PM_CheckForReload
+    // consumes bit 4 of the same user command.
+    Scr_AddInt(client->button_bitsSinceLastFrame.testBit(4u)
+        || client->button_bits.testBit(4u), SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_GetCentroid(scr_entref_t entref)
+{
+    float center[3];
+    G_EntityCentroid(GetEntity(entref), center);
+    Scr_AddVector(center, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_WeaponDualWieldWeaponName()
+{
+    const unsigned int weapon = G_GetWeaponIndexForName(Scr_GetString(0, SCRIPTINSTANCE_SERVER));
+    if (!weapon)
+        Scr_ParamError(0, "unknown weapon", SCRIPTINSTANCE_SERVER);
+    const WeaponDef *definition = BG_GetWeaponDef(weapon);
+    Scr_AddString(const_cast<char *>(definition->szDualWieldWeaponName
+        ? definition->szDualWieldWeaponName : ""), SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_CleanupSpawnedDynEnts()
+{
+    if (Scr_GetNumParam(SCRIPTINSTANCE_SERVER))
+        Scr_Error("cleanupspawneddynents takes no parameters", 0);
+    // Spawned fragment physics and spatial links belong to each client's scene.
+    SV_GameSendServerCommand(-1, SV_CMD_RELIABLE, "zombie_cleanup_spawned_dynents");
+}
+
+static void GScr_SetDeathContents(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (!ent->actor)
+    {
+        Scr_ObjectError("setdeathcontents requires an actor", SCRIPTINSTANCE_SERVER);
+        return;
+    }
+    ent->actor->deathContents = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
+    if (ent->health <= 0)
+    {
+        ent->r.contents = ent->actor->deathContents;
+        SV_LinkEntity(ent);
+    }
+}
+
+template<bool Visible> static void GScr_SetViewModelVisible(scr_entref_t entref)
+{
+    gentity_s *ent = GetPlayerEntity(entref);
+    SV_GameSendServerCommand(ent->s.number, SV_CMD_RELIABLE,
+        Visible ? "zombie_viewmodel 1" : "zombie_viewmodel 0");
+}
+
+static void GScr_SetTransported(scr_entref_t entref)
+{
+    gentity_s *ent = GetPlayerEntity(entref);
+    const float seconds = Scr_GetFloat(0, SCRIPTINSTANCE_SERVER);
+    if (!(seconds >= 0.0f && seconds <= 2147483.0f))
+        Scr_ParamError(0, "transport effect duration must be finite, nonnegative seconds", SCRIPTINSTANCE_SERVER);
+    const int duration = static_cast<int>(seconds * 1000.0f);
+    // Stock pad scripts refresh the same state every 50 ms. Only changes need
+    // reliable commands; restarting the effect on each refresh prevents fading.
+    if (zombieTransportDuration[ent->s.number] == duration
+        && zombieTransportSpawnTime[ent->s.number] == ent->client->lastSpawnTime) return;
+    zombieTransportDuration[ent->s.number] = duration;
+    zombieTransportSpawnTime[ent->s.number] = ent->client->lastSpawnTime;
+    SV_GameSendServerCommand(ent->s.number, SV_CMD_RELIABLE,
+        va("zombie_transported %d", duration));
+}
+
+static void GScr_SetMaxHealth(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    const int health = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
+    if (health < 1) Scr_ParamError(0, "maximum health must be positive", SCRIPTINSTANCE_SERVER);
+    ent->maxHealth = health;
+    if (ent->client) ClientScr_SetMaxHealth(ent->client, nullptr);
+    else if (ent->health > health) ent->health = health;
+}
+
+static void GScr_GetPlayers()
+{
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    for (int i = 0; i < level.maxclients; ++i)
+    {
+        gentity_s *ent = &g_entities[i];
+        if (ent->r.inuse && ent->client && ent->client->sess.connected == CON_CONNECTED)
+        {
+            Scr_AddEntity(ent, SCRIPTINSTANCE_SERVER);
+            Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        }
+    }
+}
+
+static void GScr_GetNumConnectedPlayers()
+{
+    int count = 0;
+    for (int i = 0; i < level.maxclients; ++i)
+        if (level.clients[i].sess.connected == CON_CONNECTED) ++count;
+    Scr_AddInt(count, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_NumRemoteClients()
+{
+    int count = 0;
+    for (int i = 0; svs.clients && i < sv_maxclients->current.integer; ++i)
+    {
+        const client_t &client = svs.clients[i];
+        const netadrtype_t type = client.header.netchan.remoteAddress.type;
+        if (client.header.state >= CS_CONNECTED && type != NA_LOOPBACK && type != NA_BOT)
+            ++count;
+    }
+    Scr_AddInt(count, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_GetNumExpectedPlayers()
+{
+    // Direct-connect rooms have no external matchmaking roster. Pending clients
+    // count as expected; unused room slots do not delay the Zombies start.
+    int count = 0;
+    for (int i = 0; i < level.maxclients; ++i)
+        if (level.clients[i].sess.connected != CON_DISCONNECTED) ++count;
+    Scr_AddInt(count, SCRIPTINSTANCE_SERVER);
+}
+
+static void GScr_AddAIEventListener(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    const char *name = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
+    unsigned int events = 0;
+    const auto add = [&events](ai_event_t event) { Com_BitSetAssert(&events, event, AI_EV_NUM_EVENTS); };
+    if (!strcmp(name, "grenade danger") || !strcmp(name, "grenadedanger"))
+    {
+        add(AI_EV_GRENADE_PING); add(AI_EV_PROJECTILE_PING);
+    }
+    else if (!strcmp(name, "bulletwhizby"))
+    {
+        add(AI_EV_BULLET); add(AI_EV_BLOCK_FRIENDLIES);
+    }
+    else if (!strcmp(name, "projectile_impact")) add(AI_EV_PROJECTILE_IMPACT);
+    else if (!strcmp(name, "gunshot")) add(AI_EV_GUNSHOT);
+    else if (!strcmp(name, "silenced_shot")) add(AI_EV_SILENCED_SHOT);
+    else if (!strcmp(name, "explode") || !strcmp(name, "explosion")) add(AI_EV_EXPLOSION);
+    else Scr_ParamError(0, "unsupported AI listener event", SCRIPTINSTANCE_SERVER);
+    if (!Actor_EventListener_Add(ent->s.number, events))
+        Scr_Error("AI event listener limit reached", 0);
+}
+
+static void GScr_GetAnimationStart(bool returnAngles)
+{
+    float origin[3], angles[3], rot[2], delta[3];
+    Scr_GetVector(0, origin, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(1, angles, SCRIPTINSTANCE_SERVER);
+    const scr_anim_s anim = Scr_GetAnim(2, nullptr, SCRIPTINSTANCE_SERVER);
+    XAnimGetAbsDelta(Scr_GetAnims(anim.tree, SCRIPTINSTANCE_SERVER), anim.index, rot, delta, 0.0f);
+    if (returnAngles)
+    {
+        angles[1] += RotationToYaw(rot);
+        Scr_AddVector(angles, SCRIPTINSTANCE_SERVER);
+    }
+    else
+    {
+        float forward[3], right[3], up[3];
+        AngleVectors(angles, forward, right, up);
+        for (int i = 0; i < 3; ++i)
+            origin[i] += delta[0] * forward[i] - delta[1] * right[i] + delta[2] * up[i];
+        Scr_AddVector(origin, SCRIPTINSTANCE_SERVER);
+    }
+}
+
+static void GScr_GetStartOrigin() { GScr_GetAnimationStart(false); }
+static void GScr_GetStartAngles() { GScr_GetAnimationStart(true); }
+
+static void GScr_GetNotetracksInDelta()
+{
+    const scr_anim_s anim = Scr_GetAnim(0, nullptr, SCRIPTINSTANCE_SERVER);
+    const XAnim_s *anims = Scr_GetAnims(anim.tree, SCRIPTINSTANCE_SERVER);
+    const float start = Scr_GetFloat(1, SCRIPTINSTANCE_SERVER);
+    const float end = Scr_GetFloat(2, SCRIPTINSTANCE_SERVER);
+    if (!(start >= 0.0f && end >= start))
+        Scr_Error("notetrack interval must be nonnegative and ordered", 0);
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    const XAnimEntry &entry = anims->entries[anim.index];
+    if (entry.numAnims || !entry.parts) return;
+    const XAnimParts *parts = entry.parts;
+    for (unsigned int i = 0; i < parts->notifyCount; ++i)
+    {
+        const XAnimNotifyInfo &note = parts->notify[i];
+        if (note.time < start || note.time > end) continue;
+        float rot[2], delta[3], angles[3] = {};
+        XAnimGetAbsDelta(anims, anim.index, rot, delta, note.time);
+        angles[1] = RotationToYaw(rot);
+        Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+        Scr_AddInt(i, SCRIPTINSTANCE_SERVER); Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        Scr_AddConstString(note.name, SCRIPTINSTANCE_SERVER); Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        Scr_AddFloat(note.time, SCRIPTINSTANCE_SERVER); Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        Scr_AddVector(delta, SCRIPTINSTANCE_SERVER); Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        Scr_AddVector(angles, SCRIPTINSTANCE_SERVER); Scr_AddArray(SCRIPTINSTANCE_SERVER);
+        Scr_AddArray(SCRIPTINSTANCE_SERVER);
+    }
+}
+
 void Scr_LoadFX()
 {
     char *filename; // [esp+0h] [ebp-8h]
@@ -10541,6 +11165,15 @@ void GScr_KillServer()
 {
     level.finished = 3;
     level.savepersist = 0;
+    // Host "End Game" (killserverpc) on a listen server. Com_Shutdown("EXE_SERVERKILLED")
+    // tears the session down without opening a menu, so private match, combat training,
+    // and wager matches could not be left. Disconnect uses the same lobby return as
+    // leaving from the pause menu. Dedicated servers still shut down.
+    if ( !IsDedicatedServer() )
+    {
+        Cbuf_AddText(0, "disconnect\n");
+        return;
+    }
     SV_KillLocalServer();
 }
 
@@ -13634,6 +14267,25 @@ void __cdecl GScr_SetTurretType(scr_entref_t entref)
     }
 }
 
+static void GScr_SetTeamForEntity(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (!ent->sentient) Scr_ObjectError("entity is not sentient", SCRIPTINSTANCE_SERVER);
+    const char *name = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
+    team_t team = TEAM_FREE;
+    if (!strcmp(name, "axis")) team = TEAM_AXIS;
+    else if (!strcmp(name, "allies")) team = TEAM_ALLIES;
+    else if (strcmp(name, "neutral") && strcmp(name, "none") && strcmp(name, "free"))
+        Scr_ParamError(0, "team must be axis, allies, or neutral", SCRIPTINSTANCE_SERVER);
+    Sentient_SetTeam(ent->sentient, team);
+    if (ent->client)
+    {
+        ent->client->sess.cs.team = team;
+        ClientUserinfoChanged(ent->s.number);
+        CalculateRanks();
+    }
+}
+
 void __cdecl GScr_SetTeam(scr_entref_t entref)
 {
     const char *v1; // eax
@@ -14189,9 +14841,9 @@ void __cdecl GScr_AddSphereInfluencer()
             0);
     }
     type = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
-    if ( (unsigned int)type > 6 )
+    if ( (unsigned int)type >= MAX_INFLUENCER_TYPE )
     {
-        v0 = va("USAGE: addsphereinfluencer type must be a value from %i to %i\n", 0, 6);
+        v0 = va("USAGE: addsphereinfluencer type must be a value from %i to %i\n", 0, MAX_INFLUENCER_TYPE - 1);
         Scr_Error(v0, 0);
     }
     Scr_GetVector(1u, origin, SCRIPTINSTANCE_SERVER);
@@ -14315,9 +14967,9 @@ void __cdecl GScr_AddCylinderInfluencer()
             0);
     }
     type = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
-    if ( (unsigned int)type > 6 )
+    if ( (unsigned int)type >= MAX_INFLUENCER_TYPE )
     {
-        v0 = va("USAGE: addcylinderinfluencer type must be a value from %i to %i\n", 0, 6);
+        v0 = va("USAGE: addcylinderinfluencer type must be a value from %i to %i\n", 0, MAX_INFLUENCER_TYPE - 1);
         Scr_Error(v0, 0);
     }
     Scr_GetVector(1u, origin, SCRIPTINSTANCE_SERVER);
@@ -15437,6 +16089,19 @@ void GScr_IsWeaponSpecificUse()
 
     pszWeaponName = Scr_GetString(0, SCRIPTINSTANCE_SERVER);
     iWeaponIndex = G_GetWeaponIndexForName((char *)pszWeaponName);
+    // Class setup passes statstable references. The loaded assets are <reference>_mp.
+    if ( !iWeaponIndex
+        && (!I_stricmp(pszWeaponName, "frag_grenade")
+            || !I_stricmp(pszWeaponName, "willy_pete")
+            || !I_stricmp(pszWeaponName, "flash_grenade")
+            || !I_stricmp(pszWeaponName, "sticky_grenade")
+            || !I_stricmp(pszWeaponName, "concussion_grenade")) )
+    {
+        char szAssetName[64];
+
+        Com_sprintf(szAssetName, sizeof(szAssetName), "%s_mp", pszWeaponName);
+        iWeaponIndex = G_GetWeaponIndexForName(szAssetName);
+    }
     if ( iWeaponIndex )
     {
         Weapon_SetWeaponParamsWeapon(&wp, iWeaponIndex);
@@ -15963,6 +16628,7 @@ BuiltinFunctionDef functions[] =
   { "getdvarcolorgreen", GScr_GetDvarColorGreen, 0 },
   { "getdvarcolorblue", GScr_GetDvarColorBlue, 0 },
   { "setdvar", GScr_SetDvar, 0 },
+  { "setsaveddvar", GScr_SetSavedDvar, 0 },
   { "gettime", GScr_GetTime, 0 },
   { "getentbynum", Scr_GetEntByNum, 1 },
   { "getweaponmodel", Scr_GetWeaponModel, 0 },
@@ -16004,6 +16670,27 @@ BuiltinFunctionDef functions[] =
   // LWSS END
   { "getmovedelta", GScr_GetMoveDelta, 0 },
   { "getangledelta", GScr_GetAngleDelta, 0 },
+  { "getstartorigin", GScr_GetStartOrigin, 0 },
+  { "getstartangles", GScr_GetStartAngles, 0 },
+  { "getnotetracksindelta", GScr_GetNotetracksInDelta, 0 },
+  { "issentient", GScr_IsSentient, 0 },
+  { "distance2dsquared", GScr_Distance2DSquared, 0 },
+  { "getaiarray", GScr_GetAIArray, 0 },
+  { "getaispeciesarray", GScr_GetAISpeciesArray, 0 },
+  { "setailimit", GScr_SetAILimit, 0 },
+  { "watersimenable", GScr_WaterSimEnable, 0 },
+  { "issaverecentlyloaded", GScr_IsSaveRecentlyLoaded, 0 },
+  { "getdifficulty", GScr_GetDifficulty, 0 },
+  { "createthreatbiasgroup", GScr_CreateThreatBiasGroup, 0 },
+  { "threatbiasgroupexists", GScr_ThreatBiasGroupExists, 0 },
+  { "setthreatbias", GScr_SetThreatBias, 0 },
+  { "getthreatbias", GScr_GetThreatBias, 0 },
+  { "getspawnerarray", GScr_GetSpawnerArray, 0 },
+  { "getanynodearray", GScr_GetAnyNodeArray, 0 },
+  { "getplayers", GScr_GetPlayers, 0 },
+  { "getnumconnectedplayers", GScr_GetNumConnectedPlayers, 0 },
+  { "numremoteclients", GScr_NumRemoteClients, 0 },
+  { "getnumexpectedplayers", GScr_GetNumExpectedPlayers, 0 },
   { "getnorthyaw", GScr_GetNorthYaw, 0 },
   { "randomint", Scr_RandomInt, 0 },
   { "randomfloat", Scr_RandomFloat, 0 },
@@ -16053,6 +16740,8 @@ BuiltinFunctionDef functions[] =
   { "soundfade", Scr_SoundFade, 0 },
   { "playsoundatposition", Scr_PlaySoundAtPosition, 0 },
   { "getvehiclenode", GScr_GetVehicleNode, 0 },
+  { "getvehiclenodearray", GScr_GetVehicleNodeArray, 0 },
+  { "getallvehiclenodes", GScr_GetAllVehicleNodes, 0 },
   { "precachemodel", Scr_PrecacheModel, 0 },
   { "precacheshellshock", Scr_PrecacheShellShock, 0 },
   { "precacheitem", Scr_PrecacheItem, 0 },
@@ -16317,6 +17006,27 @@ void (__cdecl *__cdecl Scr_GetFunction(const char **pName, int *type))()
 {
     unsigned int i; // [esp+18h] [ebp-4h]
 
+    if (zombiemode && zombiemode->current.enabled)
+    {
+        // The stock co-op utility scripts wrap these code entry points.
+        // Bind them to the engine implementations, so spawning still uses
+        // G_CallSpawnEntity, the native FX system, and native vehicle/turret setup.
+        static const BuiltinFunctionDef zombieCodeFunctions[] = {
+            { "cleanupspawneddynents", GScr_CleanupSpawnedDynEnts, 0 },
+            { "weapondualwieldweaponname", GScr_WeaponDualWieldWeaponName, 0 },
+            { "codespawn", GScr_Spawn, 0 },
+            { "codespawnfx", Scr_SpawnFX, 0 },
+            { "codespawnturret", GScr_SpawnTurret, 0 },
+            { "codespawnvehicle", GScr_SpawnVehicle, 0 },
+        };
+        for (const auto &function : zombieCodeFunctions)
+            if (!strcmp(*pName, function.actionString))
+            {
+                *pName = function.actionString;
+                *type = function.type;
+                return function.actionFunc;
+            }
+    }
     for (i = 0; i < ARRAY_COUNT(functions); ++i)
     {
         if (!strcmp(*pName, functions[i].actionString))
@@ -16326,6 +17036,10 @@ void (__cdecl *__cdecl Scr_GetFunction(const char **pName, int *type))()
             return functions[i].actionFunc;
         }
     }
+#ifdef KISAK_WEB
+    const int probe = ZombieProbeIndex(pName, type);
+    if (probe >= 0) return zombieProbeFunctions[probe];
+#endif
     return 0;
 }
 
@@ -16538,6 +17252,206 @@ static void GScr_SetAnimTime(scr_entref_t entref)
     G_FlagAnimForUpdate(ent);
 }
 
+static void GScr_ClearAnim(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    XAnimTree_s *tree = GScr_GetEntAnimTree(ent);
+    const scr_anim_s anim = Scr_GetAnim(0, tree, SCRIPTINSTANCE_SERVER);
+    const float blend = Scr_GetFloat(1, SCRIPTINSTANCE_SERVER);
+    if (!(blend >= 0.0f))
+        Scr_ParamError(1, "blend time must be nonnegative", SCRIPTINSTANCE_SERVER);
+    XAnimClearTreeGoalWeights(tree, anim.index, blend, 0);
+    G_FlagAnimForUpdate(ent);
+}
+
+// The server owns these weights and notifications; snapshots carry the resulting
+// animation state to every client, including WebRTC peers.
+static void GScr_SetAnimKnobInternal(scr_entref_t entref, bool restart, bool flagged,
+    bool complete = true, bool all = false, bool knob = true)
+{
+    gentity_s *ent = GetEntity(entref);
+    XAnimTree_s *tree = GScr_GetEntAnimTree(ent);
+    const unsigned int first = flagged ? 1 : 0;
+    const unsigned int count = Scr_GetNumParam(SCRIPTINSTANCE_SERVER);
+    const unsigned int options = first + 1 + (all ? 1 : 0);
+    if (count < options || count > options + 3)
+        Scr_Error("setanimknob requires an animation and optional weight, blend time, rate", 0);
+    const unsigned int notify = flagged ? Scr_GetConstString(0, SCRIPTINSTANCE_SERVER) : 0;
+    const scr_anim_s anim = Scr_GetAnim(first, tree, SCRIPTINSTANCE_SERVER);
+    const scr_anim_s root = all ? Scr_GetAnim(first + 1, tree, SCRIPTINSTANCE_SERVER) : anim;
+    if (all && (root.tree != anim.tree || root.index == anim.index))
+        Scr_Error("root animation must be a distinct ancestor in the same tree", 0);
+    float weight = 1.0f, blend = 0.2f, rate = 1.0f;
+    XAnimGetParamValue(tree, anim.index, "goalweight", &weight);
+    XAnimGetParamValue(tree, anim.index, "goaltime", &blend);
+    XAnimGetParamValue(tree, anim.index, "rate", &rate);
+    if (count > options) weight = GScr_GetOptionalFloat(options, weight);
+    if (count > options + 1) blend = GScr_GetOptionalFloat(options + 1, blend);
+    if (count > options + 2) rate = GScr_GetOptionalFloat(options + 2, rate);
+    if (!(weight >= 0.0f && blend >= 0.0f && rate >= 0.0f))
+        Scr_Error("animation weight, blend time and rate must be nonnegative", 0);
+    DObj *obj = Com_GetServerDObj(ent->s.number);
+    if (!obj) Scr_ObjectError("No model exists.", SCRIPTINSTANCE_SERVER);
+    const unsigned int notifyType = weight > 0.001f ? 2 : 0;
+    int error;
+    if (all)
+        error = complete
+            ? XAnimSetCompleteGoalWeightKnobAll(obj, anim.index, root.index, weight, blend, rate, notify, notifyType, restart, 0)
+            : XAnimSetGoalWeightKnobAll(obj, anim.index, root.index, weight, blend, rate, notify, notifyType, restart, 0);
+    else if (knob)
+        error = complete
+            ? XAnimSetCompleteGoalWeightKnob(obj, anim.index, weight, blend, rate, notify, notifyType, restart, 0)
+            : XAnimSetGoalWeightKnob(obj, anim.index, weight, blend, rate, notify, notifyType, restart, 0);
+    else
+        error = complete
+            ? XAnimSetCompleteGoalWeight(obj, anim.index, weight, blend, rate, notify, notifyType, restart, 0)
+            : XAnimSetGoalWeight(obj, anim.index, weight, blend, rate, notify, notifyType, restart, 0);
+    if (error) GScr_HandleAnimError(error);
+    G_FlagAnimForUpdate(ent);
+}
+
+static void GScr_SetAnimKnob(scr_entref_t entref) { GScr_SetAnimKnobInternal(entref, false, false); }
+static void GScr_SetAnimKnobRestart(scr_entref_t entref) { GScr_SetAnimKnobInternal(entref, true, false); }
+static void GScr_SetFlaggedAnimKnob(scr_entref_t entref) { GScr_SetAnimKnobInternal(entref, false, true); }
+static void GScr_SetFlaggedAnimKnobRestart(scr_entref_t entref) { GScr_SetAnimKnobInternal(entref, true, true); }
+
+template<bool Restart, bool Flagged, bool Complete, bool All, bool Knob>
+static void GScr_BlendAnimation(scr_entref_t entref)
+{
+    GScr_SetAnimKnobInternal(entref, Restart, Flagged, Complete, All, Knob);
+}
+
+static void GScr_GetAnimTime(scr_entref_t entref)
+{
+    XAnimTree_s *tree = GScr_GetEntAnimTree(GetEntity(entref));
+    const scr_anim_s anim = Scr_GetAnim(0, tree, SCRIPTINSTANCE_SERVER);
+    Scr_AddFloat(XAnimGetTime(tree, anim.index), SCRIPTINSTANCE_SERVER);
+}
+
+namespace
+{
+struct ScriptedAnimation
+{
+    XAnimTree_s *tree = nullptr;
+    unsigned int index = 0;
+    int useCount = 0;
+    float origin[3] = {};
+    float angles[3] = {};
+    ai_animmode_t previousMode = AI_ANIM_UNKNOWN;
+    bool noclip = false;
+};
+ScriptedAnimation scriptedAnimations[1024];
+}
+
+void G_ClearScriptedAnimation(gentity_s *ent)
+{
+    ScriptedAnimation &state = scriptedAnimations[ent->s.number];
+    if (state.tree && state.useCount == ent->useCount && ent->actor)
+        ent->actor->eAnimMode = state.previousMode;
+    state = {};
+}
+
+void G_ClearScriptedAnimations()
+{
+    for (ScriptedAnimation &state : scriptedAnimations) state = {};
+}
+
+static void GScr_AnimScripted(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    if (ent->client)
+        Scr_ObjectError("animscripted requires an actor or animated model", SCRIPTINSTANCE_SERVER);
+    const unsigned int count = Scr_GetNumParam(SCRIPTINSTANCE_SERVER);
+    if (count < 4 || count > 8)
+        Scr_Error("animscripted requires notify, origin, angles, animation and up to four options", 0);
+    XAnimTree_s *tree = GScr_GetEntAnimTree(ent);
+    const unsigned int notify = Scr_GetConstString(0, SCRIPTINSTANCE_SERVER);
+    const scr_anim_s anim = Scr_GetAnim(3, tree, SCRIPTINSTANCE_SERVER);
+    const char *mode = count > 4 && Scr_GetType(4, SCRIPTINSTANCE_SERVER)
+        ? Scr_GetString(4, SCRIPTINSTANCE_SERVER) : "normal";
+    if (strcmp(mode, "normal") && strcmp(mode, "noclip"))
+        Scr_ParamError(4, "animscripted mode must be normal or noclip", SCRIPTINSTANCE_SERVER);
+    const float rate = count > 6 ? GScr_GetOptionalFloat(6, 1.0f) : 1.0f;
+    const float blend = count > 7 ? GScr_GetOptionalFloat(7, 0.2f) : 0.2f;
+    if (!(rate >= 0.0f && blend >= 0.0f))
+        Scr_Error("animation rate and blend time must be nonnegative", 0);
+    DObj *obj = Com_GetServerDObj(ent->s.number);
+    if (!obj) Scr_ObjectError("No model exists.", SCRIPTINSTANCE_SERVER);
+    G_ClearScriptedAnimation(ent);
+    int error;
+    if (count > 5 && Scr_GetType(5, SCRIPTINSTANCE_SERVER))
+        error = XAnimSetCompleteGoalWeightKnobAll(obj, anim.index,
+            Scr_GetAnim(5, tree, SCRIPTINSTANCE_SERVER).index, 1.0f, blend,
+            rate, notify, 2, true, 0);
+    else
+        error = XAnimSetCompleteGoalWeightKnob(obj, anim.index, 1.0f, blend,
+            rate, notify, 2, true, 0);
+    if (error) GScr_HandleAnimError(error);
+    ScriptedAnimation &state = scriptedAnimations[ent->s.number];
+    state.tree = tree;
+    state.index = anim.index;
+    state.useCount = ent->useCount;
+    state.noclip = !strcmp(mode, "noclip");
+    Scr_GetVector(1, state.origin, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(2, state.angles, SCRIPTINSTANCE_SERVER);
+    if (ent->actor)
+    {
+        state.previousMode = ent->actor->eAnimMode;
+        ent->actor->eAnimMode = AI_ANIM_NOPHYSICS;
+    }
+    XAnimSetTime(tree, anim.index, 0.0f, 0);
+    G_FlagAnimForUpdate(ent);
+}
+
+static void GScr_StopAnimScripted(scr_entref_t entref)
+{
+    gentity_s *ent = GetEntity(entref);
+    ScriptedAnimation &state = scriptedAnimations[ent->s.number];
+    if (!state.tree || state.useCount != ent->useCount) return;
+    const float blend = Scr_GetNumParam(SCRIPTINSTANCE_SERVER)
+        ? Scr_GetFloat(0, SCRIPTINSTANCE_SERVER) : 0.2f;
+    if (!(blend >= 0.0f)) Scr_ParamError(0, "blend time must be nonnegative", SCRIPTINSTANCE_SERVER);
+    XAnimClearTreeGoalWeights(state.tree, state.index, blend, 0);
+    G_ClearScriptedAnimation(ent);
+    G_FlagAnimForUpdate(ent);
+}
+
+bool G_UpdateScriptedAnimation(gentity_s *ent)
+{
+    ScriptedAnimation &state = scriptedAnimations[ent->s.number];
+    if (!state.tree) return false;
+    if (state.useCount != ent->useCount || state.tree != G_GetEntAnimTree(ent)
+        || (ent->actor && ent->health <= 0))
+    {
+        G_ClearScriptedAnimation(ent);
+        return false;
+    }
+    const float time = XAnimGetTime(state.tree, state.index);
+    float rot[2], delta[3], origin[3], angles[3], forward[3], right[3], up[3];
+    XAnimGetAbsDelta(state.tree->anims, state.index, rot, delta, time);
+    AngleVectors(state.angles, forward, right, up);
+    for (int i = 0; i < 3; ++i)
+    {
+        origin[i] = state.origin[i] + delta[0] * forward[i] - delta[1] * right[i] + delta[2] * up[i];
+        angles[i] = state.angles[i];
+    }
+    angles[1] += RotationToYaw(rot);
+    if (!state.noclip && ent->clipmask)
+    {
+        trace_t trace;
+        col_context_t context;
+        G_TraceCapsule(&trace, ent->r.currentOrigin, ent->r.mins, ent->r.maxs,
+            origin, ent->s.number, ent->clipmask, &context);
+        for (int i = 0; i < 3; ++i)
+            origin[i] = ent->r.currentOrigin[i] + trace.fraction * (origin[i] - ent->r.currentOrigin[i]);
+    }
+    G_SetOrigin(ent, origin);
+    G_SetAngle(ent, angles);
+    SV_LinkEntity(ent);
+    if (time >= 1.0f) G_ClearScriptedAnimation(ent);
+    return true;
+}
+
 void __cdecl GScr_SetAnimInternal(scr_entref_t entref, char flags)
 {
     unsigned int v2; // [esp+1Ch] [ebp-38h]
@@ -16707,6 +17621,32 @@ void (__cdecl *__cdecl Scr_GetMethod(const char **pName, int *type))(scr_entref_
     void (__cdecl *method)(scr_entref_t); // [esp+0h] [ebp-4h]
 
     *type = 0;
+    if (zombiemode && zombiemode->current.enabled)
+    {
+        // DoSpawn and StalingradSpawn in maps/_utility call the co-op names;
+        // the MP name of the same native spawner operation is spawnactor.
+        if (!strcmp(*pName, "setspawnerteam")) return ScrCmd_SetSpawnerTeam;
+        if (!strcmp(*pName, "getcurrentweaponclipammo")) return GScr_GetCurrentWeaponClipAmmo;
+        if (!strcmp(*pName, "reloadbuttonpressed")) return GScr_ReloadButtonPressed;
+        if (!strcmp(*pName, "getcentroid")) return GScr_GetCentroid;
+        if (!strcmp(*pName, "setdeathcontents")) return GScr_SetDeathContents;
+        if (!strcmp(*pName, "hideviewmodel")) return GScr_SetViewModelVisible<false>;
+        if (!strcmp(*pName, "showviewmodel")) return GScr_SetViewModelVisible<true>;
+        if (!strcmp(*pName, "settransported")) return GScr_SetTransported;
+        if (!strcmp(*pName, "getclosestenemysqdist")) return ScrCmd_GetClosestEnemySqDist;
+        if (!strcmp(*pName, "setengagementmindist")) return ScrCmd_SetEngagementMinDist;
+        if (!strcmp(*pName, "setengagementmaxdist")) return ScrCmd_SetEngagementMaxDist;
+        if (!strcmp(*pName, "codespawnerspawn"))
+        {
+            *pName = "codespawnerspawn";
+            return ScrCmd_SpawnActor;
+        }
+        if (!strcmp(*pName, "codespawnerforcespawn"))
+        {
+            *pName = "codespawnerforcespawn";
+            return ScrCmd_SpawnActor;
+        }
+    }
     method = Player_GetMethod(pName);
     if ( method )
         return method;
@@ -16727,7 +17667,13 @@ void (__cdecl *__cdecl Scr_GetMethod(const char **pName, int *type))(scr_entref_
         return method;
 
     method = BuiltIn_GetMethod(pName, type);
-
+#ifdef KISAK_WEB
+    if (!method)
+    {
+        const int probe = ZombieProbeIndex(pName, type);
+        if (probe >= 0) return zombieProbeMethods[probe];
+    }
+#endif
     return method;
 }
 
@@ -16749,6 +17695,7 @@ BuiltinMethodDef methods_3[] =
   { "getclanid", ScrCmd_GetClanId, 0 },
   { "getclanname", ScrCmd_GetClanName, 0 },
   { "hidepart", ScrCmd_hidepart, 0 },
+  { "useweaponhidetags", ScrCmd_UseWeaponHideTags, 0 },
   { "showpart", ScrCmd_showpart, 0 },
   { "showallparts", ScrCmd_showallparts, 0 },
   { "setvisibletoplayer", ScrCmd_SetVisibleToPlayer, 0 },
@@ -16782,7 +17729,9 @@ BuiltinMethodDef methods_3[] =
   { "istouchingvolume", ScrCmd_IsTouchingVolume, 0 },
   // LWSS END
   { "playsound", ScrCmd_PlaySound, 0 },
+  { "islookingat", ScrCmd_IsLookingAt, 0 },
   { "stopsound", ScrCmd_StopSound, 0 },
+  { "stopsounds", ScrCmd_StopSounds, 0 },
   { "playsoundontag", ScrCmd_PlaySoundOnTag, 0 },
   { "playsoundasmaster", ScrCmd_PlaySound, 0 },
   { "playsoundtoteam", ScrCmd_PlaySoundToTeam, 0 },
@@ -16903,6 +17852,33 @@ BuiltinMethodDef methods_3[] =
   // LWSS END
   { "setanim", GScr_SetAnim, 0 },
   { "setanimtime", GScr_SetAnimTime, 0 },
+  { "clearanim", GScr_ClearAnim, 0 },
+  { "setanimknob", GScr_SetAnimKnob, 0 },
+  { "setanimknobrestart", GScr_SetAnimKnobRestart, 0 },
+  { "setflaggedanimknob", GScr_SetFlaggedAnimKnob, 0 },
+  { "setflaggedanimknobrestart", GScr_SetFlaggedAnimKnobRestart, 0 },
+  { "getanimtime", GScr_GetAnimTime, 0 },
+  { "setanimlimited", GScr_BlendAnimation<false, false, false, false, false>, 0 },
+  { "setanimrestart", GScr_BlendAnimation<true, false, true, false, false>, 0 },
+  { "setflaggedanim", GScr_BlendAnimation<false, true, true, false, false>, 0 },
+  { "setflaggedanimlimited", GScr_BlendAnimation<false, true, false, false, false>, 0 },
+  { "setflaggedanimrestart", GScr_BlendAnimation<true, true, true, false, false>, 0 },
+  { "setanimknoblimited", GScr_BlendAnimation<false, false, false, false, true>, 0 },
+  { "setanimknoball", GScr_BlendAnimation<false, false, true, true, true>, 0 },
+  { "setanimknoballrestart", GScr_BlendAnimation<true, false, true, true, true>, 0 },
+  { "setflaggedanimknoball", GScr_BlendAnimation<false, true, true, true, true>, 0 },
+  { "setflaggedanimknoballrestart", GScr_BlendAnimation<true, true, true, true, true>, 0 },
+  { "animscripted", GScr_AnimScripted, 0 },
+  { "startscriptedanim", GScr_AnimScripted, 0 },
+  { "stopanimscripted", GScr_StopAnimScripted, 0 },
+  { "addaieventlistener", GScr_AddAIEventListener, 0 },
+  { "getlinkedent", GScr_GetLinkedEnt, 0 },
+  { "setexploderid", GScr_SetExploderId, 0 },
+  { "transmittargetname", GScr_TransmitTargetName, 0 },
+  { "setthreatbiasgroup", GScr_SetThreatBiasGroup, 0 },
+  { "getthreatbiasgroup", GScr_GetThreatBiasGroup, 0 },
+  { "getplayerviewheight", GScr_GetPlayerViewHeight, 0 },
+  { "setmaxhealth", GScr_SetMaxHealth, 0 },
   { "useanimtree", GScr_UseAnimTree, 0 },
   { "ismartyrdomgrenade", GScr_IsMartyrdomGrenade, 0 },
   { "getentitynumber", GScr_GetEntityNumber, 0 },
@@ -16942,6 +17918,7 @@ BuiltinMethodDef methods_3[] =
   { "giveachievement", GScr_GiveAchievement, 0 },
   { "setvehicleteam", GScr_SetTeam, 0 },
   { "setteam", GScr_SetTeam, 0 },
+  { "setteamforentity", GScr_SetTeamForEntity, 0 },
   { "getteam", GScr_GetTeam, 0 },
   { "setowner", GScr_SetOwner, 0 },
   { "setturretowner", GScr_SetTurretOwner, 0 },

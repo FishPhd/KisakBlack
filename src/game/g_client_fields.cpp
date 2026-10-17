@@ -30,7 +30,7 @@ const char *g_scoreboardColumnNames[18] =
   "headshots"
 };
 
-const client_fields_s fields[42] =
+const client_fields_s fields[44] =
 {
   {
     "sessionteam",
@@ -177,6 +177,10 @@ const client_fields_s fields[42] =
     ClientScr_ReadOnly,
     ClientScr_GetGroundType
   },
+  // Co-op exposes these as native, zero-initialized scoreboard counters.
+  // Reuse the shared session score storage without changing gclient_s layout.
+  { "downs", 10288, { 4 }, F_INT, 0u, ClientScr_SetDeaths, NULL },
+  { "revives", 10284, { 4 }, F_INT, 0u, ClientScr_SetAssists, NULL },
   { NULL, 0, { 0 }, F_INT, 0u, NULL, NULL }
 };
 
@@ -932,6 +936,8 @@ void __cdecl GScr_AddFieldsForClient()
 
     for ( f = fields; f->name; ++f )
     {
+        if ((!strcmp(f->name, "downs") || !strcmp(f->name, "revives"))
+            && (!zombiemode || !zombiemode->current.enabled)) continue;
         if ( ((f - fields) & 0xC000) != 0
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_client_fields.cpp",
@@ -965,7 +971,7 @@ void __cdecl Scr_SetClientField(gclient_s *client, int offset)
     {
         __debugbreak();
     }
-    if ( (unsigned int)offset >= 0x29
+    if ( (unsigned int)offset >= ARRAY_COUNT(fields) - 1
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_client_fields.cpp",
                     910,
@@ -1005,7 +1011,7 @@ void __cdecl Scr_GetClientField(gclient_s *client, int offset)
     {
         __debugbreak();
     }
-    if ( (unsigned int)offset >= 0x29
+    if ( (unsigned int)offset >= ARRAY_COUNT(fields) - 1
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_client_fields.cpp",
                     941,

@@ -1,4 +1,5 @@
 #include "cg_snapshot_mp.h"
+#include <game_mp/g_actor_anim_bridge.h>
 #include "cg_main_mp.h"
 #include <cgame/cg_scr_main.h>
 #include <clientscript/scr_const.h>
@@ -1129,6 +1130,8 @@ void CG_ResetEntity(int localClientNum, centity_s *cent, int newEntity)
             __debugbreak();
         }
         corpseIndexa = cent->nextState.number - 36;
+        if (corpseIndexa >= 8 || cent->nextState.lerp.u.actor.actorNum >= ARRAY_COUNT(cgameGlob->bgs.actorinfo))
+            return;
         ai = &cgameGlob->bgs.actorinfo[cent->nextState.lerp.u.actor.actorNum];
         cgsa = CG_GetLocalClientStaticGlobals(localClientNum);
         if (corpseIndexa >= 8
@@ -1148,7 +1151,15 @@ void CG_ResetEntity(int localClientNum, centity_s *cent, int newEntity)
         {
             CG_CopyActorCorpseInfo(aiCorpseInfo, ai);
             cgsa->actorCorpseInfo[corpseIndexa].pXAnimTree = pXAnimTreea;
-            XAnimCloneAnimTree(ai->pXAnimTree, pXAnimTreea);
+            if (!G_CopyLocalActorAnimation(cent->nextState.number, cent->nextState.lerp.useCount, pXAnimTreea))
+            {
+                if (pXAnimTreea->anims != ai->pXAnimTree->anims)
+                {
+                    XAnimClearTree(pXAnimTreea);
+                    pXAnimTreea->anims = ai->pXAnimTree->anims;
+                }
+                XAnimCloneAnimTree(ai->pXAnimTree, pXAnimTreea);
+            }
             cent->previousEventSequence = 0;
         }
         else
