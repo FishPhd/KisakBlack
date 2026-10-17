@@ -1242,6 +1242,24 @@ void __cdecl ClientCommand(int clientNum)
     if ( ent->client )
     {
         SV_Cmd_ArgvBuffer(0, cmd, 1024);
+        if (!I_stricmp(cmd, "sndlen"))
+        {
+            // One client supplies voice lengths; guests cannot complete another
+            // player's script sounds. A token is consumed only once by the server.
+            if (clientNum == 0 && SV_Cmd_Argc() == 3)
+            {
+                char tokenText[32], lengthText[32];
+                SV_Cmd_ArgvBuffer(1, tokenText, sizeof(tokenText));
+                SV_Cmd_ArgvBuffer(2, lengthText, sizeof(lengthText));
+                char *tokenEnd, *lengthEnd;
+                const unsigned long token = strtoul(tokenText, &tokenEnd, 10);
+                const unsigned long length = strtoul(lengthText, &lengthEnd, 10);
+                if (*tokenText && !*tokenEnd && *lengthText && !*lengthEnd
+                    && token > 0 && token <= 0x7fffffffUL && length <= 0x7fffffffUL)
+                    G_ReceiveSoundLengthNotify(token, length);
+            }
+            return;
+        }
         if ( I_stricmp(cmd, "say") )
         {
             if ( I_stricmp(cmd, "say_team") )

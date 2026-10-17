@@ -8,6 +8,7 @@
 #include "snd_local.h"
 #include "snd_public_async.h"
 #include <cgame/cg_sound.h>
+#include <client_mp/cl_main_mp.h>
 
 void __cdecl SND_InitCommands()
 {
@@ -794,9 +795,9 @@ void __cdecl SND_NotifyProcess(const snd_notify *cmd)
                 goto LABEL_8;
             break;
         case SND_NOTIFY_LENGTH:
-            //PIXBeginNamedEvent(-1, "CG_ScriptSndLengthNotify");
-            //BLOPS_NULLSUB();
-            //if ( g_DXDeviceThread == GetCurrentThreadId() )
+            if (cmd->context.length.ent & 0x80000000u)
+                CL_AddReliableCommand(0, va("sndlen %u %u", cmd->context.length.ent & 0x7fffffffu,
+                    cmd->context.length.lengthMs));
                 goto LABEL_8;
             break;
         case SND_NOTIFY_PLAYBACK_UPDATE:

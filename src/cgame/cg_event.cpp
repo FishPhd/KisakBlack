@@ -552,6 +552,16 @@ void __cdecl CG_EntityEvent(int localClientNum, centity_s *cent, int event)
                             Com_Printf(9, "playsoundontag could not find dobj for ent %d\n", p_nextState->otherEntityNum);
                         }
                     }
+                    if (event == EV_SOUND_ALIAS_NOTIFY && p_nextState->time2 > 0)
+                    {
+                        const int playback = CG_PlaySoundWithHandle(localClientNum,
+                            p_nextState->otherEntityNum, soundPosition, 0, false, 1.0f,
+                            p_nextState->loopSoundId);
+                        SND_AddLengthNotify(playback,
+                            (const char *)(uintptr_t)(0x80000000u | (unsigned int)p_nextState->time2),
+                            SND_LENGTH_NOTIFY_SCRIPT);
+                        return;
+                    }
                     CG_PlaySound(
                         localClientNum,
                         p_nextState->otherEntityNum,

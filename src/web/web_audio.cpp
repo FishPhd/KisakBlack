@@ -14,11 +14,18 @@
 // same loaded-voice PCM path. Invalid packets refuse the voice without Com_Error.
 //
 // The speaker map in voice->pan is folded to stereo and applied as per-channel
-// gains. Occlusion filters and reverb are not applied; dryLevel still scales the
-// voice. Do not create or resume an AudioContext here.
+// gains. A surround fold (more than two output channels) is clamped to 1 so one
+// voice cannot exceed unity from panning; stereo and mono maps are unchanged.
+// Occlusion filters and reverb are not applied. dryLevel becomes the GainNode
+// value, then voice-bus voices are multiplied by 0.5, announcer-group voices by
+// 0.35, and aliases whose names contain "rocket" or "missile" by 0.4. Alias
+// flag bits 12-13 select the desktop submix: 2 is the voice limiter, every
+// other bus (explosions included) is the world compressor. Both sum into a
+// final limiter before the destination. Do not create or resume an AudioContext here.
 
 #include <sound/snd.h>
 #include <sound/snd_db.h>
+#include <sound/snd_globals.h>
 #include <sound/snd_stream.h>
 #include <sound/snd_utils.h>
 
@@ -29,12 +36,14 @@
 #include <cstdint>
 #include <cstring>
 #include <list>
+#include <mutex>
 #include <new>
 #include <utility>
 #include <vector>
 
 #include <emscripten.h>
 #include <emscripten/heap.h>
+#include <web/web_assets.h>
 
 static bool Web_HeapRange(const void *p, uint64_t size)
 {
@@ -59,6 +68,12 @@ static bool s_streamOpen[kStreamSlots];
 static bool s_streamHeaderReady[kStreamSlots];
 static std::atomic<int> s_streamLive[kStreamSlots];
 static std::atomic<int> s_streamEof[kStreamSlots];
+struct WebVoiceParams
+{
+    int gen = -1, gain = -1, pitch = -1, pan01 = -1, pan23 = -1;
+};
+static WebVoiceParams s_lastVoiceParams[kWebVoices];
+static std::mutex s_voiceParamsMu;
 
 static const LoadedSound *s_failSnd[32];
 static int s_failCount;
@@ -128,6 +143,173 @@ char __cdecl SD_Init()
             slot.pan[3].gain.value = p3 / 1000;
             if (slot.gain) slot.gain.gain.value = gain / 1000;
         }
+        // World bus is snd_master comp*; voice bus is limit*. DynamicsCompressorNode
+        // is unity below its threshold, so the below-threshold dynamo gain M is the
+        // post gain together with compMG / limitMG. M is SND_DspLog/SND_DspExp of
+        // log(TH)*(1/R-1), the truncated series SND_DspDynamo actually runs. The closed
+        // form TH^(1/R-1) is several times larger for a low threshold and would put
+        // full-scale peaks back to unity. The node itself still uses a real log ratio
+        // (clamped to 1..20) and is stereo-linked; attack/release are clamped to 0..1s.
+        // A mix limiter (threshold -1 dB, ratio 20, attack 0) keeps makeup and stacked
+        // voices from hard-clipping the destination. Reverb is not applied.
+        function kisakDspLog(m) {
+            const x = (m - 1) / (m + 1);
+            return x + (x * x * x) / 3;
+        }
+        function kisakDspExp(x) {
+            const x2 = x * x;
+            const x3 = x2 * x;
+            const x4 = x3 * x;
+            const x5 = x4 * x;
+            return 1 + x + x2 / 2 + x3 / 6 + x4 / 24 + x5 / 120;
+        }
+        function kisakBusCurve(enabled, pg, mg, th, ratio, ta, tr) {
+            const curve = {};
+            curve.pre = 1;
+            curve.post = 1;
+            curve.threshold = 0;
+            curve.ratio = 1;
+            curve.attack = 0;
+            curve.release = 0.05;
+            if (!(enabled > 0.0000152879) || !(th > 0.0000152879) || !(ratio > 0.0000152879)) return curve;
+            let thUse = th;
+            if (thUse > 1) thUse = 1;
+            let rNode = ratio;
+            if (rNode < 1) rNode = 1;
+            if (rNode > 20) rNode = 20;
+            let pre = pg;
+            if (!(pre >= 0) || !isFinite(pre)) pre = 1;
+            let m = kisakDspExp(kisakDspLog(thUse) * (1 / ratio - 1));
+            if (!(m > 0) || !isFinite(m) || m > 32) m = 1;
+            let post = mg * m;
+            if (!(post >= 0) || !isFinite(post)) post = 1;
+            let thDb = 20 * Math.log10(thUse);
+            if (thDb < -100) thDb = -100;
+            if (!(thDb <= 0)) thDb = 0;
+            let attack = ta;
+            if (!(attack >= 0) || !isFinite(attack)) attack = 0;
+            if (attack > 1) attack = 1;
+            let release = tr;
+            if (!(release >= 0) || !isFinite(release)) release = 0.05;
+            if (release > 1) release = 1;
+            curve.pre = pre;
+            curve.post = post;
+            curve.threshold = thDb;
+            curve.ratio = rNode;
+            curve.attack = attack;
+            curve.release = release;
+            return curve;
+        }
+        function kisakApplyOneBus(bus, curve) {
+            const prev = bus.curve;
+            if (prev && prev.pre === curve.pre && prev.post === curve.post && prev.threshold === curve.threshold &&
+                prev.ratio === curve.ratio && prev.attack === curve.attack && prev.release === curve.release) return;
+            bus.pre.gain.value = curve.pre;
+            bus.post.gain.value = curve.post;
+            bus.comp.knee.value = 0;
+            bus.comp.threshold.value = curve.threshold;
+            bus.comp.ratio.value = curve.ratio;
+            bus.comp.attack.value = curve.attack;
+            bus.comp.release.value = curve.release;
+            bus.curve = curve;
+        }
+        function kisakApplyBusParams(p) {
+            const buses = Module.kisakBuses;
+            if (!buses || !p) return;
+            const world = (p.have | 0) ? kisakBusCurve(p.cE, p.cPG, p.cMG, p.cT, p.cR, p.cTA, p.cTR)
+                                       : kisakBusCurve(0, 1, 1, 1, 1, 0, 0.05);
+            const voice = (p.have | 0) ? kisakBusCurve(p.lE, p.lPG, p.lMG, p.lT, p.lR, p.lTA, p.lTR)
+                                       : kisakBusCurve(0, 1, 1, 1, 1, 0, 0.05);
+            kisakApplyOneBus(buses.world, world);
+            kisakApplyOneBus(buses.voice, voice);
+        }
+        function kisakMakeDynBus(ctx) {
+            const pre = ctx.createGain();
+            const comp = ctx.createDynamicsCompressor();
+            const post = ctx.createGain();
+            pre.gain.value = 1;
+            post.gain.value = 1;
+            comp.threshold.value = 0;
+            comp.knee.value = 0;
+            comp.ratio.value = 1;
+            comp.attack.value = 0;
+            comp.release.value = 0.05;
+            pre.connect(comp);
+            comp.connect(post);
+            const bus = {};
+            bus.pre = pre;
+            bus.comp = comp;
+            bus.post = post;
+            bus.curve = null;
+            return bus;
+        }
+        function kisakDropBuses() {
+            const buses = Module.kisakBuses;
+            Module.kisakBuses = null;
+            if (!buses) return;
+            try { if (buses.limit) buses.limit.disconnect(); } catch (e) {}
+            try { if (buses.mix) buses.mix.disconnect(); } catch (e) {}
+            try { if (buses.world && buses.world.post) buses.world.post.disconnect(); } catch (e) {}
+            try { if (buses.world && buses.world.comp) buses.world.comp.disconnect(); } catch (e) {}
+            try { if (buses.world && buses.world.pre) buses.world.pre.disconnect(); } catch (e) {}
+            try { if (buses.voice && buses.voice.post) buses.voice.post.disconnect(); } catch (e) {}
+            try { if (buses.voice && buses.voice.comp) buses.voice.comp.disconnect(); } catch (e) {}
+            try { if (buses.voice && buses.voice.pre) buses.voice.pre.disconnect(); } catch (e) {}
+        }
+        function kisakEnsureBuses(ctx) {
+            const cur = Module.kisakBuses;
+            if (cur && cur.ctx === ctx && cur.limit) return cur;
+            kisakDropBuses();
+            const world = kisakMakeDynBus(ctx);
+            const voice = kisakMakeDynBus(ctx);
+            const mix = ctx.createGain();
+            mix.gain.value = 1;
+            const limit = ctx.createDynamicsCompressor();
+            limit.threshold.value = -1;
+            limit.knee.value = 0;
+            limit.ratio.value = 20;
+            limit.attack.value = 0;
+            limit.release.value = 0.05;
+            world.post.connect(mix);
+            voice.post.connect(mix);
+            mix.connect(limit);
+            limit.connect(ctx.destination);
+            const buses = {};
+            buses.ctx = ctx;
+            buses.world = world;
+            buses.voice = voice;
+            buses.mix = mix;
+            buses.limit = limit;
+            Module.kisakBuses = buses;
+            if (Module.kisakBusParams) kisakApplyBusParams(Module.kisakBusParams);
+            return buses;
+        }
+        Module.kisakDropBuses = kisakDropBuses;
+        Module.kisakSetBuses = function(have, cE, cPG, cMG, cT, cR, cTA, cTR, lE, lPG, lMG, lT, lR, lTA, lTR) {
+            try {
+                const p = {};
+                p.have = have | 0;
+                p.cE = cE;
+                p.cPG = cPG;
+                p.cMG = cMG;
+                p.cT = cT;
+                p.cR = cR;
+                p.cTA = cTA;
+                p.cTR = cTR;
+                p.lE = lE;
+                p.lPG = lPG;
+                p.lMG = lMG;
+                p.lT = lT;
+                p.lR = lR;
+                p.lTA = lTA;
+                p.lTR = lTR;
+                Module.kisakBusParams = p;
+                const ctx = Module.kisakAudio || window.kisakAudio;
+                if (!ctx) return;
+                kisakEnsureBuses(ctx);
+                kisakApplyBusParams(p);
+            } catch (e) {}
+        };
         function kisakClearSlot(idx) {
             const nodes = Module.kisakVoiceNodes;
             if (!nodes) return;
@@ -169,7 +351,8 @@ char __cdecl SD_Init()
             }
             const dry = ctx.createGain();
             merger.connect(dry);
-            dry.connect(ctx.destination);
+            const buses = kisakEnsureBuses(ctx);
+            dry.connect(item.voiceBus ? buses.voice.pre : buses.world.pre);
             slot = {};
             slot.gen = item.gen;
             slot.gain = dry;
@@ -226,6 +409,7 @@ char __cdecl SD_Init()
             const cur = Module.kisakVoiceGen[idx] | 0;
             if (gen < cur) return;
             Module.kisakVoiceGen[idx] = gen;
+            if (Module.kisakPendingVoiceUpdates) Module.kisakPendingVoiceUpdates[idx] = null;
             const hold = Module.kisakHold || [];
             const next = [];
             for (let i = 0; i < hold.length; i++) {
@@ -297,9 +481,21 @@ char __cdecl SD_Init()
                 }
             }
         };
-        Module.kisakUpdateVoice = function(idx, gain, pitchMilli, p0, p1, p2, p3) {
+        Module.kisakUpdateVoice = function(idx, gen, gain, pitchMilli, p0, p1, p2, p3) {
             const slot = Module.kisakVoiceNodes && Module.kisakVoiceNodes[idx];
-            if (!slot || !slot.gain) return;
+            if (!slot || slot.gen !== gen || !slot.gain) {
+                if (!Module.kisakPendingVoiceUpdates) Module.kisakPendingVoiceUpdates = new Array(74);
+                const pending = {};
+                pending.gen = gen;
+                pending.gain = gain;
+                pending.pitchMilli = pitchMilli;
+                pending.p0 = p0;
+                pending.p1 = p1;
+                pending.p2 = p2;
+                pending.p3 = p3;
+                Module.kisakPendingVoiceUpdates[idx] = pending;
+                return;
+            }
             kisakApply(slot, gain, p0, p1, p2, p3);
             if (pitchMilli > 0) slot.pitch = pitchMilli / 1000;
             if (slot.paused || !(slot.pitch > 0)) return;
@@ -415,6 +611,12 @@ char __cdecl SD_Init()
                 } else {
                     node.start(startAt);
                 }
+                const pending = Module.kisakPendingVoiceUpdates && Module.kisakPendingVoiceUpdates[item.idx];
+                if (pending && pending.gen === item.gen) {
+                    Module.kisakPendingVoiceUpdates[item.idx] = null;
+                    Module.kisakUpdateVoice(item.idx, pending.gen, pending.gain, pending.pitchMilli,
+                        pending.p0, pending.p1, pending.p2, pending.p3);
+                }
             } catch (e) {
                 if (!keep) kisakFail(item);
             } finally {
@@ -467,6 +669,8 @@ void SD_Shutdown()
     s_failCount = 0;
     MAIN_THREAD_ASYNC_EM_ASM({
         if (Module.kisakAudioBuffers) Module.kisakAudioBuffers.clear();
+        if (Module.kisakDropBuses) Module.kisakDropBuses();
+        Module.kisakBusParams = null;
     });
 }
 
@@ -485,10 +689,31 @@ void __cdecl SD_PreUpdate()
 {
     if (!s_inited)
         return;
+    const snd_master *master = g_snd.global_constants ? SND_GetMasterCurrent() : nullptr;
+    float compE = 0.f, compPG = 1.f, compMG = 1.f, compT = 1.f, compR = 1.f, compTA = 0.f, compTR = 0.05f;
+    float limitE = 0.f, limitPG = 1.f, limitMG = 1.f, limitT = 1.f, limitR = 1.f, limitTA = 0.f, limitTR = 0.05f;
+    if (master)
+    {
+        compE = master->compE;
+        compPG = master->compPG;
+        compMG = master->compMG;
+        compT = master->compT;
+        compR = master->compR;
+        compTA = master->compTA;
+        compTR = master->compTR;
+        limitE = master->limitE;
+        limitPG = master->limitPG;
+        limitMG = master->limitMG;
+        limitT = master->limitT;
+        limitR = master->limitR;
+        limitTA = master->limitTA;
+        limitTR = master->limitTR;
+    }
     // clang-format off
     MAIN_THREAD_ASYNC_EM_ASM({
+        if (Module.kisakSetBuses) Module.kisakSetBuses($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
         if (Module.kisakFlushHold) Module.kisakFlushHold();
-    });
+    }, master ? 1 : 0, compE, compPG, compMG, compT, compR, compTA, compTR, limitE, limitPG, limitMG, limitT, limitR, limitTA, limitTR);
     // clang-format on
 }
 
@@ -568,7 +793,58 @@ static int Web_PanMilli(const snd_voice_t *voice, int inCh, int side, int channe
     const int n = outCount < 8 ? outCount : 8;
     for (int out = 0; out < n; ++out)
         sum += Snd_SpeakerMapGetVolume(&voice->pan, inCh, out) * w[out];
+    // Several speakers can land in one ear. Cap the fold at unity. Stereo
+    // (outCount == 2) and mono return above and stay at their speaker volumes.
+    if (sum > 1.f)
+        sum = 1.f;
     return Web_GainMilli(sum);
+}
+
+// Bits 12-13 == 2 is the desktop voice bus. Web_AliasBusFlags returns 8 for it.
+static bool Web_AliasIsVoiceBus(const snd_alias_t *alias)
+{
+    return alias && ((alias->flags & 0x3000u) >> 12) == 2u;
+}
+
+static bool Web_AliasNameContains(const snd_alias_t *alias, const char *needle)
+{
+    return alias && alias->name && needle && I_stristr(alias->name, needle) != nullptr;
+}
+
+// g_snd.announcerGroup stays 0 when SND_InitGroups never finds "voice_announcer".
+// Confirm the name so that unset index does not quiet whatever group 0 is.
+static bool Web_VoiceIsAnnouncer(const snd_voice_t *voice)
+{
+    if (!voice || voice->group < 0 || (unsigned)voice->group != g_snd.announcerGroup)
+        return false;
+    const SndDriverGlobals *globals = g_snd.global_constants;
+    if (!globals || !globals->groups || (unsigned)voice->group >= globals->groupCount)
+        return false;
+    return I_stricmp(globals->groups[voice->group].name, "voice_announcer") == 0;
+}
+
+// Announcer is a voice-bus group, so 0.35 replaces the generic voice-bus 0.5.
+// Rocket and missile aliases are scaled on top of that. World-bus gunshots are not.
+static float Web_DryGainScale(const snd_voice_t *voice)
+{
+    float scale = 1.f;
+    if (!voice)
+        return scale;
+    const snd_alias_t *alias = voice->alias;
+    if (Web_VoiceIsAnnouncer(voice))
+        scale = 0.35f;
+    else if (Web_AliasIsVoiceBus(alias))
+        scale = 0.5f;
+    if (Web_AliasNameContains(alias, "rocket") || Web_AliasNameContains(alias, "missile"))
+        scale *= 0.4f;
+    return scale;
+}
+
+static int Web_DryGainMilli(const snd_voice_t *voice)
+{
+    if (!voice)
+        return 0;
+    return Web_GainMilli(voice->dryLevel * Web_DryGainScale(voice));
 }
 
 static void Web_VoicePan(const snd_voice_t *voice, int channels, int pan[4])
@@ -588,12 +864,24 @@ static int Web_BumpGen(unsigned voice)
     return gen;
 }
 
+// Bit 3 is the desktop voice bus ((alias flags & 0x3000) >> 12) == 2. Other buses,
+// including explosions, stay on the world compressor. Loop, stream, and pause keep bits 0-2.
+static int Web_AliasBusFlags(int voice)
+{
+    if (voice < 0 || voice >= kWebVoices)
+        return 0;
+    if (Web_AliasIsVoiceBus(g_snd.voice[voice].alias))
+        return 8;
+    return 0;
+}
+
 static void Web_QueuePcm(int voice, int gen, int rate, int channels, int frames, int16_t *copy, int cacheKey, int gainMilli,
                           int loop, int pitchMilli, const int pan[4], int stream)
 {
     const int pan01 = (pan[0] & 0xffff) | ((pan[1] & 0xffff) << 16);
     const int pan23 = (pan[2] & 0xffff) | ((pan[3] & 0xffff) << 16);
-    const int flags = (loop ? 1 : 0) | (stream ? 2 : 0) | ((voice >= 0 && g_snd.voice[voice].paused) ? 4 : 0);
+    const int flags = (loop ? 1 : 0) | (stream ? 2 : 0) | ((voice >= 0 && g_snd.voice[voice].paused) ? 4 : 0) |
+                      Web_AliasBusFlags(voice);
     // clang-format off
     MAIN_THREAD_ASYNC_EM_ASM({
         const pan01 = $10 | 0;
@@ -611,6 +899,7 @@ static void Web_QueuePcm(int voice, int gen, int rate, int channels, int frames,
         item.loop = (flags & 1) !== 0;
         item.stream = (flags & 2) !== 0;
         item.paused = (flags & 4) !== 0;
+        item.voiceBus = (flags & 8) !== 0;
         item.pitch = $9 | 0;
         item.p0 = pan01 & 65535;
         item.p1 = (pan01 >>> 16) & 65535;
@@ -642,7 +931,7 @@ void __cdecl SD_UpdateVoice(unsigned int voiceIndex)
     if (g_snd.voiceAliasHash[voiceIndex])
     {
         snd_voice_t *voice = &g_snd.voice[voiceIndex];
-        const int gainMilli = Web_GainMilli(voice->dryLevel);
+        const int gainMilli = Web_DryGainMilli(voice);
         const int pitchMilli = Web_PitchMilli(voice);
         int channels = voice->soundFileInfo.srcChannelCount;
         if (channels != 1 && channels != 2)
@@ -651,14 +940,27 @@ void __cdecl SD_UpdateVoice(unsigned int voiceIndex)
         Web_VoicePan(voice, channels, pan);
         const int pan01 = (pan[0] & 0xffff) | ((pan[1] & 0xffff) << 16);
         const int pan23 = (pan[2] & 0xffff) | ((pan[3] & 0xffff) << 16);
+        const int updateGen = s_voiceGen[voiceIndex].load(std::memory_order_acquire);
+        bool changed;
+        {
+            std::lock_guard<std::mutex> lock(s_voiceParamsMu);
+            WebVoiceParams &last = s_lastVoiceParams[voiceIndex];
+            changed = last.gen != updateGen || last.gain != gainMilli || last.pitch != pitchMilli ||
+                last.pan01 != pan01 || last.pan23 != pan23;
+            if (changed)
+                last = {updateGen, gainMilli, pitchMilli, pan01, pan23};
+        }
+        if (changed)
+        {
         // clang-format off
         MAIN_THREAD_ASYNC_EM_ASM({
             if (!Module.kisakUpdateVoice) return;
-            const pan01 = $3 | 0;
-            const pan23 = $4 | 0;
-            Module.kisakUpdateVoice($0 | 0, $1 | 0, $2 | 0, pan01 & 65535, (pan01 >>> 16) & 65535, pan23 & 65535, (pan23 >>> 16) & 65535);
-        }, (int)voiceIndex, gainMilli, pitchMilli, pan01, pan23);
+            const pan01 = $4 | 0;
+            const pan23 = $5 | 0;
+            Module.kisakUpdateVoice($0 | 0, $1 | 0, $2 | 0, $3 | 0, pan01 & 65535, (pan01 >>> 16) & 65535, pan23 & 65535, (pan23 >>> 16) & 65535);
+        }, (int)voiceIndex, updateGen, gainMilli, pitchMilli, pan01, pan23);
         // clang-format on
+        }
     }
     const int gen = s_voiceGen[voiceIndex].load(std::memory_order_acquire);
     const int ended = s_voiceEndedGen[voiceIndex].exchange(0, std::memory_order_acq_rel);
@@ -1260,7 +1562,7 @@ static void Web_PumpStream(unsigned voice)
         Web_VoicePan(sv, (int)header->channel_count, pan);
         s_streamLive[voice].fetch_add(1, std::memory_order_acq_rel);
         Web_QueuePcm((int)voice, gen, (int)header->frame_rate, (int)header->channel_count, (int)frames, copy, 0,
-                     Web_GainMilli(sv->dryLevel), 0, Web_PitchMilli(sv), pan, 1);
+                     Web_DryGainMilli(sv), 0, Web_PitchMilli(sv), pan, 1);
         (void)position;
     }
 }
@@ -1271,6 +1573,11 @@ int __cdecl SD_StartAlias(SndStartAliasInfo *info, unsigned int voice)
         return -1;
     if (voice >= (unsigned)kWebVoices)
         return -1;
+    struct AudioWork {
+        const char *name;
+        double began = emscripten_get_now();
+        ~AudioWork() { Web_ReportAssetWork("audio-start-decode", name, began); }
+    } work{info->alias->name};
     const int id = info->playbackId ? info->playbackId : 1;
     SoundFile *file = info->alias->soundFile;
     if (file->type != 1)
@@ -1417,7 +1724,7 @@ int __cdecl SD_StartAlias(SndStartAliasInfo *info, unsigned int voice)
         pan[0] = 1000;
         pan[1] = 1000;
     }
-    const int gainMilli = Web_GainMilli(g_snd.voice[voice].dryLevel);
+    const int gainMilli = Web_DryGainMilli(&g_snd.voice[voice]);
     const int pitchMilli = Web_PitchMilli(&g_snd.voice[voice]);
     const int gen = Web_BumpGen(voice);
     Web_QueuePcm((int)voice, gen, (int)rate, (int)channels, (int)frames, copy, (int)(intptr_t)ls, gainMilli, looping ? 1 : 0,
