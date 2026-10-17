@@ -1,4 +1,13 @@
+import {rendererForLaunch, scheduleRendererRecovery, clearRendererRecovery, rendererFailure} from './renderer-recovery.js';
 import { GameTransport } from "./transport.js";
+import { startGpuRecipeCache } from "./gpu-cache.js";
+import {preparationMode, residentStaticImages, pipelineNostall, preparationReadiness, preparationMessage} from './gpu-preparation.js';
+import { mouseButtonChanges, nextMouseMask } from "./mouse-buttons.js";
+import { gamepadPoller } from "./gamepad.js";
+import { fitResolution, savedSettings, graphicsBootSettings, fullscreenSync } from "./graphics-settings.js";
+import {installationEntries, verifyStream, digest, receiptMatches, verificationReceipt, assetNetworkGuard} from './asset-install.js';
+import {HitchDiagnostics} from './hitch-diagnostics.js';
+import {loadCatalog, openCatalogStore} from './gpu-preparation.js';
 // Page shell for the KisakBlack browser dedicated server.
 //
 //  1. Imports the game files the server needs into OPFS (origin private file system), once.
@@ -16,9 +25,12 @@ import { GameTransport } from "./transport.js";
 //
 // URL parameters: gen, assets, mode=lazy|bulk, args="<engine command line>", autostart, bots=<n>,
 // refresh (force a full manifest download; otherwise the boot revalidates with the server ETag).
+// /zombies uses this same module. web/zombies.html calls bootZombies(), which adds --zombies to the
+// Play client args and does not pass a map. Play on / does not pass --zombies.
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
+if (params.get('bestCase') === '1') for (const [key,value] of Object.entries({mode:'all',preparation:'full',renderer:'webgpu',assetNetwork:'block'})) params.set(key,value);
 let agentEnabled = false;
 if (params.get("agent") === "1") {
   try {
@@ -41,8 +53,9 @@ if (!guestProfile || !/^[a-f0-9]{32}$/.test(guestProfile)) {
 }
 
 const cfg = {
-  gen: new URL(params.get("gen") || "./gen/", location.href).href.replace(/\/?$/, "/"),
-  assets: new URL(params.get("assets") || "./assets/", location.href).href.replace(/\/?$/, "/"),
+  // Root-absolute defaults. /zombies and /zombies/ must resolve the same /gen and /assets as /.
+  gen: new URL(params.get("gen") || "/gen/", location.href).href.replace(/\/?$/, "/"),
+  assets: new URL(params.get("assets") || "/assets/", location.href).href.replace(/\/?$/, "/"),
   mode: params.get("mode") || "lazy",
   args: params.get("args") || "+set sv_maxclients 12 +set g_gametype tdm +map mp_nuked",
   autostart: params.has("autostart"),
@@ -61,10 +74,52 @@ const state = {
   transferred: 0, // bytes copied into OPFS during this page load
   log: [],
   records: [],
+  verifiedThisPage: new Set(),
   timings: { pageOpen: 0 },
   phase: "page",
+  party: { phase: "", map: "", gametype: "", roster: [] },
+  partyPhase: "lobby",
   engine: null,
+  perf: { files: [], loose: [], fastfiles: [], frameIntervals: [], presentMs: [], renderIntervals: [], copyMs: [],
+    mapTransitions: [], mapPrefetch: [], renderFps: [], visibilityChanges: 0 },
 };
+const epochNow = () => performance.timeOrigin + performance.now();
+const hitchDiagnostics = new HitchDiagnostics();
+let bestCaseAssetLock = false;
+const checkAssetNetwork = assetNetworkGuard({enabled: params.get('assetNetwork') === 'block',
+  gameplay: () => bestCaseAssetLock || state.engine?.connection === 10 && !state.preparation?.active,
+  now: epochNow, record: event => { hitchDiagnostics.event(event); if (event.blocked) log(`Unexpected gameplay asset request: ${event.path}`, 'err'); }});
+state.hitchReport = () => ({...hitchDiagnostics.report(), renderer: state.rendererBackend,
+  readiness:preparationReadiness({installation:state.installation,catalog:state.catalog,preparation:state.preparation,renderer:state.rendererBackend}),
+  preparation: state.preparation, rendererFailure:state.rendererFailure, catalog: state.catalog, catalogHistory: state.catalogHistory, installation: state.installation,
+  memory:state.perf.memoryHighWater,
+  assetNetwork: params.get('assetNetwork') || 'allow', assetNetworkCounters:{...checkAssetNetwork.counters}, events: hitchDiagnostics.events});
+state.retryWebGPU = () => { clearRendererRecovery(sessionStorage); const url = new URL(location.href); url.searchParams.delete('gpuRecovery'); url.searchParams.set('renderer', 'webgpu'); location.href = url.href; };
+state.bestCase = () => { const url = new URL(location.href); for (const [key,value] of Object.entries({mode:'all',bestCase:'1',preparation:'full',renderer:'webgpu',assetNetwork:'block'})) url.searchParams.set(key,value); location.href=url.href; };
+state.downloadEverything = () => { const url = new URL(location.href); url.searchParams.set('mode', 'all'); location.href = url.href; };
+function showRendererRetry() {
+  const reason=sessionStorage.getItem('kisak-webgpu-failure');
+  let panel=$('renderer-recovery');
+  if (!reason) { panel?.remove(); return; }
+  if (!panel) {
+    panel=document.createElement('aside'); panel.id='renderer-recovery'; panel.setAttribute('role','status');
+    Object.assign(panel.style,{position:'absolute',top:'12px',right:'12px',zIndex:'10',maxWidth:'320px',
+      padding:'12px',background:'#292014f2',border:'1px solid #80643d',borderRadius:'6px',color:'#eee',fontSize:'14px'});
+    const text=document.createElement('div'); text.id='renderer-recovery-message';panel.appendChild(text);
+    const details=document.createElement('details'),summary=document.createElement('summary'),error=document.createElement('pre');
+    summary.textContent='Failure details';error.id='renderer-recovery-reason';
+    Object.assign(error.style,{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:'160px',overflow:'auto'});
+    details.append(summary,error);panel.appendChild(details);
+    const button=document.createElement('button'); button.id='retry-webgpu'; button.textContent='Retry WebGPU';
+    button.onclick=state.retryWebGPU;
+    panel.appendChild(button);($('stage') || document.body).appendChild(panel);
+  }
+  panel.hidden=!(state.rendererFallback || state.rendererBackend==='webgl2' && params.get('renderer')!=='webgl2');
+  $('renderer-recovery-message').textContent=state.rendererBackend==='webgl2' ? 'Using WebGL after a WebGPU failure.' : 'WebGPU stopped.';
+  $('renderer-recovery-reason').textContent=reason;$('retry-webgpu').title=reason;
+}
+showRendererRetry();
+document.addEventListener("visibilitychange", () => { state.perf.visibilityChanges++; });
 const mark = (name) => { state.phase = name; state.timings[name] ??= performance.now(); };
 window.kisak = state; // for tests and the console
 
@@ -97,7 +152,11 @@ function log(text, cls) {
   pendingLog.push({ text, cls });
   if (pendingLog.length > 3000) pendingLog.splice(0, pendingLog.length - 3000);
   if (!logTimer) logTimer = setTimeout(flushLog, 50);
-  if (/^\s*(wasm trap:|crash:|Aborted\(|Com_ERROR:|ERROR:)/.test(text)) {
+  const optionalDevGui = /^\s*ERROR: Could not open 'devgui_[^']+\.cfg'/.test(text);
+  // Image_LoadFromFile reports missing/truncated images as recoverable load
+  // failures and substitutes the default texture. Keep these diagnostics.
+  const recoverableImage = /^\s*ERROR: image '[^']+' is (?:truncated\.|missing\s*$)/.test(text);
+  if (!optionalDevGui && !recoverableImage && /^\s*(wasm trap:|crash:|Aborted\(|Com_ERROR:|ERROR:)/.test(text)) {
     state.crash = String(text).slice(0, 8192);
     saveDiagnostics();
   }
@@ -175,6 +234,69 @@ async function writeRootText(name, text) {
   await w.close();
 }
 
+// Key bindings and the look settings live in the profile's config_mp.cfg (OPFS). localStorage
+// keeps a copy so a cleared or evicted profile can be put back before the engine starts.
+const controlsKey = (cfg.join ? "kisak.controls:" + guestProfile : "kisak.controls") + (useZombiesArgs() ? ":zombies" : "");
+const controlsParts = () => {
+  const parts = ["profile"];
+  if (useZombiesArgs()) parts.push("zombies");
+  if (cfg.join) parts.push("guests", guestProfile);
+  parts.push("players", "config_mp.cfg");
+  return parts;
+};
+
+async function readControlsFile() {
+  try {
+    const parts = controlsParts();
+    const name = parts.pop();
+    const file = await (await (await dirHandle(parts, false)).getFileHandle(name)).getFile();
+    return { text: await file.text(), mtime: file.lastModified || 0 };
+  } catch {
+    return null;
+  }
+}
+
+async function writeControlsFile(text) {
+  const parts = controlsParts();
+  const name = parts.pop();
+  const handle = await (await dirHandle(parts, true)).getFileHandle(name, { create: true });
+  const writable = await handle.createWritable();
+  await writable.write(text);
+  await writable.close();
+}
+
+async function syncControls() {
+  const saved = localStorage.getItem(controlsKey);
+  const savedAt = Number(localStorage.getItem(controlsKey + ":at") || 0);
+  const current = await readControlsFile();
+  if (saved && saved.includes("unbindall") && (!current || savedAt > current.mtime + 1000)) {
+    await writeControlsFile(saved);
+    log("controls: restored bindings from local storage");
+    return;
+  }
+  if (current && current.text.includes("unbindall") && current.text !== saved) {
+    localStorage.setItem(controlsKey, current.text);
+    localStorage.setItem(controlsKey + ":at", String(current.mtime || Date.now()));
+  }
+}
+
+async function mirrorControls() {
+  try {
+    const current = await readControlsFile();
+    if (!current || !current.text.includes("unbindall") || current.text === localStorage.getItem(controlsKey)) return;
+    localStorage.setItem(controlsKey, current.text);
+    localStorage.setItem(controlsKey + ":at", String(current.mtime || Date.now()));
+  } catch { /* The engine may be writing the same file. The next pass retries. */ }
+}
+
+let controlsMirror = 0;
+function watchControls() {
+  if (controlsMirror) return;
+  const tick = () => { mirrorControls(); };
+  controlsMirror = setInterval(tick, 2000);
+  window.addEventListener("pagehide", tick);
+}
+
 // ---------------------------------------------------------------- sources
 
 async function childCI(dir, name) {
@@ -185,6 +307,7 @@ async function childCI(dir, name) {
 async function openSource(entry) {
   const base = entry.path.split("/").map(encodeURIComponent);
   if (entry.gen) {
+    checkAssetNetwork(entry.path, 'generated');
     const r = await fetch(cfg.gen + base[base.length - 1]);
     if (!r.ok) throw new Error(`${entry.path}: HTTP ${r.status} from ${cfg.gen}`);
     return r.body;
@@ -196,6 +319,7 @@ async function openSource(entry) {
     for (const p of parts) d = await childCI(d, p);
     return (await (await childCI(d, name)).getFile()).stream();
   }
+  checkAssetNetwork(entry.path, 'asset');
   const r = await fetch(cfg.assets + base.join("/"));
   if (!r.ok) throw new Error(`${entry.path}: HTTP ${r.status} from ${cfg.assets}`);
   return r.body;
@@ -214,7 +338,9 @@ function bump(n, ui) {
 }
 
 async function copyEntry(entry, ui) {
+  const started = performance.now();
   const stream = await openSource(entry);
+  const sourceReady = performance.now();
   const parts = opfsParts(entry.path);
   const name = parts.pop();
   const dir = await dirHandle(parts, true);
@@ -224,7 +350,11 @@ async function copyEntry(entry, ui) {
   const reader = stream.getReader();
   let written = 0;
   try {
-    for (;;) {
+    if (entry.hashes) {
+      // Release the reader acquired below before verifyStream takes ownership.
+      reader.releaseLock();
+      written = await verifyStream(stream, entry, bytes => w.write(bytes), n => bump(n, ui));
+    } else for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       await w.write(value);
@@ -233,6 +363,15 @@ async function copyEntry(entry, ui) {
     }
     if (written !== entry.size) throw new Error(`${entry.path}: got ${written} bytes, expected ${entry.size}`);
     await w.close();
+    if (entry.hashes) {
+      const file = await (await dir.getFileHandle(name)).getFile();
+      state.assetReceipts[entry.path.toLowerCase()] = verificationReceipt(entry, file);
+      await saveAssetReceipts();
+    }
+    state.perf.files.push({ path: entry.path, bytes: written, sourceMs: sourceReady - started,
+      transferAndWriteMs: performance.now() - sourceReady });
+    hitchDiagnostics.event({kind:'asset-transfer', path:entry.path, bytes:written,
+      at:performance.timeOrigin + started, end:epochNow()});
   } catch (e) {
     await w.abort().catch(() => {});
     throw e;
@@ -240,6 +379,15 @@ async function copyEntry(entry, ui) {
 }
 
 const inflight = new Map();
+let prefetchQueue = [], prefetchActive = 0, prefetchTimer = 0;
+function pumpPrefetch() {
+  while (prefetchActive < 3 && prefetchQueue.length) {
+    const entry = prefetchQueue.shift();
+    ++prefetchActive;
+    ensureEntry(entry, false).catch((err) => log(`prefetch ${entry.path}: ${err.message}`, "err"))
+      .finally(() => { --prefetchActive; pumpPrefetch(); });
+  }
+}
 
 // Chrome will not start audio until resume() runs inside a user gesture. The engine
 // creates the context while the page is booting (no gesture), queues menu sounds on it,
@@ -271,7 +419,9 @@ function ensureEntry(entry, ui = true) {
   let p = inflight.get(key);
   if (!p) {
     p = (async () => {
-      if ((await opfsSize(entry.path)) === entry.size) return;
+      if ((await opfsSize(entry.path)) === entry.size) {
+        if (!entry.hashes || await verifiedLocalEntry(entry)) return;
+      }
       await copyEntry(entry, ui);
     })();
     inflight.set(key, p);
@@ -282,7 +432,7 @@ function ensureEntry(entry, ui = true) {
 
 async function importSet(entries, label) {
   const missing = [];
-  for (const e of entries) if ((await opfsSize(e.path)) !== e.size) missing.push(e);
+  for (const e of entries) if ((await opfsSize(e.path)) !== e.size || (e.hashes && !await verifiedLocalEntry(e))) missing.push(e);
   if (!missing.length) return 0;
   progress = { total: missing.reduce((a, e) => a + e.size, 0), done: 0, label };
   log(`${label}: ${missing.length} file(s), ${mb(progress.total)} MB`);
@@ -290,9 +440,84 @@ async function importSet(entries, label) {
   const worker = async () => {
     while (next < missing.length) await ensureEntry(missing[next++]);
   };
-  await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+  // Let every writer finish/abort before reporting failure or starting a retry.
+  const results = await Promise.allSettled(Array.from({length: cfg.mode === 'all' ? 3 : 6}, worker));
+  const failed = results.find(r => r.status === 'rejected');
+  if (failed) throw failed.reason;
   setBar(1);
   return progress.total;
+}
+
+let receiptWrites = Promise.resolve();
+function saveAssetReceipts() {
+  receiptWrites = receiptWrites.catch(() => {}).then(() => writeRootText('asset-verification.json', JSON.stringify(state.assetReceipts)));
+  return receiptWrites;
+}
+async function verifiedLocalEntry(entry) {
+  try {
+    const parts = opfsParts(entry.path), name = parts.pop();
+    const file = await (await (await dirHandle(parts, false)).getFileHandle(name)).getFile();
+    const key = entry.path.toLowerCase();
+    if ((params.get('assetVerify') !== '1' || state.verifiedThisPage.has(key)) && receiptMatches(state.assetReceipts[key], entry, file)) return true;
+    setStatus(`Verifying ${entry.path}…`);
+    await verifyStream(file.stream(), entry);
+    state.assetReceipts[key] = verificationReceipt(entry, file);
+    state.verifiedThisPage.add(key);
+    await saveAssetReceipts();
+    return true;
+  } catch { return false; }
+}
+async function fullInstallation(manifest) {
+  const ref = manifest.installation;
+  if (ref?.version !== 1 || ref.path !== 'installation.json' || !/^[a-f0-9]{64}$/.test(ref.sha256))
+    throw new Error('Full installation inventory missing. Run gen_manifest.py --inventory-only for this install.');
+  setStatus('Reading full installation inventory…');
+  let data = await readRootText('installation.json');
+  if (!data || await digest(new TextEncoder().encode(data)) !== ref.sha256) {
+    const response = await fetch(new URL(ref.path, cfg.gen));
+    if (!response.ok) throw new Error(`Installation inventory: HTTP ${response.status}`);
+    data = await response.text();
+    if (await digest(new TextEncoder().encode(data)) !== ref.sha256) throw new Error('Installation inventory checksum mismatch');
+    await writeRootText('installation.json', data);
+  }
+  const inventory = JSON.parse(data), entries = installationEntries(inventory);
+  const superseded = new Set((inventory.superseded || []).map(p => p.toLowerCase()));
+  for (const name of superseded) {
+    if (!/^main\/(iw_web(?:_client|_zombies|_map_[a-z0-9_]+)?|localized_[a-z_]+_web)\.iwd$/.test(name))
+      throw new Error('Invalid superseded pack');
+    const parts = opfsParts(name), file = parts.pop();
+    try { await (await dirHandle(parts, false)).removeEntry(file); } catch (error) { if (error.name !== 'NotFoundError') throw error; }
+    state.byKey.delete(name);
+  }
+  state.supersededPacks = superseded;
+  let missingBytes = 0;
+  for (const e of entries) if (await opfsSize(e.path) !== e.size) missingBytes += e.size;
+  const estimate = await navigator.storage.estimate();
+  if (Number.isFinite(estimate.quota) && estimate.quota - (estimate.usage || 0) < missingBytes + 64 * 1024 * 1024)
+    throw new Error(`Full installation needs ${mb(missingBytes)} MB more; browser storage has ${mb(estimate.quota - (estimate.usage || 0))} MB free.`);
+  state.installation = {status:'installing', files:entries.length, bytes:inventory.bytes, missingBytes, excluded:inventory.excluded};
+  for (const e of entries) state.byKey.set(e.path.toLowerCase(), e);
+  return entries;
+}
+async function restoreFullInstallation(manifest) {
+  try {
+    const saved = JSON.parse(await readRootText('installation-state.json') || 'null');
+    if (!saved || saved.sha256 !== manifest.installation?.sha256) return;
+    const text = await readRootText('installation.json');
+    if (!text || await digest(new TextEncoder().encode(text)) !== saved.sha256) return;
+    const inventory = JSON.parse(text), entries = installationEntries(inventory);
+    for (const entry of entries) {
+      const parts = opfsParts(entry.path), name = parts.pop();
+      const file = await (await (await dirHandle(parts, false)).getFileHandle(name)).getFile();
+      if (!receiptMatches(state.assetReceipts[entry.path.toLowerCase()], entry, file)) return;
+    }
+    state.installationEntries = entries;
+    state.supersededPacks = new Set((inventory.superseded || []).map(p=>p.toLowerCase()));
+    for (const key of state.supersededPacks) state.byKey.delete(key);
+    for (const entry of entries) state.byKey.set(entry.path.toLowerCase(), entry);
+    state.installation = {status:'complete',files:entries.length,bytes:inventory.bytes,missingBytes:0,excluded:inventory.excluded,reused:true,downloaded:true,validated:true,compiledOnDevice:false,coverageVerified:false};
+    log(`Using verified full installation: ${entries.length} files, ${mb(inventory.bytes)} MB.`);
+  } catch { /* Changed or evicted installations fall back to the normal importer. */ }
 }
 
 // ---------------------------------------------------------------- manifest
@@ -319,18 +544,19 @@ async function loadManifest() {
   }
   const m = JSON.parse(text);
   state.byKey.clear();
-  const c = m.client || { boot: [], maps: {} };
+  const c = (useZombiesArgs() ? m.zombies : m.client) || { boot: [], maps: {} };
   for (const e of [...m.boot, ...c.boot, ...Object.values(m.maps).flat(), ...Object.values(c.maps).flat()]) state.byKey.set(e.path.toLowerCase(), e);
   return m;
 }
 
 // The engine reads this to know which files it may ask for (Web_RemoteKnown / Web_EnsureFile).
 async function writeManifestTxt(m) {
-  const c = m.client || { boot: [], maps: {} };
+  const c = (useZombiesArgs() ? m.zombies : m.client) || { boot: [], maps: {} };
   const seen = new Set();
   let t = "";
   const add = (e, map) => {
     const k = e.path.toLowerCase();
+    if (state.supersededPacks?.has(k)) return;
     if (seen.has(k)) return;
     seen.add(k);
     t += `${e.path}\t${e.size}\t${map}\n`;
@@ -339,6 +565,7 @@ async function writeManifestTxt(m) {
   for (const e of c.boot) add(e, "");
   for (const [map, es] of Object.entries(m.maps)) for (const e of es) add(e, map);
   for (const [map, es] of Object.entries(c.maps)) for (const e of es) add(e, map);
+  if (state.installationEntries) for (const e of state.installationEntries) add(e, '@installation');
   await writeRootText("manifest.txt", t);
 }
 
@@ -354,8 +581,10 @@ function kisakEnsureLoose(rel) {
   let p = inflight.get("loose:" + key);
   if (!p) {
     p = (async () => {
+      const started = performance.now();
       if ((await opfsSize(key)) > 0) return;
-      const r = await fetch(new URL("pack/" + pack.split("/").map(encodeURIComponent).join("/"), location.href));
+      checkAssetNetwork(key, 'loose');
+      const r = await fetch(new URL("/pack/" + pack.split("/").map(encodeURIComponent).join("/"), location.href));
       if (!r.ok) throw new Error(`${pack}: HTTP ${r.status}`);
       const parts = opfsParts(key);
       const name = parts.pop();
@@ -364,6 +593,8 @@ function kisakEnsureLoose(rel) {
       try {
         await w.write(await r.arrayBuffer());
         await w.close();
+        state.perf.loose.push({ path: key, ms: performance.now() - started });
+        hitchDiagnostics.event({kind:'loose-transfer',path:key,at:performance.timeOrigin + started,end:epochNow()});
       } catch (e) {
         await w.abort().catch(() => {});
         throw e;
@@ -394,12 +625,23 @@ function kisakEnsureFile(relLower) {
 }
 
 // Next map in the rotation: start copying its files now so the map change finds them local.
-function kisakPrefetchMap(map) {
+function kisakPrefetchMap(map, immediate = false) {
   const key = map.toLowerCase();
-  const files = [...((state.manifest?.maps || {})[key] || []), ...((state.manifest?.client?.maps || {})[key] || [])];
+  const clientSet = useZombiesArgs() ? state.manifest?.zombies : state.manifest?.client;
+  const files = [...((state.manifest?.maps || {})[key] || []), ...((clientSet?.maps || {})[key] || [])];
+  if (state.supersededPacks) return; // Complete installation is already local.
   if (!files.length) return;
-  log(`prefetch: ${map} (${files.length} file(s))`);
-  for (const e of files) ensureEntry(e, false).catch((err) => log(`prefetch ${e.path}: ${err.message}`, "err"));
+  clearTimeout(prefetchTimer);
+  // The map picker visits many rows during navigation. Wait until the selection
+  // settles so a single choice does not import every hovered map.
+  const enqueue = () => {
+    state.perf.mapPrefetch.push({ at: performance.now(), map: key, files: files.length });
+    log(`prefetch: ${map} (${files.length} file(s))`);
+    prefetchQueue = files;
+    pumpPrefetch();
+  };
+  if (immediate) enqueue();
+  else prefetchTimer = setTimeout(enqueue, 350);
 }
 
 // ---------------------------------------------------------------- start
@@ -410,20 +652,56 @@ function splitArgs(s) {
 
 function onEngineLine(text, cls) {
   log(text, cls);
+  if (text.startsWith("WEB_GPU_FALLBACK") && state.rendererBackend === "webgpu" && !state.rendererFallback) {
+    state.rendererFallback = true;
+    state.rendererFailure = rendererFailure(text);
+    hitchDiagnostics.event({kind:'renderer-failure',at:epochNow(),failureKind:state.rendererFailure.kind,reason:text});
+    sessionStorage.setItem("kisak-webgpu-failure", text);
+    showRendererRetry();
+    if (cfg.agent && params.get("gpuFallback") === "0") { state.crash = text; setStatus(text); return; }
+    const now = Date.now();
+    if (!scheduleRendererRecovery(sessionStorage, text, now)) { state.crash = text; setStatus(text); return; }
+    const recovery = new URL(location.href); recovery.searchParams.set('gpuRecovery', String(now));
+    location.replace(recovery.href);
+    return;
+  }
+  const loaded = /^Loaded fastfile '([^']+)' in (\d+)ms \((\d+)ms waiting\)/.exec(text);
+  if (loaded) {
+    state.perf.fastfiles.push({ name: loaded[1], totalMs: Number(loaded[2]), waitingMs: Number(loaded[3]), at: performance.now() });
+    const end = epochNow();
+    hitchDiagnostics.event({kind:'fastfile-load',path:loaded[1],at:end-Number(loaded[2]),end,waitingMs:Number(loaded[3]),clockQuality:'log-received'});
+  }
+  const phases = /^web: fastfile phases '([^']+)' inflate=([\d.]+)ms assets=([\d.]+)ms delayed=([\d.]+)ms/.exec(text);
+  if (phases) state.perf.fastfiles.push({ name: phases[1], inflateMs: Number(phases[2]),
+    assetsMs: Number(phases[3]), delayedMs: Number(phases[4]), at: performance.now() });
   if (text.startsWith("Loading fastfile '")) {
     mark(/'(?:en_)?ui(?:_viewer)?_mp'/.test(text) ? "uiLoading" : "assetLoading");
     if (!state.menuReady) setStatus(text);
   }
   if (cls === "err" && document.body.classList.contains("booting") && /error|cannot|assert|trap|failed/i.test(text))
     setStatus(text);
-  if (cfg.join && !state.joined && state.relay?.transport.peers.has(2) && text.startsWith("web: status")) {
-    state.joined = true;
-    // Room links join a private multiplayer game. Frontend initialization leaves
-    // these flags in local-menu mode, which breaks guest class-selection scripts.
-    send("set onlinegame 1");
-    send("set xblive_privatematch 1");
-    send("connect 127.0.0.2");
-    log(`relay: connect 127.0.0.2 (room ${cfg.join})`);
+  if (text.startsWith("web: status")) {
+    state.engineLive = true;
+    syncPartyEngine();
+    maybeConnect();
+  }
+  if (/^kisak-setup done menu_xboxlive_privatelobby\b/.test(text)) {
+    state.partyHosted = true;
+    // Older binaries omit privateLobby. The status snapshot is authoritative once it exists.
+    if (!state.engine || !Object.prototype.hasOwnProperty.call(state.engine, "privateLobby")) {
+      state.privateLobby = true;
+      publishParty();
+      syncPartyChrome();
+    }
+  }
+  // A lobby-phase drop must not end the party. The socket and room stay up.
+  if (!state.relay?.host && state.relay?.room && /PLATFORM_DISCONNECTED_FROM_SERVER/.test(text)) {
+    state.joined = false;
+    state.listedConnectSent = false;
+    if (state.party?.phase === "lobby" || state.party?.phase === "closed") {
+      clearPartyDisconnect();
+      syncPartyChrome();
+    } else state.partyDropWhileMatch = true;
   }
 }
 
@@ -435,33 +713,76 @@ state.send = send;
 
 const UI_IDS = ["play", "start", "pick", "mode", "arg", "reset", "res"];
 
-// Render size: "auto" fits the window (capped at 1920x1080, 16:9-ish), otherwise WxH.
+function syncResolutionControl(resolution) {
+  const select = $("res");
+  if (!Array.from(select.options).some(option => option.value === resolution))
+    select.add(new Option(resolution, resolution));
+  select.value = resolution;
+}
+
+// Saved engine settings win unless the launcher or URL explicitly selects a size.
 function chooseResolution() {
+  const requested = params.get('res');
+  if (requested) {
+    if (!Array.from($("res").options).some(o => o.value === requested && requested !== 'auto')) throw new Error('Unsupported res parameter');
+    return requested;
+  }
   const sel = $("res").value;
   if (sel !== "auto") return sel;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  let w = Math.round(window.innerWidth * dpr), h = Math.round(window.innerHeight * dpr);
-  // The engine only knows 4:3, 16:10 and 16:9 layouts: keep the render aspect inside that range (the canvas
-  // letterboxes the rest) and cap the size, since fill rate is what a browser GPU path runs out of first.
-  const aspect = Math.min(16 / 9, Math.max(4 / 3, w / h));
-  if (w / h > aspect) w = h * aspect; else h = w / aspect;
-  const s = Math.min(1, 1600 / w, 900 / h);
-  w = Math.max(640, Math.round((w * s) / 8) * 8);
-  h = Math.max(480, Math.round((h * s) / 8) * 8);
-  return `${w}x${h}`;
+  const saved = state.savedGraphics?.get('r_mode');
+  if (saved && /^\d{3,4}x\d{3,4}$/.test(saved)) return saved;
+  return fitResolution(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
+}
+
+function clientBootTokens(extra = params.get("args") || "", zombies = false) {
+  const res = chooseResolution();
+  state.res = res;
+  return [
+    "+set dedicated 0",
+    ...graphicsBootSettings(state.savedGraphics || new Map(), res, document.fullscreenElement === $("stage")),
+    "+set com_introPlayed 1", "+set com_maxfps 60", "+set web_status 5",
+    `+set sv_maxclients ${zombies ? 1 : 12}`, `+set g_gametype ${zombies ? "zclassic" : "tdm"}`,
+    ...(zombies ? ["+set zombiemode 1", "+set ui_zombiemode 1", "+set ui_multiplayer 0",
+      // The SP texture streamer has no working WASM path; load the selected low-detail mips eagerly.
+      "+set r_stream 0", "+set onlinegame 0", "+set systemlink 0"] : []),
+    "+set cl_autorecord 0", extra,
+  ].filter(Boolean);
 }
 
 function playArgs() {
-  const res = chooseResolution();
-  state.res = res;
-  const extra = params.get("args") || "";
   // No +devmap: an empty map name is what makes Com_Init open the real multiplayer frontend.
   // Bots come from the Private Match lobby BOTS row, not from this command line.
-  return [
-    "+set dedicated 0", "+set r_fullscreen 0", `+set r_customMode ${res}`, "+set r_aaSamples 1",
-    "+set com_introPlayed 1", "+set com_maxfps 60", "+set web_status 5", "+set sv_maxclients 12",
-    "+set g_gametype tdm", "+set cl_autorecord 0", extra,
-  ].filter(Boolean).join(" ");
+  return clientBootTokens().join(" ");
+}
+
+// ?args= can still override client dvars. A zombies boot cannot start a map or force dedicated 1.
+function stripZombiesBlockedArgs(extra) {
+  return extra
+    .replace(/(?:^|\s)--zombies\b/gi, " ")
+    .replace(/(?:^|\s)\+(?:dev)?map(?:\s+\S+)?/gi, " ")
+    .replace(/(?:^|\s)\+set\s+dedicated\s+1\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function zombiesBootArgs() {
+  // --zombies is its own argv token. Web_InitFilesystem consumes it (zombies profile + zombiemode)
+  // and leaves the rest for the engine. No +map: an empty map name opens the zombies map menu.
+  return ["--zombies", ...clientBootTokens(stripZombiesBlockedArgs(params.get("args") || ""), true)].join(" ");
+}
+
+function zombiesPage() {
+  const path = location.pathname.replace(/\/+$/, "") || "/";
+  return path === "/zombies" || document.body?.dataset.boot === "zombies";
+}
+
+function useZombiesArgs() {
+  return state.zombiesBoot === true || zombiesPage();
+}
+
+export function bootZombies() {
+  state.zombiesBoot = true;
+  return start(true);
 }
 
 async function start(play = false) {
@@ -474,47 +795,125 @@ async function start(play = false) {
     if (!navigator.storage?.getDirectory) throw new Error("this browser has no OPFS (navigator.storage.getDirectory)");
     state.opfs = await navigator.storage.getDirectory();
     if (await navigator.storage.persist?.()) log("storage: persistent (not evicted under pressure)");
+    await syncControls();
+    state.savedGraphics = savedSettings((await readControlsFile())?.text || '');
+    state.savedGraphics.delete('web_warmshaders');
+    state.savedGraphics.delete('r_shaderwarming');
 
     if (play) document.body.classList.add("playing", "booting");
     cfg.mode = $("mode").value;
-    cfg.args = play ? playArgs() : $("arg").value.trim();
+    cfg.args = play ? (useZombiesArgs() ? zombiesBootArgs() : playArgs()) : $("arg").value.trim();
     state.play = play;
+    if (play && useZombiesArgs()) log(`zombies boot: ${cfg.args}`);
 
     setStatus("Reading manifest…");
     mark("manifestStart");
     state.manifest = await loadManifest();
     mark("manifestReady");
     const m = state.manifest;
-    if (play && !m.client) throw new Error("this manifest has no client set (run tools/web/gen_manifest.py --client)");
+    try { state.assetReceipts = JSON.parse(await readRootText('asset-verification.json') || '{}'); }
+    catch { state.assetReceipts = {}; }
+    if (cfg.mode !== 'all') await restoreFullInstallation(m);
+    const clientSet = useZombiesArgs() ? m.zombies : m.client;
+    if (play && !clientSet) throw new Error(`this manifest has no ${useZombiesArgs() ? "Zombies" : "multiplayer"} client set (run tools/web/gen_manifest.py --client --client-zombies)`);
 
     // Play starts on the frontend boot set. The map fastfile is fetched when the lobby picks one
     // (Web_EnsureFile), so the canvas is not black for the whole map import.
     const needed = [...m.boot];
-    if (play) needed.push(...m.client.boot);
+    if (play) needed.push(...clientSet.boot);
+    if (cfg.mode === 'all') {
+      state.installationEntries = await fullInstallation(m);
+      needed.length = 0;
+      needed.push(...state.installationEntries);
+    }
     if (!play && cfg.mode === "bulk") {
       for (const es of Object.values(m.maps)) needed.push(...es);
     } else if (play && cfg.mode === "bulk") {
       for (const es of Object.values(m.maps)) needed.push(...es);
-      for (const es of Object.values(m.client.maps)) needed.push(...es);
+      for (const es of Object.values(clientSet.maps)) needed.push(...es);
     }
     const uniq = new Map();
-    for (const e of needed) uniq.set(e.path.toLowerCase(), e);
+    for (const e of needed) if (!state.supersededPacks?.has(e.path.toLowerCase())) uniq.set(e.path.toLowerCase(), state.byKey.get(e.path.toLowerCase()) || e);
     needed.length = 0;
     needed.push(...uniq.values());
     const t0 = performance.now();
     mark("assetImportStart");
-    const moved = await importSet(needed, cfg.mode === "bulk" ? "Importing all maps" : "Importing boot set");
+    const moved = await importSet(needed, cfg.mode === 'all' ? 'Downloading and verifying all assets' : cfg.mode === "bulk" ? "Importing all maps" : "Importing boot set");
+    if (cfg.mode === 'all') {
+      state.installation.status = 'assets-verified';
+      await writeRootText('installation-state.json',JSON.stringify({sha256:m.installation.sha256}));
+      const store = await openCatalogStore(state.opfs);
+      const catalogs = [];
+      for (const profile of m.gpuPreparation?.profiles || []) {
+        setStatus('Downloading shader catalogs…');
+        catalogs.push(await loadCatalog(m, profile.key, cfg.gen, () => {}, fetch, store));
+      }
+      state.installation.catalogs = catalogs;
+      state.installation.downloaded = true; state.installation.validated = true;
+      state.installation.compiledOnDevice = false; state.installation.coverageVerified = false;
+      state.installation.status = !catalogs.length || catalogs.some(c => !c.ok || c.persistence.status !== 'complete') ? 'incomplete-catalogs' : 'complete';
+      log(`Installation: ${state.installation.status}; ${state.installation.files} verified files, ${mb(state.installation.bytes)} MB; ${catalogs.length} published catalogs.`);
+    }
     state.bootTransferred = moved;
     mark("assetsReady");
     log(moved ? `import done: ${mb(moved)} MB in ${((performance.now() - t0) / 1000).toFixed(1)} s` : "import: all files already in OPFS, nothing transferred");
     await writeManifestTxt(m);
+    state.preparationMode = preparationMode(params, useZombiesArgs());
+    state.gpuRecipeExports = {};
+    state.gpuRecipeExportCounts = {};
+    state.gpuRecipeExportObserved = {};
+    state.gpuRecipeCache ||= startGpuRecipeCache(webSession, state.opfs, m, {
+      base: cfg.gen,
+      fetchFile: (url, options) => { checkAssetNetwork(String(url), 'gpu-catalog'); return fetch(url, options); },
+      onCacheRejection: rejection => {
+        state.catalog = {...state.catalog,ok:false,validated:false,reason:rejection.reason};
+        log(`Optional GPU recipe rejected (${rejection.quarantined ? 'quarantined' : 'retained for retry'}): ${rejection.reason}`, 'warn');
+        hitchDiagnostics.event({kind:rejection.quarantined ? 'recipe-quarantine' : 'recipe-failure',at:epochNow(),...rejection});
+      },
+      onCatalog: result => {
+        state.catalog = result;
+        (state.catalogHistory ??= []).push({...result,at:epochNow()});
+        if (state.catalogHistory.length > 100) state.catalogHistory.shift();
+        if (!result.ok) log(`GPU catalog unavailable (${result.scope || 'all'}): ${result.reason || 'invalid learned cache'}`, 'warn');
+        if (result.persistence && result.persistence.status !== 'complete')
+          log(`GPU catalog persistence ${result.persistence.status}: ${JSON.stringify(result.persistence)}`, 'warn');
+      },
+      onAck: (ticket, ok) => state.mod?._Kisak_GpuCacheSaved?.(ticket, ok ? 1 : 0),
+      onSave: params.get('gpuCapture') === '1' ? (key, chunks, metadata) => {
+        if (state.gpuRecipeExportClosed?.has(key)) return;
+        state.gpuRecipeExports[key] = chunks;
+        state.gpuRecipeExportCounts[key] = metadata?.recipes || 0;
+        state.gpuRecipeExportObserved[key] = metadata?.observed || [];
+      } : undefined,
+    });
 
     setStatus("Starting engine…");
     mark("wasmStart");
+    // Prefer Dawn when the adapter can serve the texture formats this renderer needs.
+    // A context must not be created on #game before its owner-thread transfer.
+    const requestedRenderer = rendererForLaunch(params, sessionStorage);
+    if (params.has('gpuRecovery')) { const clean = new URL(location.href); clean.searchParams.delete('gpuRecovery'); history.replaceState(null, '', clean); }
+    const gpuValidation = params.get("gpuValidation") === "1";
+    if (!["auto", "webgl2", "webgpu"].includes(requestedRenderer)) throw new Error("renderer must be auto, webgl2, or webgpu");
+    state.rendererBackend = "webgl2";
+    if (play && requestedRenderer !== "webgl2") {
+      try {
+        const adapter = await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" });
+        // Float32 capabilities are optional; the executor checks the operations
+        // that actually use them. Most low-preset targets are unorm or float16.
+        if (adapter?.features.has("texture-compression-bc")) state.rendererBackend = "webgpu";
+        else log("WebGPU adapter or BC texture compression unavailable; using WebGL2");
+      } catch (error) {
+        log(`WebGPU adapter request failed; using WebGL2: ${error.message || error}`);
+      }
+    }
+    showRendererRetry();
     setBar(0);
-      const { default: KisakModule } = await import("./kisak.mjs?v=20261012f");
+      const { default: KisakModule } = await import("./kisak.mjs?v=20261014b");
     const config = {
-      arguments: [...splitArgs(cfg.args), "--web-session", webSession,
+      arguments: [...splitArgs(cfg.args), "+set", "web_warmShaders", state.preparationMode === 'off' ? "0" : "1", '+set', 'web_prepareStaticImages',
+        residentStaticImages(state.preparationMode, state.rendererBackend, useZombiesArgs()) ? '1' : '0',
+        "--web-session", webSession,
         ...(cfg.agent && params.get("readcache") === "0" ? ["--no-read-cache"] : []),
         ...(cfg.join ? ["--guest-profile", guestProfile] : [])],
       print: (t) => onEngineLine(t),
@@ -523,6 +922,19 @@ async function start(play = false) {
         // Attach before proxy main starts: boot log callbacks and early join commands
         // may run before the module factory's promise settles.
         state.mod = this;
+        this._Kisak_SetRenderer?.(state.rendererBackend === "webgpu" ? 1 : 0);
+        this._Kisak_SetPreparation?.(['off','normal','full'].indexOf(state.preparationMode), Number(params.get('preparationJobs') || 8));
+        this._Kisak_SetGpuValidation?.(gpuValidation ? 1 : 0);
+        this._Kisak_SetGpuOptions?.((params.get("gpuProfile") === "1" ? 1 : 0)
+          | (params.get("gpuWake") === "0" ? 0 : 2)
+          | (params.get("gpuDepthMerge") === "0" ? 0 : 4)
+          | (params.get("gpuUploadBatch") === "0" ? 0 : 8)
+          | (params.get("gpuTextureBindings") === "0" ? 0 : 16)
+          | (params.get("gpuCapture") === "1" ? 32 : 0)
+          | (params.get("gpuSubmitWake") === "1" ? 64 : 0)
+          | (params.get("bestCase") === "1" ? 128 : 0)
+          | (params.get("gpuEnumerate") === "1" ? 256 : 0)
+          | (pipelineNostall(params) ? 512 : 0));
         mark("runtimeReady");
         this._Kisak_EnableAgentTelemetry?.(cfg.agent ? 1 : 0);
         present.ready = new Int32Array(this.HEAPU8.buffer, this._Kisak_PresentReady(), 1);
@@ -530,15 +942,46 @@ async function start(play = false) {
         state.relay?.pump?.();
       },
       // Query keeps a rebuilt kisak.wasm from being served out of the browser's compiled-module cache.
-      locateFile: (f) => new URL(f + "?v=20261012f", import.meta.url).href,
+      locateFile: (f) => new URL(f + "?v=20261014b", import.meta.url).href,
       kisakEnsureFile,
       kisakEnsureEntry,
       kisakEnsureLoose,
       kisakPrefetchMap,
-      kisakBootStage: (stage) => { mark(stage); if (!state.menuReady) setStatus(stage === "engineReady" ? "Preparing multiplayer menu…" : "Initializing engine…"); },
+      kisakPartyCopy: (kind) => copyPartyInvite(kind),
+      kisakPartyStarting: (map) => {
+        if (!state.relay?.host || !state.partyHosted) return;
+        state.partyPhase = "loading";
+        state.partyLoadingMap = map;
+        state.relay.transport.setParty({ name: partyName(), phase: "loading", map,
+          gametype: state.engine?.uiGametype || "tdm" });
+      },
+      kisakBootStage: (stage) => { mark(stage); if (!state.menuReady) setStatus(stage === "engineReady" ? (useZombiesArgs() ? "Preparing zombies menu…" : "Preparing multiplayer menu…") : "Initializing engine…"); },
       kisakObserve: (snapshot) => {
+        if (state.relay?.host && state.partyHosted && state.partyPhase === "match" && snapshot.connection === 0) {
+          state.partyPhase = "lobby";
+          send("set xblive_privatematch 1");
+          send("openmenu menu_xboxlive_privatelobby");
+          if (/^[A-Za-z0-9_]+$/.test(state.party?.map)) send(`set ui_mapname ${state.party.map}`);
+          if (/^[A-Za-z0-9_]+$/.test(state.party?.gametype)) send(`set ui_gametype ${state.party.gametype}`);
+        }
+        if (snapshot.map !== state.engine?.map || snapshot.connection !== state.engine?.connection)
+          state.perf.mapTransitions.push({ at: performance.now(), map: snapshot.map || "", connection: snapshot.connection });
         state.engine = snapshot;
+        if (snapshot.graphics) {
+          const previousResolution = state.res;
+          state.res = `${snapshot.graphics.width}x${snapshot.graphics.height}`;
+          if (state.res !== previousResolution && state.menuReady && $("status").textContent.startsWith("Playing ("))
+            setStatus(`Playing (${state.res}${state.rendererBackend === "webgpu" ? ", Dawn WebGPU" : ""}).`);
+          syncResolutionControl(state.res);
+          state.fullscreen?.observe(snapshot.graphics.fullscreen);
+        }
         state.engineAt = performance.now();
+        if (snapshot && Object.prototype.hasOwnProperty.call(snapshot, "privateLobby")) {
+          state.privateLobby = !!snapshot.privateLobby;
+          if (snapshot.privateLobby) state.partyHosted = true;
+        }
+        publishParty(snapshot);
+        syncPartyChrome();
         // A later presented frame is required before hiding the loading overlay.
         if ((snapshot.frontendReady || snapshot.connection === 10) && !state.menuReady && state.menuFrame === undefined)
           state.menuFrame = present.shown;
@@ -553,6 +996,7 @@ async function start(play = false) {
         location.assign(target.href);
       },
     };
+    if (state.rendererBackend === "webgpu") config.canvas = $("game");
     if (play) {
       document.body.classList.add("playing");
       enterPlay();
@@ -563,13 +1007,14 @@ async function start(play = false) {
     }
     if (!play) startRelay();
     state.mod = await KisakModule(config);
+    watchControls();
     // The gesture context wins if the click landed while the module was still starting.
     if (window.kisakAudio) state.mod.kisakAudio = window.kisakAudio;
     else if (state.mod.kisakAudio) window.kisakAudio = state.mod.kisakAudio;
     $("cmd").disabled = false;
     $("send").disabled = false;
     if (play) {
-      setStatus("Loading multiplayer menus…");
+      setStatus(useZombiesArgs() ? "Loading zombies menus…" : "Loading multiplayer menus…");
       $("game").focus();
     } else {
       setStatus("Server running. Type console commands below.");
@@ -622,9 +1067,14 @@ function enterPlay() {
   const [w, h] = state.res.split("x").map(Number);
   canvas.width = w;
   canvas.height = h;
+  syncResolutionControl(state.res);
+  state.fullscreen = fullscreenSync({ document, stage: $("stage"),
+    notify: enabled => call("_Kisak_FullscreenChanged", enabled ? 1 : 0),
+    onError: error => log(`Fullscreen unavailable: ${error.message || error}`, "warn"),
+  });
   present.latest = null;
 
-  present.ctx = canvas.getContext("bitmaprenderer");
+  present.ctx = state.rendererBackend === "webgpu" ? null : canvas.getContext("bitmaprenderer");
   const ch = new BroadcastChannel("kisak-present-" + webSession);
   ch.onmessage = (ev) => {
     try {
@@ -640,19 +1090,95 @@ function enterPlay() {
   const stats = new BroadcastChannel("kisak-stats-" + webSession);
   stats.onmessage = (ev) => {
     const d = ev.data || {};
+    if (d.assetWork) { hitchDiagnostics.event(d.assetWork); return; }
+    for (const frame of d.diagnosticFrames || []) hitchDiagnostics.frame({...frame, gameplay:state.engine?.connection === 10});
+    if (d.gpu) {
+      state.perf.gpu ??= {};
+      Object.assign(state.perf.gpu, d.gpu);
+      const memory=state.perf.memoryHighWater ??= {gpuResidentBytes:null,resourceCountsAreSampled:true};
+      for(const [field,value] of Object.entries({wasmHeapBytes:d.gpu.heapBytes,wasmProgramBreakBytes:d.gpu.programBreakBytes,
+        textures:d.gpu.texturesStored,pipelines:d.gpu.pipelines,bindGroups:d.gpu.groupsStored,jsHeapBytes:performance.memory?.usedJSHeapSize}))
+        if(Number.isFinite(value))memory[field]=Math.max(memory[field] || 0,value);
+      if (d.submissionIntervals) {
+        state.perf.renderIntervals.push(...d.submissionIntervals);
+        state.perf.frameIntervals.push(...d.submissionIntervals);
+      }
+      state.perf.gpuFrames ??= []; state.perf.gpuEvents ??= [];
+      if (d.gpuFrames) state.perf.gpuFrames.push(...d.gpuFrames);
+      if (d.gpuEvents) state.perf.gpuEvents.push(...d.gpuEvents);
+      if (state.perf.gpuFrames.length > 12000) {
+        const removed = state.perf.gpuFrames.splice(0,state.perf.gpuFrames.length-12000);
+        state.perf.trimmedBeforeFrameId = removed.at(-1).frameId;
+      }
+      if (state.perf.gpuEvents.length > 24000) state.perf.gpuEvents.splice(0,state.perf.gpuEvents.length-24000);
+      for (const frame of d.gpuFrames || []) if (frame.at) hitchDiagnostics.frame({...frame, gameplay:state.engine?.connection === 10});
+      for (const event of d.gpuEvents || []) if (event.at) hitchDiagnostics.event(event);
+      const gpu = state.perf.gpu;
+      if (gpu.intervalMs > 0) {
+        const fps = 1000 / gpu.intervalMs;
+        const counts = gpu.draws != null && gpu.passes != null && gpu.flushes != null && gpu.bindGroups != null
+          ? ` (${Math.round(gpu.draws)} draws, ${Math.round(gpu.passes)} passes, ${Math.round(gpu.flushes)} flushes, ${Math.round(gpu.bindGroups)} bind groups)`
+          : "";
+        $("fps").textContent = `${fps.toFixed(0)} render fps${counts}`;
+      }
+      if (d.gpu.submitted) {
+        present.shown = d.gpu.submitted;
+        if ((state.engine?.frontendReady || state.engine?.connection === 10) && state.menuFrame !== undefined && present.shown > state.menuFrame && document.body.classList.contains("booting")) {
+          state.menuReady = true;
+          mark("menuReady");
+          document.body.classList.remove("booting");
+          setStatus(`Playing (${state.res}, Dawn WebGPU).`);
+        }
+      }
+      return;
+    }
+    if (d.gpuCache) {
+      state.perf.cacheWrites ??= [];
+      state.perf.cacheWrites.push({at:performance.now(), ...d.gpuCache});
+      return;
+    }
     if (d.warmup) {
       const w = d.warmup;
-      $("warmup").hidden = !w.active;
+      state.perf.warmupEvents ??= [];
+      state.perf.warmupEvents.push({at:performance.now(), ...w});
+      if (state.perf.warmupEvents.length > 1000) state.perf.warmupEvents.shift();
+      if (state.installation) {
+        state.installation.compiledOnDevice = preparationReadiness({installation:state.installation,catalog:state.catalog,
+          preparation:w,renderer:state.rendererBackend}).compiledOnDevice;
+        state.installation.compiledScope=state.installation.compiledOnDevice ? (state.catalog?.scope==='*' ? '*' : w.map) : null;
+      }
+      const showSettle = w.stage !== 'settle' || useZombiesArgs();
+      $("warmup").hidden = !(w.active && showSettle) && w.status !== 'incomplete';
+      const message=preparationMessage(w,state.catalog);
+      $("warmup-title").textContent=message.title;
+      $("warmup-hint").textContent=message.hint;
+      $("warmup-reason").textContent=message.reason;
+      $("warmup-reason").hidden=!message.reason;
+      $("warmup").classList.toggle('incomplete', !w.active && w.status === 'incomplete');
+      $("warmup-cancel").textContent = w.active ? 'Skip preparation' : 'Continue';
       $("warmup-progress").max = Math.max(1, w.total);
       $("warmup-progress").value = w.done;
-      $("warmup-status").textContent = `${w.done} / ${w.total} shaders ready`;
+      $("warmup-status").textContent = `${w.stage === 'settle' ? 'First-view shaders' : w.stage === 'catalog' ? (params.get('bestCase') === '1' ? 'All-map pipelines' : w.map==='@frontend' ? 'Frontend pipelines' : w.map) : w.map || 'Shaders'}: ${w.done} / ${w.total} processed`
+        + (w.pend ? ` · ${w.pend} compiling` : '')
+        + (w.uploadedBytes ? ` · ${mb(w.uploadedBytes)} MB uploaded` : '')
+        + (w.status && w.status !== 'preparing' ? ` · ${w.status}` : '')
+        + (w.failures ? ` · ${w.failures} failed` : '');
+      state.preparation = w;
+      if (params.get('bestCase') === '1' && !w.active && w.map?.startsWith('mp_')) bestCaseAssetLock = true;
+      if (!w.active && w.status === 'incomplete') log(`GPU preparation incomplete (${w.stage}, ${w.map}): ${w.failures || 0} failed, ${w.rejected || 0} rejected; remaining variants will be learned during play.`);
       if (w.active && locked()) document.exitPointerLock();
       return;
     }
     const fps = d.dt ? (d.frames * 1000) / d.dt : 0;
+    if (d.dt) state.perf.renderFps.push({ at: performance.now(), fps, copied: d.copied || 0,
+      shown: present.shown, draws: d.draws || 0 });
+    if (d.frameIntervals) state.perf.renderIntervals.push(...d.frameIntervals);
+    if (d.copyMs) state.perf.copyMs.push(...d.copyMs);
     $("fps").textContent = `${fps.toFixed(0)} render fps (${d.copied || 0} copied, ${present.shown} shown)`;
   };
+  const pollGamepad = gamepadPoller((...sample) => call("_Kisak_Gamepad", ...sample));
   const loop = () => {
+    pollGamepad(engineFocused && !document.hidden && document.activeElement?.id !== "cmd");
     const now = performance.now();
     const dt = Math.min(50, now - lookAt);
     lookAt = now;
@@ -663,18 +1189,25 @@ function enterPlay() {
       if (x || y) call("_Kisak_MouseMove", x, y);
       lookRemainderX -= x; lookRemainderY -= y;
     } else clearAgentLook();
+    syncCursor();
     if (present.latest && present.ctx) {
       const b = present.latest;
       present.latest = null;
       try {
+        const paintAt = performance.now();
         if (canvas.width !== b.width || canvas.height !== b.height) { canvas.width = b.width; canvas.height = b.height; }
         present.ctx.transferFromImageBitmap(b);
         present.shown++;
+        state.perf.presentMs.push(performance.now() - paintAt);
+        if (present.lastShown) state.perf.frameIntervals.push(paintAt - present.lastShown);
+        present.lastShown = paintAt;
         if ((state.engine?.frontendReady || state.engine?.connection === 10) && state.menuFrame !== undefined && present.shown > state.menuFrame && document.body.classList.contains("booting")) {
           state.menuReady = true;
           mark("menuReady");
           document.body.classList.remove("booting");
-          setStatus(`Playing (${state.res}). Create a private match from the game menus. F1 shows the debug page.`);
+          setStatus(useZombiesArgs()
+            ? `Playing (${state.res}). Choose a zombies map from the game menus. F1 shows the debug page.`
+            : `Playing (${state.res}). Create a private match from the game menus. F1 shows the debug page.`);
         }
       } catch (e) {
         b.close?.();
@@ -696,8 +1229,7 @@ function enterPlay() {
     if (e.code === "F11") {
       if (down) {
         e.preventDefault();
-        if (document.fullscreenElement) document.exitFullscreen();
-        else $("stage").requestFullscreen().catch(() => {});
+        state.fullscreen.toggle();
       }
       return;
     }
@@ -756,64 +1288,161 @@ function enterPlay() {
     return [Math.max(0, Math.min(canvas.width - 1, Math.round((e.clientX - ox) / scale))),
             Math.max(0, Math.min(canvas.height - 1, Math.round((e.clientY - oy) / scale)))];
   };
+  // Keys are queued even when the engine thinks the window is in the background.
+  // Mouse positions are not, so a visible agent window can take WASD and ignore the cursor.
+  const wantsCapture = () => (state.mod?._Kisak_WantsMouseCapture?.() ? 1 : 0);
+  // Focus changes clear every held key in the engine. Mouse look used to send
+  // focus on every move, so walking stopped until W/A/S/D was pressed again.
+  let engineFocused = true;
+  const engage = () => {
+    if (engineFocused) return;
+    engineFocused = true;
+    call("_Kisak_Focus", 1);
+  };
+  const disengage = () => {
+    if (!engineFocused) return;
+    engineFocused = false;
+    pollGamepad(false);
+    call("_Kisak_Focus", 0);
+  };
+  const syncCursor = () => {
+    const systemCursor = state.mod?._Kisak_CursorVisible?.() ?? 1;
+    canvas.style.cursor = wantsCapture() || locked() || !systemCursor ? "none" : "default";
+  };
+  // Plain lock stays inside the click. unadjustedMovement rejects on these Chrome
+  // windows, and the old fallback ran after the gesture, so the pointer never locked
+  // and every gameplay click was discarded.
+  const requestGameLock = () => {
+    try {
+      const pending = canvas.requestPointerLock();
+      if (pending && typeof pending.catch === "function") pending.catch(() => {});
+    } catch { /* Relative movement below still looks if the lock is denied. */ }
+  };
+  // Last DOM buttons mask sent to the engine. Chorded mouseup's `button` names the
+  // other button (left released while aiming, or the reverse). Tracking that index
+  // latches one key down; CL_KeyEvent then drops every later down as a repeat.
+  let mouseMask = 0;
+  let rightButtonAt = 0;
+  const releaseTrackedMouseButtons = () => {
+    const step = mouseButtonChanges(mouseMask, 0);
+    mouseMask = step.mask;
+    for (const change of step.changes) call("_Kisak_Key", change.key, 0);
+  };
+  const gameMouseTarget = (e) => e.target === canvas || locked();
+  const syncMouseButtons = (e, { gameTarget, gesture }) => {
+    if (!state.play || typeof e.buttons !== "number") return;
+    // Cancelling pointerdown/pointerup suppresses the compatibility mouse events.
+    // Those mousedown/mouseup events are what still arrive for a second button.
+    let next = nextMouseMask(mouseMask, { type: e.type, button: e.button, buttons: e.buttons, locked: locked() });
+    // A release outside the canvas must drop a button the game pressed, and must
+    // not turn a click on the log or console into +attack.
+    if (!gameTarget) next = mouseMask & next;
+    const step = mouseButtonChanges(mouseMask, next);
+    if ((next & 2) || step.changes.some((change) => change.key === 201)) rightButtonAt = performance.now();
+    if (!step.changes.length) return;
+    const pressing = step.changes.some((change) => change.down);
+    if (gesture && pressing) {
+      unlockAudio();
+      if (e.type === "mousedown" && e.button !== 0) e.preventDefault();
+      engage();
+      window.focus();
+      canvas.focus();
+      const wants = wantsCapture();
+      if (!locked() && !wants) {
+        const [x, y] = toCanvas(e);
+        call("_Kisak_MousePos", x, y);
+      }
+      if (wants && !locked()) requestGameLock();
+    } else if (gameTarget && e.cancelable && e.type === "mouseup" && e.button !== 0) {
+      e.preventDefault();
+    }
+    for (const change of step.changes) call("_Kisak_Key", change.key, change.down ? 1 : 0);
+    mouseMask = step.mask;
+  };
+  const onMouseButtons = (e) => {
+    if (e.pointerType && e.pointerType !== "mouse") return;
+    const gameTarget = gameMouseTarget(e);
+    if (!gameTarget && !(mouseMask & ~((typeof e.buttons === "number" ? e.buttons : 0) & 31))) return;
+    syncMouseButtons(e, { gameTarget, gesture: e.type === "mousedown" || e.type === "pointerdown" });
+  };
   canvas.addEventListener("mousemove", (e) => {
-    if (locked()) {
-      call("_Kisak_MouseMove", Math.round(e.movementX), Math.round(e.movementY));
+    engage();
+    if (!wantsCapture() && locked()) document.exitPointerLock();
+    syncCursor();
+    if (locked() || wantsCapture()) {
+      const dx = Math.round(e.movementX), dy = Math.round(e.movementY);
+      if (dx || dy) call("_Kisak_MouseMove", dx, dy);
     } else {
       const [x, y] = toCanvas(e);
       call("_Kisak_MousePos", x, y);
     }
+    syncMouseButtons(e, { gameTarget: true, gesture: false });
   });
-  const btn = (e, down) => {
-    if (down) unlockAudio();
+  window.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 && (e.target === canvas || locked())) e.preventDefault();
+  }, true);
+  canvas.addEventListener("mousedown", onMouseButtons);
+  canvas.addEventListener("pointerdown", onMouseButtons);
+  window.addEventListener("mouseup", onMouseButtons);
+  window.addEventListener("pointerup", onMouseButtons);
+  window.addEventListener("pointercancel", (e) => {
+    if (!state.play || (e.pointerType && e.pointerType !== "mouse")) return;
+    releaseTrackedMouseButtons();
+  });
+  const onSuppressedClick = (e) => {
+    if (!gameMouseTarget(e)) return;
     e.preventDefault();
-    canvas.focus();
-    const wants = state.mod?._Kisak_WantsMouseCapture ? state.mod._Kisak_WantsMouseCapture() : 0;
-    // Position first, so a menu click lands even when it is also the click that arrived.
-    if (!locked()) { const [x, y] = toCanvas(e); call("_Kisak_MousePos", x, y); }
-    // In-game look capture consumes the click. Menu clicks (the engine does not want capture) go through.
-    if (down && wants && !locked() && !cfg.agent) {
-      const p = canvas.requestPointerLock({ unadjustedMovement: true });
-      if (p && p.catch) p.catch(() => canvas.requestPointerLock());
-      return;
-    }
-    const map = [200, 202, 201, 203, 204]; // DOM buttons: 0 left, 1 middle, 2 right, 3 back, 4 forward
-    const k = map[e.button];
-    if (k === undefined) return;
-    call("_Kisak_Key", k, down ? 1 : 0);
+    rightButtonAt = performance.now();
+    if (typeof e.buttons === "number") syncMouseButtons(e, { gameTarget: true, gesture: false });
   };
-  const pressedCanvasButtons = new Set();
-  canvas.addEventListener("mousedown", (e) => { pressedCanvasButtons.add(e.button); btn(e, true); });
-  window.addEventListener("mouseup", (e) => {
-    // Release a game press even outside the canvas, but do not steal focus or
-    // cancel clicks on console inputs and loading-overlay controls.
-    if (state.play && pressedCanvasButtons.delete(e.button)) btn(e, false);
-  });
-  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  window.addEventListener("contextmenu", onSuppressedClick, true);
+  window.addEventListener("auxclick", onSuppressedClick, true);
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
+    engage();
     const k = e.deltaY > 0 ? 205 : 206;
     call("_Kisak_Key", k, 1);
     call("_Kisak_Key", k, 0);
   }, { passive: false });
 
   // Esc releases pointer lock without delivering a keydown: open the engine menu ourselves.
+  // A right-click can also drop the lock. That is not Esc; synthesizing it opens the
+  // pause menu and the latched click never reaches the game.
   document.addEventListener("pointerlockchange", () => {
-    if (!locked() && performance.now() - lastEscape > 150) {
+    if (!locked() && performance.now() - lastEscape > 150 && performance.now() - rightButtonAt > 400) {
       const wants = state.mod?._Kisak_WantsMouseCapture ? state.mod._Kisak_WantsMouseCapture() : 0;
       if (wants) { call("_Kisak_Key", 27, 1); call("_Kisak_Key", 27, 0); }
     }
   });
-  window.addEventListener("blur", () => { clearAgentLook(); pressedCanvasButtons.clear(); call("_Kisak_Focus", 0); });
-  window.addEventListener("focus", () => call("_Kisak_Focus", 1));
-  document.addEventListener("visibilitychange", () => { if (document.hidden) clearAgentLook(); call("_Kisak_Focus", document.hidden ? 0 : 1); });
+  window.addEventListener("blur", () => {
+    clearAgentLook();
+    // A blur that does not unfocus the document (a right-click does this) must
+    // not drop held buttons. Forgetting them made the real mouseup a no-op, and
+    // releasing them cancelled ADS while the button was still down. The next
+    // mouse or pointer event carries the buttons mask and releases whatever
+    // mouseup was lost. A real blur clears keys in the engine via focus loss.
+    if (!document.hasFocus()) {
+      mouseMask = 0;
+      disengage();
+    }
+  });
+  window.addEventListener("focus", () => engage());
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearAgentLook();
+      mouseMask = 0;
+      disengage();
+    } else {
+      engage();
+    }
+  });
 
   $("btn-log").onclick = () => {
     const shown = document.body.classList.toggle("logshown");
     if (shown) document.body.classList.add("debug");
     if (!shown && document.activeElement?.id === "cmd") $("game").focus();
   };
-  $("btn-full").onclick = () => (document.fullscreenElement ? document.exitFullscreen() : $("stage").requestFullscreen());
+  $("btn-full").onclick = () => state.fullscreen.toggle();
   warnSoftwareGl();
   startRelay();
 }
@@ -824,6 +1453,7 @@ function warnSoftwareGl() {
   if (!gl) return;
   const ext = gl.getExtension("WEBGL_debug_renderer_info");
   const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+  state.renderer = renderer;
   const soft = /swiftshader|llvmpipe|software|basic render|microsoft basic/i.test(renderer || "");
   const el = $("gpu");
   if (!el) return;
@@ -836,9 +1466,208 @@ function warnSoftwareGl() {
   log(`WebGL: ${renderer}`);
 }
 
+function partyName() {
+  const fromEngine = state.engine?.playerName;
+  if (fromEngine && String(fromEngine).trim()) return String(fromEngine).trim().slice(0, 31);
+  if (namedGuest) return playerSlot.slice(0, 31);
+  return state.relay?.host === false ? "Guest" : "Host";
+}
+
+function partyHref(room) {
+  const link = new URL(location.href);
+  for (const key of ["player", "agent", "gpuProfile", "gpuValidation", "gpuFallback", "gpuTrace"])
+    link.searchParams.delete(key);
+  link.searchParams.set("join", room);
+  return link.href;
+}
+
+function publishParty(snapshot = state.engine) {
+  const transport = state.relay?.transport;
+  if (!transport?.setParty) return;
+  const name = partyName();
+  const identity = { name, rank: snapshot?.playerRank, prestige: snapshot?.playerPrestige };
+  if (state.relay?.host !== true) {
+    transport.setParty(identity);
+    return;
+  }
+  if (!state.partyHosted) {
+    transport.setParty({ ...identity, listed: false });
+    return;
+  }
+  let phase = state.partyPhase || "lobby";
+  if (snapshot?.connection === 10) phase = "match";
+  else if (snapshot && Object.prototype.hasOwnProperty.call(snapshot, "privateLobby")) {
+    if (snapshot.privateLobby && phase !== "loading") phase = "lobby";
+  } else if (state.privateLobby) phase = "lobby";
+  state.partyPhase = phase;
+  const map = phase === "loading" ? state.partyLoadingMap : phase === "lobby" ? (snapshot?.uiMap || "") : (snapshot?.map || snapshot?.uiMap || "");
+  const gametype = phase === "lobby" ? (snapshot?.uiGametype || "") : (snapshot?.gametype || snapshot?.uiGametype || "");
+  const listed = phase !== "lobby" || !!snapshot?.privateLobby;
+  const clients = phase === "lobby" ? Math.max(1, state.party?.roster?.length || 0)
+    : Math.min(18, Math.max(1, (Number(snapshot?.players) || 0) + (Number(snapshot?.bots) || 0)));
+  transport.setParty({ ...identity, phase, map, gametype, listed, clients, maxClients: 18 });
+}
+
+function clearPartyDisconnect() {
+  const clear = () => {
+    send('set com_errorMessage ""');
+    send("closemenu error_popmenu");
+  };
+  clear();
+  setTimeout(clear, 250);
+  setTimeout(clear, 800);
+}
+
+function maybeConnect() {
+  if (state.relay?.host !== false) return;
+  if (state.party?.phase !== "match") return;
+  if (state.joined) return;
+  if (!state.relay?.transport?.peers?.has(2)) return;
+  // The first status line means the frame loop can take a connect. It is not itself a reason to join.
+  if (!state.engineLive || !state.mod) return;
+  state.joined = true;
+  state.listedConnectSent = true;
+  send("set onlinegame 1");
+  send("set xblive_privatematch 1");
+  send("set web_partyLoading 0");
+  send("connect 127.0.0.2");
+  log(`relay: connect 127.0.0.2 (room ${state.pendingJoin || state.relay?.room || cfg.join})`);
+  syncPartyChrome();
+}
+
+function syncPartyEngine() {
+  if (!state.engineLive || !state.mod) return;
+  const guest = state.relay?.host === false;
+  const roster = state.party?.roster || [];
+  const room = state.relay?.room || cfg.join;
+  if (/^[a-z0-9]{4}$/.test(room) && state.partyEngineRoom !== room) {
+    state.partyEngineRoom = room;
+    send(`web_party_room ${room}`);
+    send('set web_partyInviteNote ""');
+  }
+  const signature = JSON.stringify([guest, roster]);
+  if (state.partyEngineRoster !== signature) {
+    state.partyEngineRoster = signature;
+    send(`set web_partyGuest ${guest ? 1 : 0}`);
+    send("web_party_clear");
+    for (const member of roster) {
+      const name = String(member.name || "Player").replace(/[\u0000-\u001f\u007f";\\]/g, " ").slice(0, 31);
+      if (Number.isInteger(member.id) && member.id >= 2 && member.id <= 33)
+        send(`web_party_member ${member.id} "${name}" ${member.rank || 0} ${member.prestige || 0}`);
+    }
+  }
+  if (guest && state.party?.phase === "lobby" && !state.joined && !state.guestLobbyOpened) {
+    send("set web_partyLoading 0");
+    state.guestLobbyOpened = true;
+    send("set onlinegame 1");
+    send("set xblive_privatematch 1");
+    send("openmenu menu_xboxlive_privatelobby");
+  }
+  if (guest && state.party?.phase === "loading" && /^[A-Za-z0-9_]+$/.test(state.party.map)
+    && /^[A-Za-z0-9_]+$/.test(state.party.gametype)) {
+    const key = `${state.party.map}/${state.party.gametype}`;
+    if (state.partyEngineLoading !== key) {
+      state.partyEngineLoading = key;
+      send(`web_party_load ${state.party.map} ${state.party.gametype}`);
+    }
+  }
+  if (guest && state.party?.phase === "lobby") {
+    if (/^[A-Za-z0-9_]+$/.test(state.party.map)) send(`set ui_mapname ${state.party.map}`);
+    if (/^[A-Za-z0-9_]+$/.test(state.party.gametype)) send(`set ui_gametype ${state.party.gametype}`);
+  }
+}
+
+function applyParty(info) {
+  const previous = state.party?.phase || "";
+  state.party = info || state.party;
+  syncPartyEngine();
+  if (state.relay?.host === true) {
+    syncPartyChrome();
+    return;
+  }
+  if (info?.phase === "closed") {
+    send("set web_partyLoading 0");
+    state.partyEngineLoading = "";
+    state.joined = false;
+    state.partyDropWhileMatch = false;
+    send("disconnect");
+    clearPartyDisconnect();
+  } else if (info?.phase === "loading") {
+    state.guestLobbyOpened = false;
+    if (info.map) kisakPrefetchMap(info.map, true);
+  } else if (info?.phase === "match") {
+    if (info.map && previous !== "loading") kisakPrefetchMap(info.map, true);
+    maybeConnect();
+  } else if (info?.phase === "lobby") {
+    send("set web_partyLoading 0");
+    state.partyEngineLoading = "";
+    const leftMatch = state.joined || previous === "match" || state.partyDropWhileMatch;
+    if (state.joined) {
+      state.joined = false;
+      state.listedConnectSent = false;
+      send("disconnect");
+      state.guestLobbyOpened = false;
+      syncPartyEngine();
+      log(`relay: match ended, staying in room ${state.relay?.room || cfg.join}`);
+    }
+    if (leftMatch) {
+      state.partyDropWhileMatch = false;
+      clearPartyDisconnect();
+    }
+  }
+  syncPartyChrome();
+}
+
+function syncPartyChrome() {
+  const panel = $("party");
+  if (!panel) return;
+  const info = state.party || { phase: "", map: "", gametype: "", roster: [] };
+  const host = state.relay?.host === true;
+  const room = state.relay?.room || "";
+  const hostLobby = !!(host && state.privateLobby && room && state.engine?.connection !== 10);
+  const guestWait = !!(!host && room && ["lobby", "loading", "closed"].includes(info.phase));
+  const show = hostLobby || guestWait;
+  document.body.classList.toggle("party-open", show);
+  document.body.classList.toggle("party-wait", guestWait);
+  const href = room ? partyHref(room) : "";
+  const link = $("party-link");
+  if (link) {
+    link.href = href;
+    link.textContent = href;
+  }
+  const code = $("party-code");
+  if (code) code.textContent = room ? `Code ${room}` : "";
+  const title = $("party-title");
+  if (title) title.textContent = info.phase === "closed" ? "The host left the room" : info.phase === "loading" ? "Loading map…" : guestWait ? "Waiting for the host" : "Create a game";
+  const wait = $("party-wait");
+  if (wait) wait.textContent = !guestWait || info.phase === "closed" ? "" : "You join when the host starts the match.";
+  const map = host ? (state.engine?.uiMap || info.map || "") : (info.map || "");
+  const gametype = host ? (state.engine?.uiGametype || info.gametype || "") : (info.gametype || "");
+  const meta = $("party-meta");
+  if (meta) meta.textContent = [map ? `Map ${map}` : "", gametype ? `Mode ${gametype}` : ""].filter(Boolean).join(" · ");
+  const list = $("party-roster");
+  if (list) {
+    list.replaceChildren();
+    for (const member of info.roster || []) {
+      const item = document.createElement("li");
+      item.textContent = member.name || `Player ${member.id}`;
+      list.appendChild(item);
+    }
+  }
+  const note = $("room");
+  if (note && href) note.textContent = `Room ${room} — join: ${href}`;
+}
+
 // Shared game transport: RTC datagrams with relay fallback. Host creates a room; ?join=ROOM joins it.
-function startRelay() {
-  if (state.relay) return;
+// A server-browser join passes the chosen room and replaces the page's own host socket.
+function startRelay(joinRoom = cfg.join) {
+  state.relay?.stop?.();
+  state.joined = false;
+  state.partyEngineRoster = "";
+  state.partyEngineRoom = "";
+  state.partyEngineLoading = "";
+  state.guestLobbyOpened = false;
+  state.party = { phase: "", map: "", gametype: "", roster: [] };
   const inbox = [];
   let stopped = false;
   let iceServers = [];
@@ -846,7 +1675,7 @@ function startRelay() {
   catch { log("network: invalid ice configuration", "err"); }
   const transport = new GameTransport({
     url: (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/relay",
-    room: cfg.join, iceServers, rtc: params.get("net") !== "relay", log,
+    room: joinRoom, iceServers, rtc: params.get("net") !== "relay", log,
     failed: (message) => {
       setStatus(message);
       $("room").textContent = message;
@@ -858,17 +1687,34 @@ function startRelay() {
         pump();
       }
     },
+    onPeer: (id) => {
+      if (state.relay?.transport !== transport) return;
+      if (id === 2) maybeConnect();
+    },
+    party: (info) => {
+      if (state.relay?.transport === transport) applyParty(info);
+    },
+    left: (id) => {
+      if (state.relay?.transport !== transport) return;
+      // Only the listen server owns the match slot. Guests are told the host left.
+      if (!transport.host || !Number.isInteger(id) || id < 3 || id > 33) return;
+      send(`dropadr 127.0.0.${id}`);
+      log(`network: drop 127.0.0.${id}`);
+    },
     ready: (room) => {
+      if (state.relay?.transport !== transport) return;
       state.relay.room = room;
       const link = new URL(location.href);
       link.searchParams.set("join", room);
       const note = $("room");
       if (note) note.textContent = `Room ${room} — join: ${link.href}`;
-      log(`network: room ${room} (${cfg.join ? "guest" : "host"})`);
+      log(`network: room ${room} (${joinRoom ? "guest" : "host"})`);
       if (!state.play) log(`Join link: ${link.href}`);
+      publishParty();
+      syncPartyChrome();
     },
   });
-  state.relay = { transport, room: cfg.join || "" };
+  state.relay = { transport, room: joinRoom || "", host: !joinRoom };
   let scratch = 0;
   function pump() {
     if (stopped) return;
@@ -906,14 +1752,75 @@ function startRelay() {
 
 // ---------------------------------------------------------------- wiring
 
-window.kisak = { state, present, cfg }; // for the devtools console: kisak.state.mod._Kisak_GlPhase() etc.
+window.kisak = {
+  state, present, cfg, zombiesBootArgs, bootZombies,
+  serversText: "",
+  // The engine calls this when a server-browser row is chosen. The room id
+  // never has to be typed.
+  joinListed: (room) => {
+    if (!/^[a-z0-9]{4}$/.test(room)) return;
+    state.pendingJoin = room;
+    state.joined = false;
+    state.partyDropWhileMatch = false;
+    log(`network: joining listed room ${room}`);
+    startRelay(room);
+  },
+};
+async function refreshLobbyCache() {
+  try {
+    const response = await fetch("/lobby/servers", { cache: "no-store" });
+    if (!response.ok) return;
+    const rows = await response.json();
+    if (!Array.isArray(rows)) return;
+    const mine = state.relay?.room || "";
+    const listing = rows
+      .filter(row => row && row.room && row.room !== mine)
+      .map(row => [row.room, row.name, row.map, row.gametype, row.clients, row.maxClients].join("\t"))
+      .join("\n");
+    if (listing !== window.kisak.serversText) {
+      window.kisak.serversText = listing;
+      if (state.mod && state.engineLive) send("web_refresh_browser");
+    }
+  } catch { /* The menu refresh uses the last good list. */ }
+}
+setInterval(refreshLobbyCache, 2000);
+setInterval(() => {
+  const room = state.relay?.room;
+  const engine = state.engine;
+  if (!room || state.pendingJoin || state.relay?.host === false || cfg.join) return;
+  if (engine?.connection !== 10) return;
+  // A private match can latch the cap at the host alone. Browser joins need a free slot.
+  if (!state.slotsOpened) {
+    state.slotsOpened = true;
+    send("set party_maxplayers 18");
+    send("set sv_maxclients 18");
+  }
+  publishParty(engine);
+}, 3000);
 if (cfg.agent) window.kisak.agent = {
   status: () => ({ enabled: true, documentId: webSession, phase: state.phase, menuReady: !!state.menuReady,
+    preparation: state.preparation, preparationMode: state.preparationMode, catalog: state.catalog,
+    installation: state.installation, assetNetwork: params.get('assetNetwork') || 'allow',
     readCalls: state.mod?._Kisak_ReadCalls?.(), readMs: state.mod?._Kisak_ReadMs?.(),
     timings: { ...state.timings }, frames: present.shown, engine: state.engine,
     engineAgeMs: state.engineAt === undefined ? null : performance.now() - state.engineAt,
     room: state.relay?.room || cfg.join, capture: !!state.mod?._Kisak_WantsMouseCapture?.(),
+    party: {
+      phase: state.party?.phase || "", map: state.party?.map || "", gametype: state.party?.gametype || "",
+      roster: state.party?.roster || [], room: state.relay?.room || cfg.join || "",
+      open: document.body.classList.contains("party-open"),
+      waiting: document.body.classList.contains("party-wait"),
+      href: $("party-link")?.href || "",
+    },
     status: $("status").textContent, crash: state.crash || "", transferred: state.transferred, bootTransferred: state.bootTransferred }),
+  metrics: (sinceFrameId = null) => ({ ...state.perf, preparation:state.preparation, catalog:state.catalog, installation:state.installation,
+    ...(sinceFrameId == null ? {} : {
+      gpuFrames:(state.perf.gpuFrames || []).filter(f=>f.frameId>sinceFrameId),
+      gpuEvents:(state.perf.gpuEvents || []).filter(e=>e.frameId>sinceFrameId),
+      renderIntervals:(state.perf.gpuFrames || []).filter(f=>f.frameId>sinceFrameId).map(f=>f.intervalMs),
+      historyTruncated:sinceFrameId<(state.perf.trimmedBeforeFrameId || 0),
+    }), timings: { ...state.timings }, transferred: state.transferred,
+    resolution: state.res, renderer: state.renderer || "", rendererBackend: state.rendererBackend || "webgl2", engine: state.engine }),
   logs: (after = 0) => ({ records: state.records.filter(r => r.seq > after), latest: state.logSequence || 0 }),
   look: (dx, dy) => {
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 4096 || Math.abs(dy) > 4096) throw new Error("look deltas must be finite and within +/-4096");
@@ -923,9 +1830,38 @@ if (cfg.agent) window.kisak.agent = {
   },
 };
 
-$("arg").value = cfg.args;
+$("arg").value = zombiesPage() ? zombiesBootArgs() : cfg.args;
 $("mode").value = cfg.mode;
 $("start").onclick = () => start(false);
+$('best-case')?.addEventListener('click', state.bestCase);
+$("hitch-report")?.addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(state.hitchReport(), null, 2)], {type:'application/json'}));
+  const link = document.createElement('a'); link.href = url; link.download = 'kisak-hitches.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+$("party-copy")?.addEventListener("click", async () => {
+  const href = $("party-link")?.href || "";
+  if (!href) return;
+  try {
+    await navigator.clipboard.writeText(href);
+    $("party-copy").textContent = "Copied";
+  } catch {
+    $("party-copy").textContent = "Copy the link";
+  }
+});
+
+async function copyPartyInvite(kind = "link") {
+  const room = state.relay?.room || cfg.join;
+  if (!room) return;
+  const value = kind === "code" ? room : partyHref(room);
+  try {
+    await navigator.clipboard.writeText(value);
+    send(`set web_partyInviteNote "${kind === "code" ? "CODE COPIED" : "INVITE LINK COPIED"}"`);
+  } catch {
+    send('set web_partyInviteNote "COPY FAILED"');
+  }
+}
+
 $("play").onclick = () => {
   unlockAudio();
   $("stage").requestFullscreen().catch(() => {});
@@ -944,7 +1880,9 @@ $("pick").onclick = async () => {
 $("reset").onclick = async () => {
   if (!confirm("Delete the imported game files and the saved profile from this browser?")) return;
   const root = await navigator.storage.getDirectory();
-  for (const n of ["game", "profile", "manifest.txt", "manifest.json"]) await root.removeEntry(n, { recursive: true }).catch(() => {});
+  for (const n of ["game", "profile", "manifest.txt", "manifest.json", "installation.json", "installation-state.json", "asset-verification.json"]) await root.removeEntry(n, { recursive: true }).catch(() => {});
+  inflight.clear();
+  state.verifiedThisPage.clear();
   setStatus("Storage cleared.");
   log("storage cleared");
 };
@@ -968,10 +1906,17 @@ window.addEventListener("unhandledrejection", (ev) => {
   log(`unhandled: ${message}`, "err");
 });
 
-setStatus(crossOriginIsolated ? "Ready. Pick your game folder or start with ?assets=<url>." : "Not cross-origin isolated: serve with COOP/COEP (tools/web/serve.mjs).");
+setStatus(!crossOriginIsolated
+  ? "Not cross-origin isolated: serve with COOP/COEP (tools/web/serve.mjs)."
+  : zombiesPage()
+    ? "Loading zombies…"
+    : "Ready. Pick your game folder or start with ?assets=<url>.");
 // Registered before boot so the first click or key resumes the context the engine is using.
 window.addEventListener("pointerdown", unlockAudio, true);
 window.addEventListener("keydown", unlockAudio, true);
 // Boot straight into the multiplayer menu. ?server keeps the old headless page.
-if (params.has("server")) start(false);
-else start(true);
+// /zombies calls bootZombies() itself so this path never adds --zombies.
+if (!zombiesPage()) {
+  if (params.has("server")) start(false);
+  else start(true);
+}
