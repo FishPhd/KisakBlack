@@ -38,6 +38,17 @@ static bool s_zombieBoot = false;
 static bool s_readCache = true;
 bool Web_IsZombieBoot() { return s_zombieBoot; }
 const char *Web_SessionId() { return s_webSession; }
+void Web_ReportAssetWork(const char *kind, const char *path, double began, unsigned bytes)
+{
+    const double elapsed = emscripten_get_now() - began;
+    if (elapsed < 4 || !s_webSession[0]) return;
+    EM_ASM({
+        const channel = Module.kisakAssetStats ||= new BroadcastChannel('kisak-stats-' + UTF8ToString($0));
+        const end = Date.now();
+        channel.postMessage({assetWork:{kind:UTF8ToString($1),path:UTF8ToString($2),
+            at:end-$3,end,ms:$3,bytes:$4}});
+    }, s_webSession, kind, path ? path : "", elapsed, bytes);
+}
 
 namespace
 {
@@ -164,6 +175,7 @@ bool Web_EnsureFile(const char *osPath)
         emscripten_futex_wait((void *)&state, 0, INFINITY);
 
     const bool ok = state == 1 && LocalExists(osPath);
+    Web_ReportAssetWork("file-wait", rel.c_str(), t0, unsigned(it->second.size));
     fprintf(stderr, "web: fetch %s %s (%llu bytes, %.1f s)\n", rel.c_str(), ok ? "ok" : "FAILED", it->second.size,
             (emscripten_get_now() - t0) / 1000.0);
     if (!ok)
@@ -229,6 +241,7 @@ bool Web_EnsureLoose(const char *rel)
             return false;
     }
     alignas(4) volatile int state = 0;
+    const double began = emscripten_get_now();
     // clang-format off
     MAIN_THREAD_ASYNC_EM_ASM({
         const rel = UTF8ToString($0);
@@ -240,6 +253,7 @@ bool Web_EnsureLoose(const char *rel)
     // clang-format on
     while (__atomic_load_n(&state, __ATOMIC_ACQUIRE) == 0)
         emscripten_futex_wait((void *)&state, 0, INFINITY);
+    Web_ReportAssetWork("loose-file-wait", rel, began);
     if (state == 1 && LocalExists(osPath))
         return true;
     std::lock_guard<std::mutex> lk(missMu);
@@ -299,6 +313,92 @@ void Web_PrefetchMap(const char *mapName)
         if (Module.kisakPrefetchMap) Module.kisakPrefetchMap(UTF8ToString($0));
     }, slot);
     // clang-format on
+}
+
+namespace
+{
+    bool ZoneKeyMatches(const std::string &key, const char *zone)
+    {
+        const std::string file = std::string(zone) + ".ff";
+        const std::string suffix = "/" + file;
+        return key == file
+            || (key.size() >= suffix.size() && key.compare(key.size() - suffix.size(), suffix.size(), suffix) == 0);
+    }
+
+    void AppendZoneFiles(const char *zone, std::vector<std::string> &paths)
+    {
+        for (const auto &kv : s_remote)
+        {
+            if (!ZoneKeyMatches(kv.first, zone))
+                continue;
+            paths.emplace_back(std::string(s_gameRoot) + "/" + kv.second.path);
+        }
+    }
+
+    // Map and map-patch fastfiles from Com_LoadLevelFastFiles, plus the shared zones
+    // Com_LoadCommonFastFile queues. zombietron loads none of those shared zones.
+    // zombie_cod5_* uses waw_zombie instead of common_zombie. Even entries are the
+    // zone; the following en_ name is the language pair DB_LoadXAssets queues for
+    // alloc flags 256 and 0x4000.
+    void CollectZombieZones(const char *mapName, std::vector<std::string> &paths)
+    {
+        std::vector<std::string> names;
+        names.emplace_back(mapName);
+        names.emplace_back(std::string("en_") + mapName);
+        names.emplace_back(std::string(mapName) + "_patch");
+        names.emplace_back(std::string("en_") + mapName + "_patch");
+        if (!strstr(mapName, "zombietron"))
+        {
+            const char *mid = strstr(mapName, "zombie_cod5_") ? "waw_zombie" : "common_zombie";
+            const char *shared[4] = {"code_post_gfx", "common", mid, "patch"};
+            for (int i = 0; i < 4; ++i)
+            {
+                names.emplace_back(shared[i]);
+                names.emplace_back(std::string("en_") + shared[i]);
+            }
+        }
+        for (size_t i = 0; i < names.size(); ++i)
+        {
+            const int before = (int)paths.size();
+            AppendZoneFiles(names[i].c_str(), paths);
+            if ((i % 2) == 0 && (int)paths.size() == before)
+                fprintf(stderr, "web: zombie zone not in manifest: %s\n", names[i].c_str());
+        }
+    }
+}
+
+void Web_EnsureMapPack(const char *mapName)
+{
+    if (s_remote.empty() || !mapName)
+        return;
+    const bool zombie = !strncmp(mapName, "zombie_", 7) || !strcmp(mapName, "zombietron");
+    if (strncmp(mapName, "mp_", 3) && !zombie)
+        return;
+    for (const char *p = mapName; *p; ++p)
+        if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '_'))
+            return;
+
+    std::vector<std::string> zonePaths;
+    if (zombie)
+        CollectZombieZones(mapName, zonePaths);
+    if (!zonePaths.empty())
+    {
+        std::vector<const char *> ptrs;
+        ptrs.reserve(zonePaths.size());
+        for (size_t i = 0; i < zonePaths.size(); ++i)
+            ptrs.push_back(zonePaths[i].c_str());
+        Web_KickEnsureFiles(ptrs.data(), (int)ptrs.size());
+    }
+
+    char path[160];
+    snprintf(path, sizeof(path), "%s/main/iw_web_map_%s.iwd", s_gameRoot, mapName);
+    if (Web_RemoteKnown(path, nullptr) && !Web_EnsureFile(path))
+        fprintf(stderr, "web: map pack unavailable for %s\n", mapName);
+    for (size_t i = 0; i < zonePaths.size(); ++i)
+    {
+        if (!Web_EnsureFile(zonePaths[i].c_str()))
+            fprintf(stderr, "web: zombie zone unavailable: %s\n", zonePaths[i].c_str());
+    }
 }
 
 const char *Web_GameRoot()
@@ -451,14 +551,20 @@ std::string Web_InitFilesystem(int argc, char **argv)
     return cmd;
 }
 
+#include "web_archive_cache.h"
+
 FILE *Web_OpenCachedArchive(const char *osPath, const char *mode)
 {
     if (!s_readCache || strncmp(s_gameRoot, "/opfs/", 6)
         || (strcmp(mode, "rb") && strcmp(mode, "r"))) return nullptr;
     const std::string key = RelKey(osPath);
     const auto entry = s_remote.find(key);
-    if (entry == s_remote.end() || key.size() < 4 || key.compare(key.size() - 4, 4, ".iwd")
-        || key.compare(0, 5, "main/") || !entry->second.map.empty()) return nullptr;
+    if (key.size() < 4 || key.compare(key.size() - 4, 4, ".iwd")
+        || key.compare(0, 5, "main/")) return nullptr;
+    // A persistent profile may contain archives from an older manifest. The
+    // engine still indexes them; do not let those bypass the bounded cache.
+    if (entry == s_remote.end()) return OpenArchiveBlocks(osPath);
+    if (!entry->second.map.empty()) return OpenArchiveBlocks(osPath);
     // Bound the extra allocation within the fixed 3 GB heap. Map fastfiles and
     // writable profile files retain their normal backing storage.
     constexpr size_t budget = 512u * 1024u * 1024u;
@@ -469,7 +575,8 @@ FILE *Web_OpenCachedArchive(const char *osPath, const char *mode)
     auto hit = cache.find(key);
     if (hit != cache.end()) return fmemopen(hit->second.first, hit->second.second, "rb");
     // Check the manifest's 64-bit size before narrowing it on wasm32.
-    if (!entry->second.size || entry->second.size > budget - used) return nullptr;
+    if (!entry->second.size) return nullptr;
+    if (entry->second.size > budget - used) return OpenArchiveBlocks(osPath);
     const size_t size = (size_t)entry->second.size;
     FILE *in = fopen(osPath, "rb");
     if (!in) return nullptr;

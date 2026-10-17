@@ -25,6 +25,7 @@
 #include <sound/snd_stream.h>
 #ifdef KISAK_WEB
 #include <web/web_assets.h>
+#include <universal/dvar.h>
 #include <cstdio>
 #endif
 
@@ -237,8 +238,15 @@ int __cdecl FS_HandleForFile(const char *name, FsThread thread)
         {
             __debugbreak();
         }
+#ifdef KISAK_WEB
+        // Browser texture misses can synchronously open loose IWI files while an
+        // earlier backend image handle is still live. Slots 65-69 are otherwise unused.
+        first = 65;
+        count = 5;
+#else
         first = 62;
         count = 1;
+#endif
         break;
     case FS_THREAD_SERVER:
         if (!Sys_IsServerThread()
@@ -1186,7 +1194,16 @@ unsigned int __cdecl FS_Read(unsigned __int8 *buffer, unsigned int len, int h)
     if (!h)
         return 0;
     if (fsh[h].zipFile)
-        return unzReadCurrentFile(fsh[h].handleFiles.file.z, buffer, len);
+    {
+#ifdef KISAK_WEB
+        const double began = emscripten_get_now();
+#endif
+        const auto result = unzReadCurrentFile(fsh[h].handleFiles.file.z, buffer, len);
+#ifdef KISAK_WEB
+        Web_ReportAssetWork("archive-read-inflate", fsh[h].name, began, result > 0 ? result : 0);
+#endif
+        return result;
+    }
     f = FS_FileForHandle(h);
     buf = buffer;
     remaining = len;
@@ -2737,6 +2754,12 @@ void __cdecl FS_Restart(int localClientNum, int checksumFeed)
 {
     const char *v2; // eax
     bool defaultConfigLoaded; // [esp+Bh] [ebp-1h]
+
+#ifdef KISAK_WEB
+    // FS_Startup only discovers IWDs that already exist. Wait for the selected map's
+    // generated pack before it rebuilds the search paths on host and guest.
+    Web_EnsureMapPack(Dvar_GetString("mapname"));
+#endif
 
     if (!IsDedicatedServer())
     {

@@ -88,7 +88,14 @@ function loadAllowList() {
   try {
     const m = JSON.parse(fs.readFileSync(path.join(opts.gen, "manifest.json"), "utf8"));
     const all = [...m.boot, ...Object.values(m.maps).flat(),
-                 ...(m.client ? [...m.client.boot, ...Object.values(m.client.maps).flat()] : [])].filter((e) => !e.gen);
+                 ...(m.client ? [...m.client.boot, ...Object.values(m.client.maps).flat()] : []),
+                 ...(m.zombies ? [...m.zombies.boot, ...Object.values(m.zombies.maps).flat()] : [])].filter((e) => !e.gen);
+    if (m.installation?.version === 1 && m.installation.path === 'installation.json') {
+      const inventory = JSON.parse(fs.readFileSync(path.join(opts.gen, 'installation.json'), 'utf8'));
+      if (inventory.version === 1) for (const e of inventory.files || []) {
+        if (!e.gen && /^(main|zone)\//i.test(e.path) && !e.path.split('/').includes('..')) all.push(e);
+      }
+    }
     allowed = new Set(all.map((e) => e.path.toLowerCase()));
   } catch {
     allowed = new Set();
@@ -115,7 +122,14 @@ function fileEtag(file, st, strong) {
   const key = `${st.size}\0${Math.floor(st.mtimeMs)}`;
   const hit = etagCache.get(file);
   if (hit && hit.key === key) return hit.etag;
-  const hash = createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+  const digest = createHash("sha256");
+  const fd = fs.openSync(file, "r");
+  const chunk = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytes;
+    while ((bytes = fs.readSync(fd, chunk, 0, chunk.length, null)) > 0) digest.update(chunk.subarray(0, bytes));
+  } finally { fs.closeSync(fd); }
+  const hash = digest.digest("hex");
   const etag = `"${hash}"`;
   etagCache.set(file, { key, etag });
   return etag;
@@ -134,11 +148,10 @@ function serveFile(req, res, file, cache) {
   try { st = fs.statSync(file); } catch { return send(res, 404, {}, "not found"); }
   if (!st.isFile()) return send(res, 404, {}, "not found");
   const type = TYPES[path.extname(file).toLowerCase()] || "application/octet-stream";
-  // "engine": store the wasm/mjs and revalidate with a content-hash ETag (no-store re-downloaded
-  // them on every boot). true: game and gen files, size+mtime ETag, one-day cache.
-  const engine = cache === "engine";
-  const cacheHeader = engine ? "public, no-cache" : cache ? "public, max-age=86400" : "no-store";
-  const etag = cache ? fileEtag(file, st, engine) : "";
+  // Revalidate cached assets with content hashes. Generated packs can change while
+  // retaining their size, so size/mtime alone is not an adequate cache identity.
+  const cacheHeader = cache ? "public, no-cache" : "no-store";
+  const etag = cache ? fileEtag(file, st, true) : "";
   if (cache && etagMatches(req.headers["if-none-match"], etag)) {
     res.writeHead(304, { ...COOP, ETag: etag, "Cache-Control": cacheHeader });
     return res.end();
@@ -148,7 +161,8 @@ function serveFile(req, res, file, cache) {
   const accept = req.headers["accept-encoding"] || "";
   // Sibling <file>.br from tools/web/compress_gen.ps1 (pip install brotli). Sent only when the
   // file exists; a missing compressor does not change this path.
-  if (cache && !range && accept.includes("br") && fs.existsSync(file + ".br")) {
+  if (cache && !range && accept.includes("br") && fs.existsSync(file + ".br")
+      && fs.statSync(file + ".br").mtimeMs >= st.mtimeMs) {
     bodyFile = file + ".br";
     bodySize = fs.statSync(bodyFile).size;
     encoding = "br";
@@ -423,7 +437,10 @@ const server = http.createServer((req, res) => {
       }, body);
     }
     if (p.startsWith("/gen/")) {
-      const file = path.join(opts.gen, path.basename(p));
+      // Catalog chunks live below gen; preserve only this validated subpath.
+      // Other generated assets retain the legacy basename-only lookup.
+      const relative = p.slice('/gen/'.length);
+      const file = path.join(opts.gen, /^gpu-catalog\/[a-f0-9]{64}\.bin$/.test(relative) ? relative : path.basename(p));
       return serveFile(req, res, file, true);
     }
     // page scripts first (repo web/), then build output. kisak.js stays no-store so a crash-log

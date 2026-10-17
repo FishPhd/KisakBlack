@@ -8,6 +8,8 @@
 // with the platform options removed and fs_basepath / fs_homepath filled in.
 std::string Web_InitFilesystem(int argc, char **argv);
 const char *Web_SessionId();
+// Bounded slow-work events on the same epoch clock as frame telemetry.
+void Web_ReportAssetWork(const char *kind, const char *path, double began, unsigned bytes = 0);
 bool Web_IsZombieBoot();
 
 // Directory that holds main/ and zone/ (the engine's install path).
@@ -32,6 +34,14 @@ bool Web_EnsureFile(const char *osPath);
 // rel is a game-relative path such as "main/images/foo.iwi". False if the install has no such entry.
 bool Web_EnsureLoose(const char *rel);
 void Web_PrefetchMap(const char *mapName);
+// Ensure a generated map IWD is present before FS_Restart enumerates search paths.
+// Called with the mapname dvar. Names are lowercase [a-z0-9_]. mp_* fetches the
+// pack only. zombie_* and the exact name zombietron also fetch that map's fastfiles,
+// including its _patch pair when present;
+// zombie_* additionally fetches the shared zones Com_LoadCommonFastFile loads
+// (none for a name containing zombietron; waw_zombie instead of common_zombie
+// when the name contains zombie_cod5_).
+void Web_EnsureMapPack(const char *mapName);
 // Non-blocking: ask the page to ensureEntry every path in parallel. The database thread still
 // waits in Web_EnsureFile before it inflates each fastfile.
 void Web_KickEnsureFiles(const char *const *osPaths, int count);

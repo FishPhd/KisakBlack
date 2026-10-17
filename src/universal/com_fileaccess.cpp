@@ -30,6 +30,7 @@ unsigned int __cdecl FS_FileRead(void *ptr, unsigned int len, FILE *stream)
 #ifdef KISAK_WEB
     webReadCalls.fetch_add(1, std::memory_order_relaxed);
     webReadMicros.fetch_add((unsigned int)((emscripten_get_now() - readStart) * 1000), std::memory_order_relaxed);
+    Web_ReportAssetWork("file-read", "", readStart, read_size);
 #endif
     ProfLoad_EndTrackedValue(MAP_PROFILE_FILE_READ);
     return read_size;
