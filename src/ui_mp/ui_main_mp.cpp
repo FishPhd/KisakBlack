@@ -1,4 +1,8 @@
 #include "ui_main_mp.h"
+#ifdef KISAK_WEB
+#include <web/web_assets.h>
+#include <database/db_registry.h>
+#endif
 #include <cstddef>
 #include <ui/ui_shared.h>
 #include <gfx_d3d/r_material.h>
@@ -2449,6 +2453,18 @@ void __cdecl UI_Project_RunMenuScript(
     }
 }
 
+// Deathmatch and the wager modes are not team games. Every other private-match mode is.
+static bool UI_PrivateMatchTeamBased(const char *mode)
+{
+    static const char *freeForAll[] = { "dm", "hcdm", "oic", "hlnd", "gun", "shrp" };
+    if (!mode || !mode[0])
+        return true;
+    for (int i = 0; i < (int)(sizeof(freeForAll) / sizeof(freeForAll[0])); ++i)
+        if (!I_stricmp(mode, freeForAll[i]))
+            return false;
+    return true;
+}
+
 void __cdecl UI_RunMenuScript_StartListenServer()
 {
     char *String; // eax
@@ -2501,6 +2517,7 @@ void __cdecl UI_RunMenuScript_StartListenServer()
         Dvar_SetBoolByName("party_teambased", false);
         String = (char *)Dvar_GetString("ui_gametype");
     }
+    Dvar_SetBoolByName("party_teambased", UI_PrivateMatchTeamBased(Dvar_GetString("ui_gametype")));
     Dvar_SetStringByName("g_gametype", String);
     map = Dvar_GetString("ui_mapname");
     v1 = (char *)Dvar_GetString("sv_mapRotation");

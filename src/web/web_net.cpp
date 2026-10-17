@@ -8,9 +8,13 @@
 #include <win32/win_main.h>
 #include <qcommon/net_chan_mp.h>
 #include <qcommon/msg_mp.h>
+#include <qcommon/cmd.h>
+#include <qcommon/common.h>
 #include <universal/q_shared.h>
 #include <universal/dvar.h>
 #include <qcommon/threads.h>
+#include <client_mp/sv_client_mp.h>
+#include <server_mp/sv_main_mp.h>
 
 #include <cstdio>
 #include <cstring>
@@ -230,10 +234,51 @@ void __cdecl Sys_ShowIP()
     Com_Printf(16, "IP: loopback and browser virtual peers\n");
 }
 
+// The relay reuses a virtual address as soon as the browser socket closes. The match
+// slot stays until sv_timeout, and every peer uses port 3074, so the next join is
+// rejected with EXE_ERR_QPORT. The page runs this when that socket leaves.
+static cmd_function_s Web_DropAdr_f_VAR;
+static void Web_DropAdr_f()
+{
+    if (!com_sv_running || !com_sv_running->current.enabled || !svs.clients || !com_maxclients)
+        return;
+    if (Cmd_Argc() < 2)
+    {
+        Com_Printf(16, "dropadr <ip>\n");
+        return;
+    }
+    netadr_t adr;
+    if (!Sys_StringToAdr(Cmd_Argv(1), &adr))
+    {
+        Com_Printf(16, "dropadr: bad address\n");
+        return;
+    }
+    for (int i = 0; i < com_maxclients->current.integer; ++i)
+    {
+        client_t *cl = &svs.clients[i];
+        if (cl->header.state < CS_CONNECTED)
+            continue;
+        if (cl->header.netchan.remoteAddress.type == NA_LOOPBACK)
+            continue;
+        if (!NET_CompareBaseAdr(adr, cl->header.netchan.remoteAddress))
+            continue;
+        Com_Printf(16, "dropadr: dropping client %d (%s)\n", i, cl->name);
+        // The browser socket is already gone, so there is nobody to notify.
+        SV_DropClient(cl, "EXE_DISCONNECTED", false, true);
+        return;
+    }
+}
+
 void __cdecl NET_OpenIP()
 {
     ip = _Dvar_RegisterString("net_ip", "127.0.0.1", 0x20u, "Network IP Address");
     port = _Dvar_RegisterInt("net_port", 3074, 0, 0xFFFF, 0x20u, "Network port");
+    static bool dropAdrRegistered = false;
+    if (!dropAdrRegistered)
+    {
+        Cmd_AddCommandInternal("dropadr", Web_DropAdr_f, &Web_DropAdr_f_VAR);
+        dropAdrRegistered = true;
+    }
     Com_Printf(16, "Networking: loopback plus WebRTC/relay datagrams\n");
 }
 

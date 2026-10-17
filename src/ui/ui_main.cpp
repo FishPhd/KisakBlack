@@ -1,4 +1,11 @@
 #include "ui_main.h"
+#ifdef KISAK_WEB
+#include <emscripten.h>
+#include <web/web_assets.h>
+#include <web/web_party.h>
+#include <cgame/cg_info.h>
+#include <algorithm>
+#endif
 #include <universal/assertive.h>
 #include <qcommon/com_clients.h>
 #include <universal/com_files.h>
@@ -741,6 +748,13 @@ void __cdecl UI_Refresh(int localClientNum)
     int savedregs; // [esp+4Ch] [ebp+0h] BYREF
 
     UI_Project_Refresh(localClientNum);
+#ifdef KISAK_WEB
+    if (Dvar_GetBool("web_partyLoading") && CL_GetLocalClientConnectionState(localClientNum) < CA_CONNECTING)
+    {
+        CG_DrawInformation(localClientNum);
+        return;
+    }
+#endif
     UI_KisakAutoTest(localClientNum);
     uiInfo = UI_GetInfo(localClientNum);
     contextIndex = uiInfo->uiDC.contextIndex;
@@ -904,7 +918,7 @@ char *__cdecl UI_GetMapDisplayName(const char *pszMap)
     for ( i = 0; i < sharedUiInfo.mapCount; ++i )
     {
         if ( !I_stricmp(pszMap, sharedUiInfo.mapList[i].mapLoadName) )
-            return UI_SafeTranslateString(&sharedUiInfo.joinGameTypes[32].gameType[304 * i]);
+            return UI_SafeTranslateString(sharedUiInfo.mapList[i].mapName);
     }
     return (char *)pszMap;
 }
@@ -3608,16 +3622,16 @@ void UI_InitUIInfos()
                                                 * 0.5;
         if ( useFastFile->current.enabled )
         {
-            Com_sprintf(menuname, 0x80u, "%spatch.txt", "ui_mp/");
+            Com_sprintf(menuname, 0x80u, "%s%s", menuDir, patchList);
             menuList = UI_LoadMenus(menuname, 3);
             UI_AddMenuList(0, &uiInfo->uiDC, menuList, 1);
-            Com_sprintf(menuname, 0x80u, "%scode.txt", "ui_mp/");
+            Com_sprintf(menuname, 0x80u, "%scode.txt", menuDir);
             menuList = UI_LoadMenus(menuname, 3);
             UI_AddMenuList(0, &uiInfo->uiDC, menuList, 1);
         }
         if ( !G_ExitAfterToolComplete() && (!g_mapname[0] || !useFastFile->current.enabled) )
         {
-            Com_sprintf(menuname, 0x80u, "%smenus.txt", "ui_mp/");
+            Com_sprintf(menuname, 0x80u, "%smenus.txt", menuDir);
             menuList = UI_LoadMenus(menuname, 3);
             UI_AddMenuList(0, &uiInfo->uiDC, menuList, 1);
         }
@@ -4067,6 +4081,17 @@ static void __cdecl UI_KisakDumpMenu_f()
 
 void UI_KisakRegisterDebugCommands()
 {
+#ifdef KISAK_WEB
+    _Dvar_RegisterBool("web_partyGuest", false, 0, "Joined browser party member");
+    _Dvar_RegisterBool("web_partyLoading", false, 0, "Waiting for the browser party host to load");
+    _Dvar_RegisterString("web_partyInviteNote", "", 0, "Invite clipboard confirmation");
+    Cmd_AddCommandInternal("web_party_clear", Web_PartyClear_f, &s_partyClearCommand);
+    Cmd_AddCommandInternal("web_party_member", Web_PartyMember_f, &s_partyMemberCommand);
+    Cmd_AddCommandInternal("web_party_room", Web_PartyRoom_f, &s_partyRoomCommand);
+    Cmd_AddCommandInternal("web_party_copy", Web_PartyCopy_f, &s_partyCopyCommand);
+    Cmd_AddCommandInternal("web_party_load", Web_PartyLoad_f, &s_partyLoadCommand);
+    Cmd_AddCommandInternal("web_refresh_browser", Web_RefreshBrowser_f, &s_refreshBrowserCommand);
+#endif
     Cmd_AddCommandInternal("kisak_dumpmenu", UI_KisakDumpMenu_f, &UI_KisakDumpMenu_f_VAR);
     Cmd_AddCommandInternal("kisak_wager", UI_KisakWager_f, &UI_KisakWager_f_VAR);
 }

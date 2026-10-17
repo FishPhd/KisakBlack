@@ -1,6 +1,7 @@
 #include "cl_main_mp.h"
 #ifdef KISAK_WEB
 #include <emscripten.h>
+#include <web/web_assets.h>
 #endif
 #include <cgame_mp/cg_main_mp.h>
 #include <qcommon/common.h>
@@ -1596,14 +1597,42 @@ void __cdecl CL_Setenv_f()
 void __cdecl CL_DisconnectLocalClient(int localClientNum)
 {
     bool wasConnected; // [esp+7h] [ebp-1h]
+    bool localServer;
+    bool basicTraining;
+    bool wagerMatch;
+    bool privateMatch;
 
     SCR_StopCinematic();
     wasConnected = CL_GetLocalClientConnectionState(localClientNum) >= 6;
+    // Read these before the error unwind. Shutdown resets other dvars, but the
+    // queued commands below name the lobby explicitly.
+    localServer = com_sv_running && com_sv_running->current.enabled && !IsDedicatedServer();
+    basicTraining = localServer && xblive_basictraining && xblive_basictraining->current.enabled;
+    wagerMatch = localServer && xblive_wagermatch && xblive_wagermatch->current.enabled;
+    privateMatch = localServer && xblive_privatematch && xblive_privatematch->current.enabled;
     CL_Disconnect(localClientNum, 0);
     if ( Dvar_GetBool("cl_wasconnected") || wasConnected )
     {
         if ( CL_AllLocalClientsDisconnected() )
-            Com_Error(ERR_DISCONNECT, "PLATFORM_DISCONNECTED_FROM_SERVER");
+        {
+            // Leaving a listen server you are hosting is not a remote drop. Combat
+            // training, private matches, and wager matches go back to their lobby.
+            // Any other local game returns to the main menu. A remote server still
+            // reports the disconnect.
+            if ( localClientNum == 0 && localServer )
+            {
+                Dvar_SetStringByName("com_errorMessage", (char *)"");
+                if ( basicTraining )
+                    Cbuf_AddText(0, "wait 3\nset xblive_basictraining 1\nset xblive_privatematch 0\nset xblive_wagermatch 0\nopenmenu menu_xboxlive_basictraining\n");
+                else if ( wagerMatch || privateMatch )
+                    Cbuf_AddText(0, "wait 3\nset xblive_wagermatch 0\nset xblive_basictraining 0\nset xblive_privatematch 1\nopenmenu menu_xboxlive_privatelobby\n");
+                Com_Error(ERR_DISCONNECT, "");
+            }
+            else
+            {
+                Com_Error(ERR_DISCONNECT, "PLATFORM_DISCONNECTED_FROM_SERVER");
+            }
+        }
     }
 }
 
@@ -1722,7 +1751,15 @@ void __cdecl CL_Clientinfo_f()
 
 bool __cdecl CL_WasMapAlreadyLoaded()
 {
-    return com_sv_running->current.enabled;
+    if (!com_sv_running->current.enabled)
+        return false;
+#ifdef KISAK_WEB
+    // A guest still has its frontend listen server up. That is the menu, not the
+    // match, so the remote fastfile load must still run.
+    if (Com_IsMenuLevel(0))
+        return false;
+#endif
+    return true;
 }
 
 void __cdecl CL_DownloadsComplete(int localClientNum)

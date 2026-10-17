@@ -5,6 +5,9 @@
 #include <clientscript/cscr_stringlist.h>
 
 #include <cstring>
+#ifdef KISAK_WEB
+#include <emscripten.h>
+#endif
 #include "sv_main_mp.h"
 #include "sv_main_pc_mp.h"
 #include <game_mp/g_main_mp.h>
@@ -515,6 +518,15 @@ void __cdecl SV_SetServerDvarsBeforeScriptsInit()
 
 void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPreloaded, int savegame)
 {
+#ifdef KISAK_WEB
+    // Notify the page before loading the host's first fastfile. Guests can
+    // download the same map concurrently while the server is unavailable.
+    char *partyMap = strdup(server);
+    MAIN_THREAD_ASYNC_EM_ASM({
+        if (Module.kisakPartyStarting) Module.kisakPartyStarting(UTF8ToString($0));
+        _free($0);
+    }, partyMap);
+#endif
     //jpeg_decompress_struct *v10; // [esp+0h] [ebp-84h]
     unsigned int bspVersion; // [esp+1Ch] [ebp-68h]
     client_t *client; // [esp+20h] [ebp-64h]
@@ -788,11 +800,19 @@ void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPrelo
 
     SV_SaveSystemInfo();
 
-    if (Dvar_GetBool("playlist_enabled"))
+    // Zombies menu starts set sv_maxclients to 4 before map. Playlist size and the
+    // listen-server floor below are the multiplayer private-match path.
+    if (Dvar_GetBool("playlist_enabled") && !(zombiemode && zombiemode->current.enabled))
     {
         int maxplayers = Dvar_GetInt("party_maxplayers");
         Dvar_SetIntByName("sv_maxclients", maxplayers);
     }
+#ifdef KISAK_WEB
+    // A private match can leave only the host's slot open. Browser joins need more.
+    if (!IsDedicatedServer() && !(zombiemode && zombiemode->current.enabled)
+        && sv_maxclients->current.integer < 12)
+        Dvar_SetIntByName("sv_maxclients", 12);
+#endif
 
     SV_Heartbeat_f();
 

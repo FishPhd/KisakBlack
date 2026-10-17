@@ -420,6 +420,9 @@ void __cdecl SV_FastRestart_f()
 // rotate maps. Save the local stats, drop back to the main menu and reopen the matching lobby.
 bool __cdecl SV_ReturnToLobbyAfterMatch()
 {
+    // Save while remote clients are still connected. A first-visit upload is marked ready
+    // before that guest can enter the match, and this write is the host by_xuid record the
+    // next connect in the same room loads.
     LiveOffline_SaveServerStats();
     if ( IsDedicatedServer() )
         return false;

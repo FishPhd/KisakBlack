@@ -4,6 +4,7 @@
 #include <server_mp/sv_init_mp.h>
 #include <qcommon/com_gamemodes.h>
 #include <live/live_stats.h>
+#include <live/live_offline.h>
 #include <live/live_offline_stats.h>
 #include <universal/mem_largelocal.h>
 #include <live/live_steam_server.h>
@@ -873,6 +874,15 @@ void __cdecl SV_DirectConnect(netadr_t from)
         {
             if (clients->header.state
                 && NET_CompareBaseAdr(from, clients->header.netchan.remoteAddress)
+#ifdef KISAK_WEB
+                // One virtual address is one player. A retried connect must reuse that
+                // slot. Allocating a new one fills a private match and the next try is "full".
+                )
+            {
+                newcl = clients;
+                goto gotnewcl;
+            }
+#else
                 && (clients->header.netchan.qport == qport || from.port == clients->header.netchan.remoteAddress.port))
             {
                 v26 = from.port == clients->header.netchan.remoteAddress.port;
@@ -886,6 +896,7 @@ void __cdecl SV_DirectConnect(netadr_t from)
                 newcl = clients;
                 goto gotnewcl;
             }
+#endif
             ++i;
             ++clients;
         }
@@ -938,12 +949,29 @@ void __cdecl SV_DirectConnect(netadr_t from)
         }
         if (!newcl)
         {
+#ifdef KISAK_WEB
+            // Private matches fill every remaining slot with bots. A human joining
+            // from the server browser takes one of those slots.
+            for (i = 0; i < sv_maxclients->current.integer; ++i)
+            {
+                clients = &svs.clients[i];
+                if (clients->header.state >= CS_CONNECTED
+                    && clients->header.netchan.remoteAddress.type == NA_BOT)
+                {
+                    Com_Printf(15, "Replacing bot %d with a connecting player\n", i);
+                    SV_DropClient(clients, "EXE_DISCONNECTED", false, false);
+                    newcl = clients;
+                    goto gotnewcl;
+                }
+            }
+#endif
             password = Info_ValueForKey(userinfo, "password");
             slot = SV_DropClientForReservedSlot(password);
             if (slot < 0)
             {
                 NET_OutOfBandPrint(NS_SERVER, from, "error\nEXE_SERVERISFULL");
-                Com_DPrintf(15, "Rejected a connection. com_maxclients = %d\n", com_maxclients->current.integer);
+                Com_Printf(15, "Rejected a connection: server full. sv_maxclients=%d com_maxclients=%d\n",
+                    sv_maxclients->current.integer, com_maxclients->current.integer);
                 return;
             }
             Com_DPrintf(15, "Accepted client for reserved slot %d, welcome!.\n", slot);
@@ -1041,7 +1069,7 @@ void __cdecl SV_DirectConnect(netadr_t from)
         if (denied)
         {
             NET_OutOfBandPrint(NS_SERVER, from, va("error\n%s", denied));
-            Com_DPrintf(15, "Game rejected a connection: %s.\n", denied);
+            Com_Printf(15, "Game rejected a connection: %s.\n", denied);
             SV_FreeClientScriptId(newcl);
         }
         else
@@ -1207,6 +1235,10 @@ void __cdecl SV_DropClient(client_t *drop, const char *reason, bool tellThem, bo
         {
             LiveOffline_SaveClientStats(drop);
             LiveOffline_SyncStatsFromLocalServer();
+            // Disconnect saves once before the server finishes the drop. Write again after the
+            // final sync so the career file includes the last rewards.
+            if (drop->header.netchan.remoteAddress.type == NA_LOOPBACK)
+                LiveOffline_SaveStats(0);
         }
         LiveOffline_ForgetClientStats(drop);
 #endif
@@ -1408,8 +1440,8 @@ void __cdecl SV_SendClientGameState(client_t *client)
         return;
     }
 #else
-    // Offline: no DemonWare stats download. The local player's stats come from the local stats files
-    // (via the client's local buffers), everyone else (bots / remote clients) gets fresh empty stats.
+    // Offline: local players use the listen profile. A returning guest reloads the host
+    // record at players/by_xuid/<xuid>/; a first visit stays empty until that upload is ready.
     LiveOffline_FillServerClientStats(client);
 #endif
 

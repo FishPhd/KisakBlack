@@ -267,12 +267,73 @@ function isEngineBinary(p) {
 // Multi-guest datagram relay and RTC signaling. Tabs send "HOST" or "JOIN <id>", then game packets
 // as binary frames. Each packet has sender ip (4) + engine's network-order port value (2).
 // The host is 127.0.0.2 and guests are 127.0.0.3 through .33, using game port 3074.
+// Protocol 3 adds text frames for the private-match party: roster names, lobby phase
+// (lobby or match), map, and gametype. Game datagrams stay binary.
 const rooms = new Map();
+// Legacy HTTP heartbeats remain accepted. Discovery itself follows live relay
+// rooms, so a lobby is visible before map loading and disappears on host exit.
+const lobby = new Map();
+function cleanLobbyText(value, max) {
+  return String(value ?? "").replace(/[\t\r\n]/g, " ").trim().slice(0, max);
+}
+function lobbyRows() {
+  const now = Date.now();
+  const rows = [];
+  for (const [id, room] of rooms) {
+    const legacy = lobby.get(id);
+    if (!room.host || !room.map || !room.gametype
+      || (!room.listed && !(!room.listingExplicit && legacy && now - legacy.at <= 12000))) continue;
+    const phase = room.phase;
+    const members = room.guests.size + 1;
+    const clients = phase === "lobby" ? members : Math.max(members, room.clients);
+    const label = phase === "lobby" ? "Lobby" : phase === "loading" ? "Loading" : "In game";
+    const hostName = cleanLobbyText(room.names.get(2) || "Host", 18);
+    rows.push({ room: id, name: `${hostName} - ${label}`, map: room.map, gametype: room.gametype,
+      clients, maxClients: room.maxClients, phase });
+  }
+  return rows;
+}
+function readJsonBody(req, res, done) {
+  const chunks = [];
+  let size = 0;
+  req.on("data", chunk => {
+    size += chunk.length;
+    if (size > 4096) { req.destroy(); return; }
+    chunks.push(chunk);
+  });
+  req.on("end", () => {
+    try { done(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+    catch { send(res, 400, {}, "invalid json"); }
+  });
+}
 function roomId() {
   const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
   let id = "";
   for (let i = 0; i < 4; i++) id += alphabet[(Math.random() * alphabet.length) | 0];
   return rooms.has(id) ? roomId() : id;
+}
+function partyText(value, max) {
+  return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, max);
+}
+function partyToken(value, max) {
+  const text = partyText(value, max);
+  return /^[A-Za-z0-9_]+$/.test(text) ? text : "";
+}
+function roomMembers(room) {
+  const members = [];
+  if (room?.host) members.push(room.host);
+  for (const guest of room?.guests?.values() || []) members.push(guest);
+  return members;
+}
+function broadcastRoom(room, text) {
+  for (const member of roomMembers(room)) wsSend(member.socket, 0x1, text);
+}
+function sendPartyState(socket, room) {
+  if (room.map) wsSend(socket, 0x1, `MAP ${room.map}`);
+  if (room.gametype) wsSend(socket, 0x1, `GAMETYPE ${room.gametype}`);
+  for (const [id, name] of room.names) wsSend(socket, 0x1, `ROSTER ${id} ${name}`);
+  for (const [id, rank] of room.ranks) wsSend(socket, 0x1, `RANK ${id} ${rank}`);
+  wsSend(socket, 0x1, `PHASE ${room.phase}`);
 }
 function wsSend(socket, opcode, payload) {
   const data = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
@@ -288,19 +349,22 @@ function attachRelay(req, socket) {
   const accept = createHash("sha1").update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
   socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
     `Sec-WebSocket-Accept: ${accept}\r\n\r\n`);
-  wsSend(socket, 0x1, "PROTOCOL 2");
+  wsSend(socket, 0x1, "PROTOCOL 3");
   const peer = { socket, role: 0, room: null, buf: Buffer.alloc(0) };
   const leave = () => {
     if (!peer.room) return;
     const r = rooms.get(peer.room);
     if (!r) return;
+    r.names?.delete(peer.id);
+    r.ranks?.delete(peer.id);
     if (r.host === peer) r.host = null;
     if (r.host === null) {
       for (const guest of r.guests.values()) { wsSend(guest.socket, 0x1, "LEAVE 2"); guest.room = null; }
       rooms.delete(peer.room);
+      lobby.delete(peer.room);
     } else {
       r.guests.delete(peer.id);
-      wsSend(r.host.socket, 0x1, `LEAVE ${peer.id}`);
+      broadcastRoom(r, `LEAVE ${peer.id}`);
     }
     peer.room = null;
   };
@@ -332,19 +396,63 @@ function attachRelay(req, socket) {
         if (text === "HOST") {
           const id = roomId();
           if (peer.room) continue;
-          rooms.set(id, { host: peer, guests: new Map() });
+          rooms.set(id, { host: peer, guests: new Map(), phase: "lobby", map: "", gametype: "", names: new Map(), ranks: new Map(),
+            listed: false, listingExplicit: false, clients: 1, maxClients: 18 });
           peer.role = 1; peer.id = 2; peer.room = id;
           wsSend(socket, 0x1, `ROOM ${id}`);
+          wsSend(socket, 0x1, "PHASE lobby");
         } else if (text.startsWith("JOIN ")) {
           const id = text.slice(5).trim();
           const r = rooms.get(id);
-          if (peer.room || !r?.host || r.guests.size >= 31) { wsSend(socket, 0x1, "ERR no room or room full"); continue; }
+          if (peer.room || !r?.host || r.guests.size + 1 >= r.maxClients) { wsSend(socket, 0x1, "ERR no room or room full"); continue; }
           let guestId = 3;
           while (r.guests.has(guestId)) guestId++;
           r.guests.set(guestId, peer); peer.role = 2; peer.id = guestId; peer.room = id;
           wsSend(socket, 0x1, `ROOM ${id}`);
+          // Phase and roster arrive before the host peer so a guest can wait in the lobby
+          // instead of connecting as soon as peer 2 exists.
+          sendPartyState(socket, r);
           wsSend(socket, 0x1, "PEER 2");
           wsSend(r.host.socket, 0x1, `PEER ${guestId}`);
+        } else if (peer.room && /^(NAME|RANK|PHASE|MAP|GAMETYPE|LISTED|CLIENTS|CAPACITY) /.test(text)) {
+          const r = rooms.get(peer.room);
+          if (!r) continue;
+          if (text.startsWith("NAME ")) {
+            const name = partyText(text.slice(5), 31);
+            if (!name) continue;
+            r.names.set(peer.id, name);
+            broadcastRoom(r, `ROSTER ${peer.id} ${name}`);
+          } else if (text.startsWith("RANK ")) {
+            const match = /^RANK (\d+) (\d+)$/.exec(text);
+            if (!match || Number(match[1]) > 49 || Number(match[2]) > 15) continue;
+            const rank = `${Number(match[1])} ${Number(match[2])}`;
+            r.ranks.set(peer.id, rank);
+            broadcastRoom(r, `RANK ${peer.id} ${rank}`);
+          } else if (peer.role === 1 && text.startsWith("LISTED ")) {
+            const value = text.slice(7);
+            if (value !== "0" && value !== "1") continue;
+            r.listed = value === "1";
+            r.listingExplicit = true;
+            if (!r.listed) lobby.delete(peer.room);
+          } else if (peer.role === 1 && /^(CLIENTS|CAPACITY) \d+$/.test(text)) {
+            const value = Number(text.split(" ")[1]);
+            if (value >= 1 && value <= 18) r[text.startsWith("CLIENTS ") ? "clients" : "maxClients"] = value;
+          } else if (peer.role === 1 && text.startsWith("PHASE ")) {
+            const phase = text.slice(6).trim();
+            if (!["lobby", "loading", "match"].includes(phase)) continue;
+            r.phase = phase;
+            broadcastRoom(r, `PHASE ${phase}`);
+          } else if (peer.role === 1 && text.startsWith("MAP ")) {
+            const map = partyToken(text.slice(4), 31);
+            if (!map) continue;
+            r.map = map;
+            broadcastRoom(r, `MAP ${map}`);
+          } else if (peer.role === 1 && text.startsWith("GAMETYPE ")) {
+            const gametype = partyToken(text.slice(9), 15);
+            if (!gametype) continue;
+            r.gametype = gametype;
+            broadcastRoom(r, `GAMETYPE ${gametype}`);
+          }
         } else if (text.startsWith("SIGNAL ") && peer.room) {
           try {
             const signal = JSON.parse(text.slice(7));
@@ -373,6 +481,36 @@ const server = http.createServer((req, res) => {
   let p;
   try { p = decodeURIComponent(url.pathname); }
   catch { return send(res, 400, {}, "bad url"); }
+    if (p === "/lobby/servers" && req.method === "GET") {
+      return send(res, 200, { "Content-Type": "application/json" }, JSON.stringify(lobbyRows()));
+    }
+    if (p === "/lobby/announce" && req.method === "POST") {
+      const origin = req.headers.origin || "";
+      const type = req.headers["content-type"] || "";
+      if (!origin.startsWith("http://") && !origin.startsWith("https://"))
+        return send(res, 403, {}, "same-origin JSON POST required");
+      if (origin !== `http://${req.headers.host}` && origin !== `https://${req.headers.host}`)
+        return send(res, 403, {}, "same-origin JSON POST required");
+      if (!type.startsWith("application/json"))
+        return send(res, 403, {}, "same-origin JSON POST required");
+      return readJsonBody(req, res, body => {
+        const room = cleanLobbyText(body.room, 8);
+        if (!/^[a-z0-9]{4}$/.test(room)) return send(res, 400, {}, "bad room");
+        if (!rooms.get(room)?.host) return send(res, 404, {}, "room is not hosted");
+        const clients = Number(body.clients);
+        const maxClients = Number(body.maxClients);
+        lobby.set(room, {
+          room,
+          name: cleanLobbyText(body.name, 31) || "Local match",
+          map: cleanLobbyText(body.map, 31) || "mp",
+          gametype: cleanLobbyText(body.gametype, 15) || "tdm",
+          clients: Number.isInteger(clients) ? Math.max(1, Math.min(255, clients)) : 1,
+          maxClients: Number.isInteger(maxClients) ? Math.max(1, Math.min(255, maxClients)) : 12,
+          at: Date.now(),
+        });
+        send(res, 204, {}, "");
+      });
+    }
     if (p === "/__agent/config") {
       const loopback = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
       return send(res, opts.agentTest && loopback ? 200 : 404,

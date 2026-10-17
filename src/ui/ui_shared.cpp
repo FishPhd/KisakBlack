@@ -1,6 +1,8 @@
 #include "ui_shared.h"
 #ifdef KISAK_WEB
 #include <web/web_graphics.h>
+#include <web/web_assets.h>
+#include <web/web_party.h>
 #endif
 #include "ui_shared_obj.h"
 #include "ui_localvars.h"
@@ -4304,6 +4306,50 @@ void __cdecl Item_TextField_BeginEdit(int localClientNum, int contextIndex, item
     }
 }
 
+#ifdef KISAK_WEB
+static bool Web_MenuScriptAutoAssigns(itemDef_s *item, const char **handlerName)
+{
+    if (!item)
+        return false;
+    for (GenericEventHandler *handler = item->onEvent; handler; handler = handler->next)
+    {
+        for (GenericEventScript *script = handler->eventScript; script; script = script->next)
+        {
+            if (!script->action || !I_stristr(script->action, "scriptmenuresponse") || !I_stristr(script->action, "autoassign"))
+                continue;
+            if (handlerName)
+                *handlerName = handler->name && handler->name[0] ? handler->name : "action";
+            return true;
+        }
+    }
+    return false;
+}
+
+// Team modes open the stock team menu. Submit that menu's auto-assign response so nobody picks a side.
+// Class menus do not carry this response and stay on screen.
+static void Web_PrivateMatchAutoAssignTeam(int localClientNum, UiContext *dc, menuDef_t *menu)
+{
+    static bool s_busy;
+    if (s_busy || !dc || !menu || !menu->window.name || !menu->items || menu->itemCount <= 0)
+        return;
+    if (I_stristr(menu->window.name, "privatelobby") || I_stristr(menu->window.name, "basictraining")
+        || I_stristr(menu->window.name, "class"))
+        return;
+    if (!Dvar_GetBool("xblive_privatematch") || !Dvar_GetBool("party_teambased"))
+        return;
+    for (int i = 0; i < menu->itemCount; ++i)
+    {
+        const char *handlerName = "action";
+        if (!Web_MenuScriptAutoAssigns(menu->items[i], &handlerName))
+            continue;
+        s_busy = true;
+        Item_RunEventScript(localClientNum, dc, menu->items[i], handlerName);
+        s_busy = false;
+        return;
+    }
+}
+#endif
+
 void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu)
 {
     int openSlideSpeed; // [esp+0h] [ebp-1Ch]
@@ -4314,6 +4360,7 @@ void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu)
     // Offline private match: add the "BOTS: n" row to the lobby before it is shown (idempotent).
 #ifdef KISAK_WEB
     Web_EnsureGraphicsMenu(dc, menu);
+    Web_EnsurePartyMenu(dc, menu);
 #endif
     if ( menu && menu->window.name && !I_stricmp(menu->window.name, "menu_xboxlive_privatelobby") )
         UI_KisakEnsurePrivateLobbyBotsRow(menu);
@@ -4368,6 +4415,7 @@ void __cdecl Menus_Open(int localClientNum, UiContext *dc, menuDef_t *menu)
         Menus_SetupOpenMenu(localClientNum, dc, dc->menuStack[dc->openMenuCount - 1].menu);
     }
 #ifdef KISAK_WEB
+    Web_PrivateMatchAutoAssignTeam(localClientNum, dc, menu);
     fprintf(stderr, "kisak-open done\n");
 #endif
 }
@@ -7286,12 +7334,9 @@ void __cdecl GetPlatformCommand(int localClientNum, const char *command, const c
             }
         }
     }
-    else if ( !strcmp(command, "+speed_throw") )
-    {
-        *consoleCommand = "+toggleads_throw";
-    }
     else
     {
+        // Keyboard hold-ADS stays +speed_throw. Gamepad rewrites live in the branch above.
         *consoleCommand = command;
     }
 }
@@ -7764,12 +7809,20 @@ int __cdecl Item_ListBox_GetIndexForMouse(int contextIndex, itemDef_s *item, flo
         &compareRect.h,
         rect->horzAlign,
         rect->vertAlign);
+    // Paint starts one virtual pixel inside the list and advances by a full
+    // element each row. The decompiled half-element subtraction selected the
+    // preceding row when the mouse was over the middle of a visible entry.
     if ( Window_IsHorizontal(&item->window) )
-        return (int)((float)((float)(compareX - compareRect.x) / compareRect.w) - 0.4999999990686774)
-                 + listPtr->startPos[contextIndex];
-    if ( (int)((float)((float)((float)(compareY - 2.0) - compareRect.y) / compareRect.h) - 0.4999999990686774) > 0 )
-        v5 = (int)((float)((float)((float)(compareY - 2.0) - compareRect.y) / compareRect.h) - 0.4999999990686774);
+    {
+        const float origin = ScrPlace_ApplyX(scrPlace, rect->x + 1.0f, rect->horzAlign);
+        v5 = compareRect.w > 0.0f ? (int)floorf((compareX - origin) / compareRect.w) : 0;
+    }
     else
+    {
+        const float origin = ScrPlace_ApplyY(scrPlace, rect->y + 1.0f, rect->vertAlign);
+        v5 = compareRect.h > 0.0f ? (int)floorf((compareY - origin) / compareRect.h) : 0;
+    }
+    if (v5 < 0)
         v5 = 0;
     return v5 + listPtr->startPos[contextIndex];
 }
@@ -11234,6 +11287,18 @@ void __cdecl UI_AddMenuList(int localClientNum, UiContext *dc, MenuList *menuLis
 void __cdecl UI_AddMenu(int localClientNum, UiContext *dc, menuDef_t *menu, int close)
 {
     int i; // [esp+8h] [ebp-8h]
+
+#ifdef KISAK_WEB
+    // The stock SP frontend projects these menus onto a TV in the campaign room.
+    // The web client has no frontend world: render the same menus directly on screen.
+    const char *loadedMap = Dvar_GetString("mapname");
+    if (Web_IsZombieBoot() && menu && (!loadedMap || !*loadedMap))
+    {
+        menu->ui3dWindowId = -1;
+        if (menu->window.name && !I_stricmp(menu->window.name, "main_online"))
+            menu->fullScreen = 1;
+    }
+#endif
 
     for ( i = 0; i < dc->menuCount; ++i )
     {

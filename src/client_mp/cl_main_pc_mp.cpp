@@ -38,6 +38,11 @@
 #include <qcommon/md4.h>
 #include <DW/MatchMakingQueries_win32.h>
 #include <win32/win_steam.h>
+#if defined(KISAK_WEB)
+#include <emscripten.h>
+#include <emscripten/threading.h>
+#include <cstring>
+#endif
 
 
 const dvar_t *cl_quickmatch_resultspercent;
@@ -234,8 +239,97 @@ void __cdecl CL_ServerInfoPacket(bdSecurityID *secID, msg_t *msg, int time)
 #endif
 }
 
+#if defined(KISAK_WEB)
+static void Web_FillLocalServers(int source)
+{
+    serverInfo_t *servers = nullptr;
+    int *count = nullptr;
+    if (source < 0 || source > 2 || !CL_GetServerList(source, &servers, &count) || !servers || !count)
+    {
+        Com_Printf(0, "Local server list is unranked, ranked, or wager.\n");
+        return;
+    }
+    char text[8192];
+    text[0] = 0;
+    // findservers runs on the game worker. window exists only on the page thread.
+    MAIN_THREAD_EM_ASM({
+        var body = (window.kisak && window.kisak.serversText) || "";
+        if (typeof body !== "string") body = "";
+        stringToUTF8(body, $0, $1);
+    }, text, (int)sizeof(text));
+    *count = 0;
+    char *line = text;
+    while (*line && *count < 64)
+    {
+        char *next = strchr(line, '\n');
+        if (next)
+            *next = 0;
+        char *fields[6];
+        int nfields = 0;
+        fields[nfields++] = line;
+        for (char *cursor = line; *cursor && nfields < 6; ++cursor)
+        {
+            if (*cursor == '\t')
+            {
+                *cursor = 0;
+                fields[nfields++] = cursor + 1;
+            }
+        }
+        if (nfields == 6 && fields[0][0])
+        {
+            serverInfo_t *server = &servers[*count];
+            netadr_t adr = {};
+            adr.type = NA_IP;
+            adr.ip[0] = 127;
+            adr.ip[1] = 0;
+            adr.ip[2] = 0;
+            adr.ip[3] = 2;
+            adr.port = BigShort(3074);
+            adr.addrHandleIndex = -1;
+            CL_InitServerInfo(server, adr);
+            I_strncpyz(server->hostName, fields[1][0] ? fields[1] : "Local match", sizeof(server->hostName));
+            I_strncpyz(server->mapName, fields[2], sizeof(server->mapName));
+            I_strncpyz(server->gameType, fields[3], sizeof(server->gameType));
+            I_strncpyz(server->city, fields[0], sizeof(server->city));
+            int clients = atoi(fields[4]);
+            int maxClients = atoi(fields[5]);
+            if (clients < 1) clients = 1;
+            if (clients > 255) clients = 255;
+            if (maxClients < clients) maxClients = clients;
+            if (maxClients > 255) maxClients = 255;
+            server->clients = (unsigned char)clients;
+            server->maxClients = (unsigned char)maxClients;
+            server->ping = 5;
+            server->dirty = 1;
+            server->gotInfo = 1;
+            server->pure = 1;
+            ++*count;
+        }
+        if (!next)
+            break;
+        line = next + 1;
+    }
+    cls.waitdwfindsessionsresponse = 0;
+    Com_Printf(0, "%d local servers\n", *count);
+}
+#endif
+
 void __cdecl CL_Connect(serverInfo_t *server)
 {
+#if defined(KISAK_WEB)
+    // The row's city field is the relay room. The page joins that room, then
+    // connects to 127.0.0.2 once the host peer exists.
+    if (server && server->city[0])
+    {
+        char *room = strdup(server->city);
+        MAIN_THREAD_ASYNC_EM_ASM({
+            var room = UTF8ToString($0);
+            if (window.kisak && window.kisak.joinListed) window.kisak.joinListed(room);
+            _free($0);
+        }, room);
+        return;
+    }
+#endif
     int ControllerIndex; // eax
     __int16 v2; // ax
     char *v3; // eax
@@ -350,6 +444,23 @@ bool __cdecl CL_CDKeyValidate(netadr_t addr)
 #endif
 }
 
+#ifdef KISAK_WEB
+// 127.0.0.1 is this tab. 127.0.0.2+ and "relay" are another tab in the room.
+static bool Web_IsRemoteTab(const char *server)
+{
+    if (!server)
+        return false;
+    if (!I_stricmp(server, "relay") || !I_strnicmp(server, "relay:", 6))
+        return true;
+    if (I_strnicmp(server, "127.0.0.", 8))
+        return false;
+    const char *host = server + 8;
+    if (host[0] == '1' && (host[1] == 0 || host[1] == ':'))
+        return false;
+    return host[0] >= '0' && host[0] <= '9';
+}
+#endif
+
 void __cdecl CL_Connect_f()
 {
     int ControllerIndex; // eax
@@ -367,7 +478,14 @@ void __cdecl CL_Connect_f()
         clc = CL_GetLocalClientConnection(0);
         clc->serverMessage[0] = 0;
         server = Cmd_Argv(1);
-        if ( !strcmp(server, "localhost") )
+        // "localhost" is this process. A relay address is another tab: drop the menu
+        // listen server first, or CL_WasMapAlreadyLoaded skips the remote map load and
+        // the match is allocated on top of the frontend until the fixed wasm heap aborts.
+        if ( !strcmp(server, "localhost")
+#ifdef KISAK_WEB
+            || Web_IsRemoteTab(server)
+#endif
+            )
             SV_KillLocalServer();
         cl_serverLoadingMap = 0;
         g_waitingForServer = 0;
@@ -629,6 +747,21 @@ void __cdecl CL_ServersResponsePacket(MatchMakingInfo *mminfo, int numResults, b
 
 void __cdecl CL_FindServers_f()
 {
+#if defined(KISAK_WEB)
+    if (Cmd_Argc() < 2)
+    {
+        Com_Printf(0, "usage: findservers [unranked|ranked|wager|favourites|friends|recent]\n");
+        return;
+    }
+    const int source = atoi(Cmd_Argv(1));
+    if (source < 0 || source > 2)
+    {
+        Com_Printf(0, "Local server list is unranked, ranked, or wager.\n");
+        return;
+    }
+    Web_FillLocalServers(source);
+    return;
+#endif
 #if 0 // KISAKTODO
     const char *v0; // eax
     unsigned int servertype; // [esp+14h] [ebp-14h]

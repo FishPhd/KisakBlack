@@ -1,4 +1,7 @@
 #include "cl_scrn_mp.h"
+#ifdef KISAK_WEB
+#include <cgame/cg_info.h>
+#endif
 #include <gfx_d3d/r_font.h>
 #include <gfx_d3d/r_rendercmds.h>
 #include "cl_main_mp.h"
@@ -693,6 +696,15 @@ void __cdecl SCR_DrawScreenField(int localClientNum, int refreshedUI)
     R_BeginSharedCmdList();
     R_AddCmdProjectionSet2D();
     R_UI3D_PerframeInit();
+#ifdef KISAK_WEB
+    if (Dvar_GetBool("web_partyLoading") && CL_GetLocalClientConnectionState(localClientNum) < CA_CONNECTING)
+    {
+        SCR_ClearScreen();
+        CG_DrawInformation(localClientNum);
+        R_UI3D_SetupBackendData(&frontEndDataOut->rbUI3D);
+        return;
+    }
+#endif
     if ( !CG_IsShowingZombieMap() )
     {
         if ( cls.uiStarted && !Dvar_GetBool("ui_changed_exe") )
