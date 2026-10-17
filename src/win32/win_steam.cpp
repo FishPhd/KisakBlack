@@ -8,6 +8,7 @@
 #include "win_steam.h"
 
 #include <live/live_offline.h>
+#include <qcommon/net_chan_mp.h>
 
 // ---------------------------------------------------------------------------
 // Offline build: every entry point is an inert stub. Nothing here touches
