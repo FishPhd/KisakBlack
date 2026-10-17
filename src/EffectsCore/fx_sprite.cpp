@@ -19,8 +19,8 @@ void __cdecl FX_SpriteGenerateVerts(FxGenerateVertsCmd *cmd)
     {
         __debugbreak();
     }
-    for ( i = 0; i < (int)spriteInfo->indices; ++i )
-        FX_GenerateSpriteCodeMeshVerts((FxSprite *)&spriteInfo[2 * i + 1], cmd);
+    for ( i = 0; i < (int)spriteInfo->indexCount; ++i )
+        FX_GenerateSpriteCodeMeshVerts(&g_sprites[i], cmd);
 }
 
 void __cdecl FX_GenerateSpriteCodeMeshVerts(FxSprite *sprite, FxGenerateVertsCmd *cmd)
@@ -69,7 +69,7 @@ void __cdecl FX_BuildSpriteCodeMeshVerts(
     int LocalClientNum; // eax
     cg_s *LocalClientGlobals; // eax
     int v7; // eax
-    float *v8; // eax
+    cg_s *v8; // eax
     int v9; // eax
     cg_s *v10; // eax
     float left[3]; // [esp+18h] [ebp-24h] BYREF
@@ -87,10 +87,10 @@ void __cdecl FX_BuildSpriteCodeMeshVerts(
     left[1] = worldRadius * LocalClientGlobals->refdef.viewaxis[1][1];
     left[2] = worldRadius * LocalClientGlobals->refdef.viewaxis[1][2];
     v7 = R_GetLocalClientNum();
-    v8 = (float *)CG_GetLocalClientGlobals(v7);
-    up[0] = worldRadius * v8[68545];
-    up[1] = worldRadius * v8[68546];
-    up[2] = worldRadius * v8[68547];
+    v8 = CG_GetLocalClientGlobals(v7);
+    up[0] = worldRadius * v8->refdef.viewaxis[2][0];
+    up[1] = worldRadius * v8->refdef.viewaxis[2][1];
+    up[2] = worldRadius * v8->refdef.viewaxis[2][2];
     v9 = R_GetLocalClientNum();
     v10 = CG_GetLocalClientGlobals(v9);
     FX_BuildQuadStampCodeMeshVerts(
@@ -434,7 +434,7 @@ char __cdecl FX_HeightWorldToScreen(
 
 void __cdecl FX_SpriteBegin()
 {
-    g_spriteInfo.indices = 0;
+    g_spriteInfo.indexCount = 0;
 }
 
 void __cdecl FX_SpriteAdd(FxSprite *sprite)

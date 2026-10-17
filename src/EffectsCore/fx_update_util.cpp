@@ -1,4 +1,5 @@
 #include "fx_update_util.h"
+#include "fx_sampling.h"
 
 #include <gfx_d3d/fxprimitives.h>
 #include "fx_random.h"
@@ -423,7 +424,7 @@ void FX_GetVelocityAtTime(
         __debugbreak();
     }
     sampleTime = msecElapsed / msecLifeSpan;
-    if ((float)(msecElapsed / msecLifeSpan) < 0.0 || sampleTime >= 1.0)
+    if ((float)(msecElapsed / msecLifeSpan) < 0.0 || sampleTime > 1.0)
     {
         v8 = va("%g: %g, %g", sampleTime, msecElapsed, msecLifeSpan);
         if (!Assert_MyHandler(
@@ -442,11 +443,10 @@ void FX_GetVelocityAtTime(
     *((float *)&v11 + 1) = fx_randomTable[randomSeed + 2];
     rangeLerp[2] = *((float *)&v11 + 1);
     intervalCount = elemDef->velIntervalCount;
-    samplePoint = (float)intervalCount * sampleTime;
-    *(float *)&v11 = floor(samplePoint);
-    v9 = (int)*(float *)&v11;
+    const FxSampleInterval sample = FX_SampleInterval(intervalCount, sampleTime);
+    v9 = sample.index;
     sampleIndex = v9;
-    sampleLerp = samplePoint - (float)v9;
+    sampleLerp = sample.lerp;
     if (v9 < 0 || sampleIndex >= intervalCount)
     {
         v10 = va("%i for %g on %i intervals", sampleIndex, sampleTime, intervalCount);

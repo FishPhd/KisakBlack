@@ -1,4 +1,5 @@
 #include "fx_draw.h"
+#include "fx_sampling.h"
 #include "fx_random.h"
 #include "fx_dvars.h"
 #include "fx_update_util.h"
@@ -90,13 +91,12 @@ void __cdecl FX_SetupVisualState(
     float v5; // [esp+8h] [ebp-Ch]
     float samplePoint; // [esp+Ch] [ebp-8h]
 
-    samplePoint = (float)elemDef->visStateIntervalCount * normTimeUpdateEnd;
-    v5 = floor(samplePoint);
-    preVisState->sampleLerp = samplePoint - (float)(int)v5;
+    const FxSampleInterval sample = FX_SampleInterval(elemDef->visStateIntervalCount, normTimeUpdateEnd);
+    preVisState->sampleLerp = sample.lerp;
     preVisState->sampleLerpInv = 1.0 - preVisState->sampleLerp;
     preVisState->elemDef = elemDef;
     preVisState->effect = effect;
-    preVisState->refState = &elemDef->visSamples[(int)v5];
+    preVisState->refState = &elemDef->visSamples[sample.index];
     preVisState->randomSeed = randomSeed;
     preVisState->distanceFade = 255;
 }
@@ -602,6 +602,12 @@ void __cdecl FX_GenSpriteVerts(FxDrawState *draw, const float *tangent, const fl
         }
         baseVerts = R_GetCodeMeshVerts(baseVertex);
         verts = baseVerts;
+        // Preserve the float bit patterns used by the packed UV format. Numeric
+        // integer casts drop the sign/exponent bits for tiled sprite UVs.
+        const auto packSpriteUV = [](float s, float t) {
+            const float uv[2] = {s, t};
+            return Vec2PackTexCoords(uv);
+        };
         for ( i = 0; i < 4; ++i )
         {
             verts[i].binormalSign = -1.0f;
@@ -634,7 +640,7 @@ void __cdecl FX_GenSpriteVerts(FxDrawState *draw, const float *tangent, const fl
             v10 = v30;
         else
             v10 = -16384;
-        verts->texCoord.packed = (v10 & 0x3FFF | (int(*(float *)&t0 + dt) >> 16) & 0xC000) + ((v11 & 0x3FFF | (int((float)(v58 * bottomSideSoffset) + s0) >> 16) & 0xC000) << 16);
+        verts->texCoord = packSpriteUV(v58 * bottomSideSoffset + s0, *(float *)&t0 + dt);
         v29 = verts + 1;
         verts[1].xyz[0] = leftSide[0] - up[0];
         v29->xyz[1] = leftSide[1] - up[1];
@@ -662,8 +668,7 @@ void __cdecl FX_GenSpriteVerts(FxDrawState *draw, const float *tangent, const fl
             v8 = v24;
         else
             v8 = -16384;
-        verts[1].texCoord.packed = (v8 & 0x3FFF | (t0 >> 16) & 0xC000)
-                                                         + ((v9 & 0x3FFF | (int((float)(v58 * topSideSoffset) + s0) >> 16) & 0xC000) << 16);
+        verts[1].texCoord = packSpriteUV(v58 * topSideSoffset + s0, *(float *)&t0);
         v23 = verts + 2;
         verts[2].xyz[0] = rightSide[0] - up[0];
         v23->xyz[1] = rightSide[1] - up[1];
@@ -692,7 +697,7 @@ void __cdecl FX_GenSpriteVerts(FxDrawState *draw, const float *tangent, const fl
             v6 = v18;
         else
             v6 = -16384;
-        verts[2].texCoord.packed = (v6 & 0x3FFF | (t0 >> 16) & 0xC000) + ((v7 & 0x3FFF | (int((float)((float)(1.0 - topSideSoffset) * v58) + s0) >> 16) & 0xC000) << 16);
+        verts[2].texCoord = packSpriteUV((1.0f - topSideSoffset) * v58 + s0, *(float *)&t0);
         v17 = verts + 3;
         verts[3].xyz[0] = rightSide[0] + up[0];
         v17->xyz[1] = rightSide[1] + up[1];
@@ -720,9 +725,7 @@ void __cdecl FX_GenSpriteVerts(FxDrawState *draw, const float *tangent, const fl
             v4 = v12;
         else
             v4 = -16384;
-        verts[3].texCoord.packed = (v4 & 0x3FFF | (int(*(float *)&t0 + dt) >> 16) & 0xC000)
-                                                         + ((v5 & 0x3FFF
-                                                             | (int((float)((float)(1.0 - bottomSideSoffset) * v58) + s0) >> 16) & 0xC000) << 16);
+        verts[3].texCoord = packSpriteUV((1.0f - bottomSideSoffset) * v58 + s0, *(float *)&t0 + dt);
     }
 }
 
