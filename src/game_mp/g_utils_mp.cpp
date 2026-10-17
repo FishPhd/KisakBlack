@@ -41,7 +41,7 @@ struct ScriptSoundNotify
 {
     unsigned int token;
     int entityNum;
-    int useCount;
+    unsigned int useCount;
     std::string name;
     int finishTime;
 };
