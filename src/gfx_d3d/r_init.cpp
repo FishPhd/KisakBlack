@@ -660,12 +660,14 @@ void __cdecl R_StoreWindowSettings(const GfxWindowParms *wndParms)
     switch ( r_aspectRatio->current.integer )
     {
         case 0:
+#ifndef KISAK_WEB
             if ( vidConfig.isFullscreen && dx.adapterNativeIsValid )
             {
                 monitorWidth = dx.adapterNativeWidth;
                 monitorHeight = dx.adapterNativeHeight;
             }
             else
+#endif
             {
                 monitorWidth = vidConfig.displayWidth;
                 monitorHeight = vidConfig.displayHeight;
@@ -712,10 +714,12 @@ void __cdecl R_StoreWindowSettings(const GfxWindowParms *wndParms)
     vidConfig.aspectRatioScenePixel = (double)vidConfig.sceneHeight
                                                                     * vidConfig.aspectRatioWindow
                                                                     / (double)vidConfig.sceneWidth;
+#ifndef KISAK_WEB
     if ( vidConfig.isFullscreen )
         vidConfig.aspectRatioDisplayPixel = (float)((float)dx.adapterFullscreenHeight * vidConfig.aspectRatioWindow)
                                                                             / (float)dx.adapterFullscreenWidth;
     else
+#endif
         vidConfig.aspectRatioDisplayPixel = 1.0f;
     vidConfig.isToolMode = 0;
     v2 = r_reflectionProbeGenerate && r_reflectionProbeGenerate->current.enabled;
@@ -729,8 +733,12 @@ void __cdecl R_SetWndParms(GfxWindowParms *wndParms)
     const char *refreshRateString; // [esp+8h] [ebp-4h]
 
     wndParms->fullscreen = Dvar_GetBool("r_fullscreen");
+#ifndef KISAK_WEB
     if ( wndParms->fullscreen || !R_SetCustomResolution(wndParms) )
+#endif
     {
+        // The browser launcher and graphics menu both select r_mode. A legacy
+        // saved r_customMode must not override that selection while windowed.
         resolutionString = Dvar_EnumToString(r_mode);
         sscanf(resolutionString, "%ix%i", &wndParms->displayWidth, &wndParms->displayHeight);
     }
@@ -1245,7 +1253,11 @@ int __cdecl R_AddValidResolution(int width, int height, int resolutionCount, int
     {
         return resolutionCount;
     }
+#ifdef KISAK_WEB
+    if ( width < 640 || height < 480 )
+#else
     if ( width < 800 || height < 600 )
+#endif
         return resolutionCount;
     (*availableResolutions)[2 * resolutionCount] = width;
     (*availableResolutions)[2 * resolutionCount + 1] = height;

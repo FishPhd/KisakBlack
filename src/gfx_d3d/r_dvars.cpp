@@ -967,7 +967,11 @@ void __cdecl R_RegisterDvars()
                                     "r_aaSamples",
                                     1,
                                     1,
+#ifdef KISAK_WEB
+                                    1, // Neither browser backend implements multisample render targets.
+#else
                                     16,
+#endif
                                     0x21u,
                                     "Anti-aliasing sample count; 1 disables anti-aliasing");
     r_vsync = _Dvar_RegisterBool(
@@ -1355,7 +1359,11 @@ void __cdecl R_RegisterDvars()
                                              1,
                                              0xA0u,
                                              "Set to 0 to replace all model vertex colors with white when loaded");
+#ifdef KISAK_WEB
+    sm_enable = _Dvar_RegisterBool("sm_enable", 1, 1, "Enable shadow mapping");
+#else
     sm_enable = _Dvar_RegisterBool("sm_enable", 1, 0, "Enable shadow mapping");
+#endif
     sm_sunEnable = _Dvar_RegisterBool("sm_sunEnable", 1, 0x1000u, "Enable sun shadow mapping from script");
     sm_spotEnable = _Dvar_RegisterBool("sm_spotEnable", 1, 0x1000u, "Enable spot shadow mapping from script");
     sm_maxLights = _Dvar_RegisterInt("sm_maxLights", 4, 0, 4, 1u, "Limits how many primary lights can have shadow maps");
