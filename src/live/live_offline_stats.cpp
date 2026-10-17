@@ -55,6 +55,8 @@ extern "C" __declspec(dllimport) int __stdcall MoveFileExA(const char *lpExistin
 #define MOVEFILE_WRITE_THROUGH 0x00000008
 #endif
 
+extern const char *playerStatKeys[40];
+
 // controllerNetworkData is defined in live_storage.cpp
 extern playerNetworkData controllerNetworkData[1];
 
@@ -84,6 +86,9 @@ namespace
 
     bool s_loaded = false;
     bool s_loading = false;
+    bool s_profileDirty = false;
+    unsigned int s_lastProfileCheck = 0;
+    unsigned int s_lastProfileFlush = 0;
 
     // file scratch (kept static so we do not put ~160 KB on the stack)
     unsigned char s_fileBuf[3][kStatsSize];
@@ -110,6 +115,40 @@ namespace
         default:
             return (unsigned char *)d.globalplayerStats;
         }
+    }
+
+    // Match rewards land in the global buffer (SV_SetClientD*Stat). Menus read PlayerStatsList
+    // from the career buffer, so copy those fields across or a saved rank never shows up.
+    bool MergeGlobalProgressIntoCareer()
+    {
+        if (!g_statsDDL)
+            return false;
+        if (xblive_basictraining && xblive_basictraining->current.enabled)
+            return false;
+
+        bool changed = false;
+        unsigned char *career = RawBuf(RAW_NORMAL);
+        unsigned char *global = RawBuf(RAW_GLOBAL);
+        for (int i = 0; i < 40; ++i)
+        {
+            const char *name = playerStatKeys[i];
+            if (!name || !name[0] || !strcmp(name, "STATS_VERSION"))
+                continue;
+            int from = 0;
+            int to = 0;
+            if (!LiveStats_GetIntPlayerStatFromBase(&from, name, (char *)global))
+                continue;
+            LiveStats_GetIntPlayerStatFromBase(&to, name, (char *)career);
+            // Leave career-only defaults alone. A zero in the global buffer means the match
+            // never wrote that field, not that the career value should be cleared.
+            if (from == to || from == 0)
+                continue;
+            if (LiveStats_SetIntPlayerStat(0, name, (unsigned int)from))
+                changed = true;
+        }
+        if (changed)
+            s_profileDirty = true;
+        return changed;
     }
 
     // flag bytes that directly follow each stats buffer (see LiveStorage_Set* in live_storage.cpp)
@@ -293,6 +332,7 @@ namespace
     {
         unsigned __int64 xuid = 0;
         bool ready = false;
+        bool awaitingUpload = true;
         unsigned int requestedAt = 0;
         size_t received = 0;
         std::vector<unsigned char> upload;
@@ -336,6 +376,7 @@ namespace
             || !ValidateLoadedBuffer(s_fileBuf[1], false, "remote global"))
         {
             profile.ready = false;
+            profile.awaitingUpload = true;
             profile.received = 0;
             profile.upload.clear();
             return false;
@@ -466,11 +507,13 @@ bool LiveOffline_LoadStats(int controllerIndex)
     LiveStorage_SetFirstTimeRunning(false);
     controllerNetworkData[0].firstTimeRunning = false;
 
+    const bool merged = mpOk && MergeGlobalProgressIntoCareer();
+
     s_loading = false;
     s_loaded = true;
 
-    if (!mpOk || !btOk)
-        LiveOffline_SaveStats(0); // persist the freshly created profile(s) right away
+    if (!mpOk || !btOk || merged)
+        LiveOffline_SaveStats(0); // persist a new profile, or career fields copied out of the global buffer
 
     return true;
 }
@@ -524,6 +567,9 @@ void LiveOffline_SyncStatsFromLocalServer()
     memcpy(dst, serverBuf, kStatsSize);
     memcpy(s_serverFillSnapshot, serverBuf, kStatsSize);
     LiveStats_WriteChecksumToBuffer(dst, kStatsSize);
+    if (!s_serverFilledWasBT)
+        MergeGlobalProgressIntoCareer();
+    s_profileDirty = true;
     Com_Printf(16, "LiveOffline: stats of the local player were updated by the server\n");
 }
 
@@ -538,6 +584,11 @@ void LiveOffline_SaveStats(int controllerIndex)
     unsigned char *glob = RawBuf(RAW_GLOBAL);
     unsigned char *bt = RawBuf(RAW_BASICTRAINING);
 
+    // DDL_SetInt/DDL_SetString already mark their buffer dirty. Store a clean header,
+    // with a matching checksum, and restore the flag if the atomic write fails.
+    DDL_SetUserFlag((char *)norm, 0, false);
+    DDL_SetUserFlag((char *)glob, 0, false);
+    DDL_SetUserFlag((char *)bt, 0, false);
     LiveStats_WriteChecksumToBuffer(norm, kStatsSize);
     LiveStats_WriteChecksumToBuffer(glob, kStatsSize);
     LiveStats_WriteChecksumToBuffer(bt, kStatsSize);
@@ -546,9 +597,69 @@ void LiveOffline_SaveStats(int controllerIndex)
     {
         norm[kStatsSize + 1] = 0; // writeNeeded
         glob[kStatsSize + 1] = 0;
+        s_profileDirty = false;
+        s_lastProfileFlush = Sys_Milliseconds();
+    }
+    else
+    {
+        DDL_SetUserFlag((char *)norm, 0, true);
+        DDL_SetUserFlag((char *)glob, 0, true);
     }
     if (WriteStatsFileAtomic(kBtStatsFile, bt, NULL))
         bt[kStatsSize + 1] = 0;
+    else
+        DDL_SetUserFlag((char *)bt, 0, true);
+}
+
+void LiveOffline_StatsFrame()
+{
+    if (!s_loaded || s_loading)
+        return;
+
+    const unsigned int now = Sys_Milliseconds();
+    if (now - s_lastProfileCheck < 250)
+        return;
+    s_lastProfileCheck = now;
+    LiveOffline_SyncStatsFromLocalServer();
+    if (!s_serverFilledLocal)
+        MergeGlobalProgressIntoCareer();
+    if ((s_profileDirty
+         || DDL_GetUserFlag((char *)RawBuf(RAW_NORMAL), 0)
+         || DDL_GetUserFlag((char *)RawBuf(RAW_GLOBAL), 0)
+         || DDL_GetUserFlag((char *)RawBuf(RAW_BASICTRAINING), 0))
+        && now - s_lastProfileFlush >= 2000)
+        LiveOffline_SaveStats(0);
+}
+
+void LiveOffline_OnCurrencySpent(int controllerIndex, int amount)
+{
+    if (controllerIndex != 0 || !s_loaded || s_loading)
+        return;
+
+    const bool basicTraining = xblive_basictraining && xblive_basictraining->current.enabled;
+    client_t *client = s_serverFilledLocal && basicTraining == s_serverFilledWasBT ? FindLocalClient() : nullptr;
+    const char *stats[] = { "CODPOINTS", "CURRENCYSPENT" };
+    for (int i = 0; i < 2; ++i)
+    {
+        const char *path[] = { "PlayerStatsList", stats[i] };
+        int value = 0;
+        if (!LiveStats_GetIntPlayerStat(0, &value, stats[i]))
+            continue;
+        if (!basicTraining)
+            LiveStats_SetIntPlayerStatInternal(0, 2, path, (char *)RawBuf(RAW_GLOBAL), value);
+        if (client && client->statPacketsReceived == ALL_STATS_PACKETS_RECEIVED)
+        {
+            char *serverBuffer = (char *)(basicTraining ? client->stats : client->globalStats);
+            int serverValue = 0;
+            if (LiveStats_GetIntPlayerStatFromBase(&serverValue, stats[i], serverBuffer))
+            {
+                // Preserve rewards not yet copied back to the menu buffer.
+                LiveStats_SetIntPlayerStatInternal(0, 2, path, serverBuffer, serverValue + (i ? amount : -amount));
+                LiveStats_SetIntPlayerStatInternal(0, 2, path, (char *)s_serverFillSnapshot, value);
+            }
+        }
+    }
+    s_profileDirty = true;
 }
 
 void LiveOffline_FillServerClientStats(client_t *client)
@@ -635,7 +746,8 @@ bool LiveOffline_ClientStatsReady(client_t *client)
 {
     if (!RemoteHuman(client)) return true;
     auto it = s_remoteProfiles.find(client);
-    return it != s_remoteProfiles.end() && it->second.xuid == client->steamID && it->second.ready;
+    return it != s_remoteProfiles.end() && it->second.xuid == client->steamID
+        && it->second.ready && !it->second.awaitingUpload;
 }
 
 void LiveOffline_ForgetClientStats(client_t *client)
@@ -676,7 +788,7 @@ void LiveOffline_ResetClientStatsUpload()
 void LiveOffline_RequestClientStats(client_t *client)
 {
     auto it = s_remoteProfiles.find(client);
-    if (it == s_remoteProfiles.end() || it->second.ready) return;
+    if (it == s_remoteProfiles.end() || !it->second.awaitingUpload) return;
     const unsigned int now = Sys_Milliseconds();
     if (it->second.requestedAt && now - it->second.requestedAt < 1000) return;
     it->second.requestedAt = now;
@@ -689,7 +801,8 @@ void LiveOffline_PumpClientStatsUpload(int localClientNum)
     // Keep the 2 KB engine packet and reliable ring bounded, even on a slow or lossy peer.
     if (s_clientUploadOffset >= sizeof(s_clientUpload) || connection->serverAddress.type != NA_IP
         || connection->reliableSequence != connection->reliableAcknowledge) return;
-    const size_t count = std::min(size_t(384), sizeof(s_clientUpload) - s_clientUploadOffset);
+    // Parentheses keep the bound when windows.h defines the min macro.
+    const size_t count = (std::min)(size_t(384), sizeof(s_clientUpload) - s_clientUploadOffset);
     char hex[769];
     const char digits[] = "0123456789abcdef";
     for (size_t i = 0; i < count; ++i)
@@ -707,7 +820,7 @@ bool LiveOffline_HandleStatsCommand(client_t *client)
     if (strcmp(SV_Cmd_Argv(0), "kisak_stats")) return false;
     if (!RemoteHuman(client)) return true;
     auto it = s_remoteProfiles.find(client);
-    if (it == s_remoteProfiles.end() || it->second.xuid != client->steamID || it->second.ready) return true;
+    if (it == s_remoteProfiles.end() || it->second.xuid != client->steamID || !it->second.awaitingUpload) return true;
     RemoteProfile &profile = it->second;
     char *end = nullptr;
     const unsigned long offset = strtoul(SV_Cmd_Argv(1), &end, 10);
@@ -734,8 +847,30 @@ bool LiveOffline_HandleStatsCommand(client_t *client)
         || !ValidateLoadedBuffer(bt, true, "uploaded basic training"))
     {
         profile.upload.clear();
+        profile.received = 0;
+        profile.awaitingUpload = !profile.ready;
         return true;
     }
+    if (profile.ready)
+    {
+        // Returning players may have bought items or edited classes in the frontend.
+        // Reuse the retail CAC validator to price the delta against the host's record;
+        // never replace earned XP or the authoritative balance with an uploaded blob.
+        unsigned char *cac = Dvar_GetBool("xblive_basictraining") ? bt : normal;
+        std::vector<unsigned char> validatedGlobal(client->globalStats, client->globalStats + kStatsSize);
+        if (!SV_ValidateClientCAC(client->stats, kStatsSize, cac, kStatsSize,
+            validatedGlobal.data(), kStatsSize, client->steamID))
+        {
+            Com_PrintWarning(16, "LiveOffline: rejected class changes for %016llx\n", (unsigned long long)client->steamID);
+            profile.awaitingUpload = false;
+            profile.upload.clear();
+            return true;
+        }
+        memcpy(global, validatedGlobal.data(), kStatsSize);
+    }
+    LiveStats_WriteChecksumToBuffer(normal, kStatsSize);
+    LiveStats_WriteChecksumToBuffer(global, kStatsSize);
+    LiveStats_WriteChecksumToBuffer(bt, kStatsSize);
     char file[128];
     RemoteFileName(client, kMpStatsFile, file, sizeof(file), true);
     WriteStatsFileAtomic(file, normal, global);
@@ -746,8 +881,9 @@ bool LiveOffline_HandleStatsCommand(client_t *client)
     memcpy(client->globalStatsStable, global, kStatsSize);
     BG_UnlockablesSetPurchasedBits(client->stats, client->purchasedItems);
     profile.ready = true;
+    profile.awaitingUpload = false;
     profile.upload.clear();
     LiveOffline_SaveClientStats(client);
-    Com_Printf(16, "LiveOffline: imported first-visit stats for %016llx\n", (unsigned long long)client->steamID);
+    Com_Printf(16, "LiveOffline: accepted player stats/classes for %016llx\n", (unsigned long long)client->steamID);
     return true;
 }

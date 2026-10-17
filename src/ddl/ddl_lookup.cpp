@@ -170,6 +170,10 @@ int __cdecl DDL_Lookup_MoveToIndex(
 
 int __cdecl DDL_Lookup_MoveTo(const ddlState_t *searchState, const char *name, ddlState_t *resultState)
 {
+    // A missing def or path (test client / unloaded stats DDL) is "not found", not a fault.
+    if (!searchState || !resultState || !name || !searchState->ddl)
+        return 0;
+
     char lowercaseMemberName[256]; // [esp+4h] [ebp-118h] BYREF
     int low; // [esp+108h] [ebp-14h]
     int result; // [esp+10Ch] [ebp-10h]

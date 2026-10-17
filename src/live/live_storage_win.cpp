@@ -2190,6 +2190,7 @@ bool __cdecl SV_ValidateClientCAC(
     int newbalance; // [esp+94h] [ebp-8h]
     int oldmoneyspent; // [esp+98h] [ebp-4h] BYREF
 
+#ifdef KISAK_LIVE
     if ( g_cacvalidateState != CAC_FETCHTWO
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\live\\live_storage_win.cpp",
@@ -2200,6 +2201,7 @@ bool __cdecl SV_ValidateClientCAC(
     {
         __debugbreak();
     }
+#endif
     ok = 1;
     globalok = 0;
     oldcacok = 0;

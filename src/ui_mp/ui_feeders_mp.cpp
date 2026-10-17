@@ -1,4 +1,7 @@
 #include "ui_feeders_mp.h"
+#ifdef KISAK_WEB
+#include <web/web_party.h>
+#endif
 #include <qcommon/com_clients.h>
 #include "ui_gametype_variants_mp.h"
 #include <qcommon/com_gamemodes.h>
@@ -98,7 +101,11 @@ int __cdecl UI_Project_FeederCount(int localClientNum, int contextIndex, float f
             result = sharedUiInfo.mapCount;
             break;
         case 34:
+#ifdef KISAK_WEB
+            result = Web_PartyMemberCount();
+#else
             result = 0;
+#endif
             break;
         case 35:
         case 36:
@@ -137,7 +144,6 @@ int __cdecl UI_Project_FeederCount(int localClientNum, int contextIndex, float f
                 __debugbreak();
             }
             sharedUiInfo.itemIndex = BG_UnlockablesGetItemIndexInSlot(listPtr->cursorPos[contextIndex]);
-            sharedUiInfo.itemIndex = listPtr->cursorPos[contextIndex];
             result = sharedUiInfo.numAttachments;
             break;
         case 55:
@@ -148,13 +154,13 @@ int __cdecl UI_Project_FeederCount(int localClientNum, int contextIndex, float f
         case 57:
             if ( sharedUiInfo.itemIndex == -1 )
                 goto LABEL_55;
-            sharedUiInfo.attachmentNum = BG_UnlockablesGetNumItemAttachmentsWithAttachPoint(
+            sharedUiInfo.numAttachments = BG_UnlockablesGetNumItemAttachmentsWithAttachPoint(
                                                                          sharedUiInfo.itemIndex,
                                                                          attachmentFilter->current.integer);
-            if ( sharedUiInfo.attachmentNum == 1 )
+            if ( sharedUiInfo.numAttachments == 1 )
                 result = 1;
             else
-                result = sharedUiInfo.attachmentNum - 1;
+                result = sharedUiInfo.numAttachments - 1;
             break;
         case 59:
         case 65:
@@ -689,11 +695,12 @@ char *__cdecl UI_FeederItemText_Attachments(
     bool isSelectedItem; // [esp+53h] [ebp-1h]
 
     listPtr = Item_GetListBoxDef(item);
-    if ( listPtr->cursorPos[contextIndex] >= sharedUiInfo.attachmentNum && sharedUiInfo.attachmentNum )
+    const int visibleAttachments = sharedUiInfo.numAttachments > 1 ? sharedUiInfo.numAttachments - 1 : 1;
+    if ( listPtr->cursorPos[contextIndex] >= visibleAttachments )
     {
         listPtr->startPos[contextIndex] = 0;
-        listPtr->cursorPos[contextIndex] = sharedUiInfo.attachmentNum - 1;
-        v13 = sharedUiInfo.attachmentNum - 1;
+        listPtr->cursorPos[contextIndex] = visibleAttachments - 1;
+        v13 = visibleAttachments - 1;
         LocalClientNum = Com_ControllerIndex_GetLocalClientNum(controllerIndex);
         UI_FeederSelection(LocalClientNum, contextIndex, feederID, v13);
     }
@@ -703,7 +710,7 @@ char *__cdecl UI_FeederItemText_Attachments(
     isSelectedItem = 0;
     isItemGreyedOut = 0;
     itemIndex = sharedUiInfo.itemIndex;
-    if ( sharedUiInfo.attachmentNum == 1 )
+    if ( sharedUiInfo.numAttachments == 1 )
         attachmentNum = BG_UnlockablesGetItemAttachmentNumWithAttachPoint(
                                             sharedUiInfo.itemIndex,
                                             index,
@@ -870,7 +877,15 @@ _CustomClassDescription *__cdecl UI_Project_FeederItemText(
     switch ( (int)feederID )
     {
         case '"':
+#ifdef KISAK_WEB
+            if (column == 0) CL_GetRankIcon(Web_PartyMemberRank(index), Web_PartyMemberPrestige(index), handle);
+            else if (column == 1) return (_CustomClassDescription *)va("%d", Web_PartyMemberRank(index) + 1);
+            else if (column == 2) return (_CustomClassDescription *)Web_PartyMemberName(index);
+            else if (column == 3 && Web_PartyMemberIsHost(index)) *handle = Material_RegisterHandle("ui_host", 3);
+            return (_CustomClassDescription *)"";
+#else
             return (_CustomClassDescription *)UI_FeederItemText_SystemLinkLobbyMembers(localClientNum);
+#endif
         case '#':
         case '$':
         case '%':
@@ -1369,7 +1384,6 @@ char *__cdecl UI_FeederItemText_ItemInSlot(
     if ( listPtr->cursorPos[contextIndex] == index && !item->animInfo->animating )
     {
         sharedUiInfo.itemIndex = itemIndex;
-        sharedUiInfo.itemIndex = index;
         isSelectedItem = Window_HasFocus(contextIndex, &item->window);
     }
     cost = BG_UnlockablesGetItemCost(itemIndex);
@@ -1420,7 +1434,6 @@ char *__cdecl UI_FeederItemText_CustomPerksInSlot(
     if ( Item_GetListBoxDef(item)->cursorPos[contextIndex] == index )
     {
         sharedUiInfo.itemIndex = itemIndex;
-        sharedUiInfo.itemIndex = index;
         isSelectedItem = Window_HasFocus(contextIndex, &item->window);
     }
     isTweakable = UI_Gametype_Custom_IsPerkTweakable(itemIndex);
@@ -2311,6 +2324,11 @@ char __cdecl UI_Project_FeederItemColor(
 
     switch ( (int)feederID )
     {
+#ifdef KISAK_WEB
+        case 34:
+            Vec4Set(color, 1, 1, 1, 1);
+            return 1;
+#endif
         case 3:
             switch ( column )
             {
@@ -3715,14 +3733,19 @@ void __cdecl UI_Project_FeederSelection(int localClientNum, int contextIndex, fl
         case 'a':
         case 'd':
             sharedUiInfo.itemIndex = BG_UnlockablesGetItemIndexInSlot(index);
-            sharedUiInfo.itemIndex = index;
             break;
         case '9':
+        {
+            // The list hides "none" whenever real attachments exist. Count and
+            // selection must stay separate while the confirmation popup is open.
+            const int count = BG_UnlockablesGetNumItemAttachmentsWithAttachPoint(
+                sharedUiInfo.itemIndex, attachmentFilter->current.integer);
             sharedUiInfo.attachmentNum = BG_UnlockablesGetItemAttachmentNumWithAttachPoint(
                                                                                          sharedUiInfo.itemIndex,
-                                                                                         index,
+                                                                                         index + (count > 1 ? 1 : 0),
                                                                                          attachmentFilter->current.integer);
             break;
+        }
         case '=':
             ItemIndexInSlot = 0;
             if ( index )

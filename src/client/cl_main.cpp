@@ -11,6 +11,9 @@
 #include <qcommon/cmd.h>
 #include <win32/win_gamerprofile.h>
 #include <win32/win_shared.h>
+#ifndef KISAK_LIVE
+#include <live/live_offline_stats.h>
+#endif
 
 clientUIActive_t clientUIActives[1];
 
@@ -48,6 +51,8 @@ void __cdecl CL_RunNetworkFrame(int localClientNum)
         g_doLiveFrameHack = 1;
     }
     Live_CheckOngoingTasks();
+#else
+    LiveOffline_StatsFrame();
 #endif
 }
 

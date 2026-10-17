@@ -18,6 +18,9 @@
 #include <server_mp/sv_main_mp.h>
 #include "live_storage_win.h"
 #include <ddl/ddl_cmd.h>
+#ifndef KISAK_LIVE
+#include "live_offline_stats.h"
+#endif
 
 const char *lbTypeEnum_7[17] =
 {
@@ -1566,10 +1569,10 @@ char __cdecl LiveStats_MoveToProItemVersion(ddlState_t *searchState, int itemInd
     const ddlState_t *RootDDLState; // eax
     char *v5; // [esp-Ch] [ebp-Ch]
 
-    va("%d", challengeIndex);
+    const char *challenge = va("%d", challengeIndex);
     v5 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, searchState, 4, "itemStats", v5) )
+    if ( DDL_MoveTo(RootDDLState, searchState, 4, "itemStats", v5, "isProVersionUnlocked", challenge) )
         return 1;
     DDL_PrintError("DDL: Error could not find item version unlocked %d challenge %d\n", itemIndex, challengeIndex);
     return 0;
@@ -1664,7 +1667,7 @@ void __cdecl LiveStats_CompareStatsVsStableBuffer(int controllerIndex)
                 BG_UnlockablesSetItemNew(controllerIndex, itemNumber);
             }
             v1 = va("%d", itemNumber);
-            if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v1)
+            if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v1, "stats")
                 && DDL_IterateFirst(&searchStateStats, &searchStateStats) )
             {
                 do
@@ -2763,7 +2766,7 @@ void __cdecl LiveStats_AddChallenge(
     ddlState_t searchStateStats; // [esp+0h] [ebp-10h] BYREF
 
     v4 = va("%d", itemNumber);
-    if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v4)
+    if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v4, "stats")
         && DDL_IterateFirst(&searchStateStats, &searchStateStats) )
     {
         do
@@ -3296,7 +3299,7 @@ void __cdecl LiveStats_BuildKillstreakChallengeList(
             if ( !I_stricmp(killstreakType, ItemName) && BG_UnlockablesGetItemCost(itemNumber) != -1 )
             {
                 v4 = va("%d", itemNumber);
-                if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v4) )
+                if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v4, "stats") )
                 {
                     if ( DDL_IterateFirst(&searchStateStats, &searchStateStats) )
                     {
@@ -3661,7 +3664,7 @@ void __cdecl LiveStats_AddUnderBarrelAttachments(int controllerIndex, char *live
              || BG_UnlockablesGetItemGroupEnum(itemNumber) == 13) )
         {
             v2 = va("%d", itemNumber);
-            if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v2)
+            if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v2, "stats")
                 && DDL_IterateFirst(&searchStateStats, &searchStateStats) )
             {
                 do
@@ -4122,7 +4125,6 @@ char __cdecl LiveStats_SpendCurrency(
                 pointsSpent_t reasonType,
                 int reasonIndex)
 {
-#ifdef KISAK_LIVE
     int currentCodPoints; // [esp+0h] [ebp-4h]
 
     currentCodPoints = LiveStats_GetCurrency(controllerIndex);
@@ -4130,6 +4132,7 @@ char __cdecl LiveStats_SpendCurrency(
     {
         LiveStats_SetStatByKey(controllerIndex, MP_PLAYERSTATSKEY_CODPOINTS, currentCodPoints - currencyAmount);
         LiveStats_TrackSpending(controllerIndex, currencyAmount);
+#ifdef KISAK_LIVE
         if ( currencyAmount < 0 )
             currencyAmount = -currencyAmount;
         LiveCounter_IncrementCounterValueByName("global_moneyspent", currencyAmount);
@@ -4138,6 +4141,12 @@ char __cdecl LiveStats_SpendCurrency(
             if ( recordPointsSpent->current.enabled )
                 MatchRecordPointsSpent(controllerIndex, currencyAmount, reasonType, reasonIndex);
         }
+#else
+        // Offline builds have no DemonWare money counters. COD points are the player-stats value above.
+        LiveOffline_OnCurrencySpent(controllerIndex, currencyAmount);
+        (void)reasonType;
+        (void)reasonIndex;
+#endif
         return 1;
     }
     else
@@ -4145,9 +4154,6 @@ char __cdecl LiveStats_SpendCurrency(
         Com_PrintError(15, "Item costs %d and you only have %d\n", currencyAmount, currentCodPoints);
         return 0;
     }
-#else
-    return 0;
-#endif
 }
 
 void __cdecl LiveStats_TrackSpending(int controllerIndex, int currencyAmount)
@@ -4263,6 +4269,16 @@ void __cdecl LiveStats_ResetBasicTrainingStats(int controllerIndex)
         if ( !CG_IsShowingZombieMap() )
         {
             wasBasicTraining = xblive_basictraining->current.enabled;
+            const bool savedOnline = onlinegame->current.enabled;
+            const bool savedPrivate = xblive_privatematch->current.enabled;
+            const bool savedWager = xblive_wagermatch->current.enabled;
+            const bool savedTheater = xblive_theater->current.enabled;
+            // Stats helpers select their buffer from the current game mode.
+            // Enter a valid Basic Training mode for this initialization only.
+            Dvar_SetBool((dvar_s *)onlinegame, true);
+            Dvar_SetBool((dvar_s *)xblive_privatematch, false);
+            Dvar_SetBool((dvar_s *)xblive_wagermatch, false);
+            Dvar_SetBool((dvar_s *)xblive_theater, false);
             Dvar_SetBool((dvar_s *)xblive_basictraining, 1);
             savedUiItemsNoCost = ui_items_no_cost->current.integer;
             savedCustomClassMode = custom_class_mode->current.integer;
@@ -4293,6 +4309,10 @@ void __cdecl LiveStats_ResetBasicTrainingStats(int controllerIndex)
             Dvar_SetInt((dvar_s *)custom_killstreak_mode, savedCustomKillstreakMode);
             Dvar_SetInt((dvar_s *)ui_useCustomClassInfo, savedUiUseCustomClassInfo);
             Dvar_SetBool((dvar_s *)xblive_basictraining, wasBasicTraining);
+            Dvar_SetBool((dvar_s *)onlinegame, savedOnline);
+            Dvar_SetBool((dvar_s *)xblive_privatematch, savedPrivate);
+            Dvar_SetBool((dvar_s *)xblive_wagermatch, savedWager);
+            Dvar_SetBool((dvar_s *)xblive_theater, savedTheater);
             LiveStorage_WriteBasicTrainingStats(controllerIndex);
         }
     }
@@ -4582,7 +4602,7 @@ void __cdecl LiveStats_PresetigeStatsResetCmd()
         if ( BG_UnlockablesIsItemValidNotNull(itemNumber) )
         {
             v0 = va("%d", itemNumber);
-            if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v0)
+            if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v0, "stats")
                 && DDL_IterateFirst(&searchStateStats, &searchStateStats) )
             {
                 do
@@ -4699,7 +4719,7 @@ void __cdecl SV_UpdatePersonalBestsForClient(int clientnum)
                     SV_SetItemNewForClient(liveStatsBuffer, itemNumber, newRank, newPrestige);
                 }
                 v1 = va("%d", itemNumber);
-                if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v1)
+                if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v1, "stats")
                     && DDL_IterateFirst(&searchStateStats, &searchStateStats) )
                 {
                     do

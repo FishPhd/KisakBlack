@@ -1625,7 +1625,8 @@ bool __cdecl BG_UnlockablesItemIsDualWield(int itemIndex)
 
 bool __cdecl BG_UnlockablesIsItemValidNotNull(int itemIndex)
 {
-    return s_unlockableItems.itemTable[itemIndex].isValid && !s_unlockableItems.itemTable[itemIndex].isNullItem;
+    return itemIndex >= 0 && itemIndex < 256
+        && s_unlockableItems.itemTable[itemIndex].isValid && !s_unlockableItems.itemTable[itemIndex].isNullItem;
 }
 
 void __cdecl BG_UnlockablesSetItemNew(int controllerIndex, int itemIndex)
@@ -1639,7 +1640,7 @@ void __cdecl BG_UnlockablesSetItemNew(int controllerIndex, int itemIndex)
     {
         v3 = va("%d", itemIndex);
         RootDDLState = LiveStats_GetRootDDLState();
-        if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v3) )
+        if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v3, "new") )
         {
             buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
             DDL_SetInt(&searchState, 1u, (char *)buffer);
@@ -1671,7 +1672,7 @@ void __cdecl SV_SetItemNewForClient(char *clientBuffer, int itemIndex, int clien
     {
         v5 = va("%d", itemIndex);
         RootDDLState = LiveStats_GetRootDDLState();
-        if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v5) )
+        if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v5, "new") )
             DDL_SetInt(&searchState, 1u, clientBuffer);
         else
             DDL_PrintError("DDL: Error could not find item %d\n", itemIndex);
@@ -1695,7 +1696,7 @@ bool __cdecl BG_UnlockablesIsItemNew(int controllerIndex, int itemIndex)
         return 0;
     v4 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4, "new") )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return DDL_GetInt(&searchState, (char *)buffer) != 0;
@@ -1771,6 +1772,11 @@ void __cdecl BG_UnlockablesPurchaseItem(int controllerIndex, int itemIndex, int 
         {
             Com_PrintError(15, "Item %s is locked for the current level\n", itemInfo->name);
         }
+        else if ( BG_UnlockablesIsProItem(itemIndex)
+            && !BG_UnlockablesIsProItemUnlocked(controllerIndex, itemIndex - 1) )
+        {
+            Com_PrintError(15, "Item %s requires its completed pro challenges\n", itemInfo->name);
+        }
         else
         {
             currentCodPoints = LiveStats_GetCurrency(controllerIndex);
@@ -1798,7 +1804,7 @@ char __cdecl BG_UnlockablesSetItemPurchased(int controllerIndex, int itemIndex, 
 
     v5 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v5) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v5, "purchased") )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         if ( DDL_SetInt(&searchState, isPurchased, (char *)buffer) )
@@ -1846,7 +1852,7 @@ void __cdecl BG_UnlockablesSellItem(int controllerIndex, int itemIndex)
                 buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
                 v4 = va("%d", itemIndex);
                 RootDDLState = LiveStats_GetRootDDLState();
-                if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4) )
+                if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4, "purchased") )
                 {
                     if ( DDL_SetInt(&searchState, 0, (char *)buffer) )
                     {
@@ -1912,6 +1918,8 @@ bool __cdecl BG_UnlockablesIsItemPurchasedFromBuffer(unsigned __int8 *statsBuffe
 
     if ( BG_UnlockablesAllItemsFree() )
         return 1;
+    if ( !statsBuffer )
+        return 0;
     itemInfo = BG_UnlockablesGetItemInfo(itemIndex);
     if ( !itemInfo )
         return 0;
@@ -1919,7 +1927,12 @@ bool __cdecl BG_UnlockablesIsItemPurchasedFromBuffer(unsigned __int8 *statsBuffe
         return 1;
     v4 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4) )
+    // Test clients and a zombies boot have no multiplayer unlockables blob until stats.ddl is live.
+    if ( !RootDDLState || !RootDDLState->ddl )
+        return 0;
+    // ItemStats entries are structs; ownership and the menu's "new" flag are separate leaves.
+    const char *path[3] = { "itemStats", v4, "purchased" };
+    if ( DDL_MoveToPath(RootDDLState, &searchState, 3, path) )
         return DDL_GetInt(&searchState, (char *)statsBuffer) != 0;
     DDL_PrintError("DDL: Error could not find item %d\n", itemIndex);
     return 0;
@@ -1958,7 +1971,7 @@ bool __cdecl BG_UnlockablesIsItemDualWieldPurchased(int controllerIndex, int ite
         return 1;
     v4 = va("%d", itemInfo->dwIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v4, "purchased") )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return DDL_GetInt(&searchState, (char *)buffer) != 0;
@@ -2078,7 +2091,7 @@ void __cdecl BG_UnlockablesPurchaseItemAttachmentPoint(int controllerIndex, int 
                         currentCodPoints -= attachmentPointInfo->values.cost;
                         v4 = va("%d", itemIndex);
                         RootDDLState = LiveStats_GetRootDDLState();
-                        if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v4) )
+                        if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v4, "purchasedAttachPoints", attachmentPoint) )
                         {
                             buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
                             if ( DDL_SetInt(&searchState, 1u, (char *)buffer) )
@@ -2208,10 +2221,10 @@ char __cdecl BG_UnlockablesSetItemAttachmentPurchased(
     persistentStats *buffer; // [esp+0h] [ebp-18h]
     ddlState_t searchState; // [esp+8h] [ebp-10h] BYREF
 
-    va("%d", attachmentNum);
+    const char *attachmentIndex = va("%d", attachmentNum);
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6, "purchasedAttachments", attachmentIndex) )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         if ( DDL_SetInt(&searchState, isPurchased, (char *)buffer) )
@@ -2296,7 +2309,7 @@ bool __cdecl BG_UnlockablesIsItemAttachmentPointPurchased(
         return 1;
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6, "purchasedAttachPoints", attachmentPoint) )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return DDL_GetInt(&searchState, (char *)buffer) != 0;
@@ -2332,10 +2345,10 @@ bool __cdecl BG_UnlockablesIsItemAttachmentPurchased(int controllerIndex, int it
     ItemAttachment = BG_UnlockablesGetItemAttachment(itemIndex, attachmentNum);
     if ( !BG_GetAttachmentCost(ItemAttachment) )
         return 1;
-    va("%d", attachmentNum);
+    const char *attachmentIndex = va("%d", attachmentNum);
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6, "purchasedAttachments", attachmentIndex) )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return DDL_GetInt(&searchState, (char *)buffer) != 0;
@@ -2384,10 +2397,10 @@ bool __cdecl BG_UnlockablesIsItemOptionPurchased(int controllerIndex, int itemIn
         return 0;
     if ( !BG_GetWeaponOptionCost(optionIndex) )
         return 1;
-    va("%d", optionIndex);
+    const char *option = va("%d", optionIndex);
     v5 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v5) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v5, "purchasedOptions", option) )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return DDL_GetInt(&searchState, (char *)buffer) != 0;
@@ -2573,7 +2586,7 @@ void __cdecl BG_UnlockablesClearItemNew(int controllerIndex, int itemIndex)
         {
             v3 = va("%d", itemIndex);
             RootDDLState = LiveStats_GetRootDDLState();
-            if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v3) )
+            if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v3, "new") )
             {
                 buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
                 if ( !DDL_SetInt(&searchState, 0, (char *)buffer) )
@@ -3018,7 +3031,7 @@ int __cdecl BG_UnlockablesBuildItemListForGroup(itemGroup_t group)
     s_unlockableItems.numItemsInSlot = 0;
     if ( group != ITEMGROUP_COUNT )
     {
-        for ( itemNum = 0; itemNum <= 256; ++itemNum )
+        for ( itemNum = 0; itemNum < 256; ++itemNum )
         {
             if ( s_unlockableItems.itemTable[itemNum].isValid
                 && s_unlockableItems.itemTable[itemNum].group == group
@@ -3040,7 +3053,7 @@ int __cdecl BG_UnlockablesBuildItemListForGroupForWeaponTable(itemGroup_t group)
     s_unlockableItems.numItemsInSlot = 0;
     if ( group != ITEMGROUP_COUNT )
     {
-        for ( itemNum = 0; itemNum <= 256; ++itemNum )
+        for ( itemNum = 0; itemNum < 256; ++itemNum )
         {
             if ( s_unlockableItems.itemTable[itemNum].isValid && s_unlockableItems.itemTable[itemNum].group == group )
             {
@@ -3181,10 +3194,10 @@ char __cdecl BG_UnlockablesSetItemOptionPurchased(
     persistentStats *buffer; // [esp+0h] [ebp-18h]
     ddlState_t searchState; // [esp+8h] [ebp-10h] BYREF
 
-    va("%d", optionIndex);
+    const char *option = va("%d", optionIndex);
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6, "purchasedOptions", option) )
     {
         buffer = LiveStorage_GetStatsBuffer(controllerIndex, STATS_LOCATION_NORMAL, 1);
         if ( DDL_SetInt(&searchState, isPurchased, (char *)buffer) )
@@ -3261,7 +3274,7 @@ bool __cdecl SV_CacValidate_IsItemPurchased(unsigned __int8 *cacBuffer, int item
     }
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v6, "purchased") )
         return DDL_GetInt(&searchState, (char *)cacBuffer) != 0;
     DDL_PrintError("DDL: Error could not find item %d\n", itemIndex);
     return 0;
@@ -3292,10 +3305,10 @@ bool __cdecl SV_CACValidate_IsItemAttachmentPurchased(
     ItemAttachment = BG_UnlockablesGetItemAttachment(itemIndex, attachmentNum);
     if ( !BG_GetAttachmentCost(ItemAttachment) )
         return 1;
-    va("%d", attachmentNum);
+    const char *attachmentIndex = va("%d", attachmentNum);
     v8 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v8) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v8, "purchasedAttachments", attachmentIndex) )
         return DDL_GetInt(&searchState, (char *)cacbuffer) != 0;
     DDL_PrintError("DDL: Error could not find item %d attachment %d\n", itemIndex, attachmentNum);
     return 0;
@@ -3334,10 +3347,10 @@ bool __cdecl SV_CACValidate_IsItemOptionPurchased(
         return 0;
     if ( !BG_GetWeaponOptionCost(optionIndex) )
         return 1;
-    va("%d", optionIndex);
+    const char *option = va("%d", optionIndex);
     v7 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v7) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v7, "purchasedOptions", option) )
         return DDL_GetInt(&searchState, (char *)cacbuffer) != 0;
     DDL_PrintError("DDL: Error could not find item %d camo %d\n", itemIndex, optionIndex);
     return 0;
@@ -3415,7 +3428,7 @@ char __cdecl SV_CACValidate_SetItemPurchased(char *buffer, int itemIndex, bool i
 
     v5 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v5) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 3, "itemStats", v5, "purchased") )
     {
         if ( DDL_SetInt(&searchState, isPurchased, buffer) )
         {
@@ -3444,10 +3457,10 @@ char __cdecl SV_CACValidate_SetItemAttachmentPurchased(
     char *v6; // [esp-Ch] [ebp-20h]
     ddlState_t searchState; // [esp+4h] [ebp-10h] BYREF
 
-    va("%d", attachmentNum);
+    const char *attachmentIndex = va("%d", attachmentNum);
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6, "purchasedAttachments", attachmentIndex) )
     {
         if ( DDL_SetInt(&searchState, isPurchased, buffer) )
         {
@@ -3472,10 +3485,10 @@ char __cdecl SV_CACValidate_SetItemOptionPurchased(char *buffer, int itemIndex, 
     char *v6; // [esp-Ch] [ebp-20h]
     ddlState_t searchState; // [esp+4h] [ebp-10h] BYREF
 
-    va("%d", optionIndex);
+    const char *option = va("%d", optionIndex);
     v6 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6) )
+    if ( DDL_MoveTo(RootDDLState, &searchState, 4, "weaponStats", v6, "purchasedOptions", option) )
     {
         if ( DDL_SetInt(&searchState, isPurchased, buffer) )
         {
@@ -4055,7 +4068,8 @@ void __cdecl BG_UnlockablesPurchaseItemOption(int controllerIndex, int itemIndex
     int currentCodPoints; // [esp+Ch] [ebp-8h]
     itemInfo_t *itemInfo; // [esp+10h] [ebp-4h]
 
-    if ( optionIndex )
+    if ( optionIndex > 0 && optionIndex < BG_GetWeaponOptionCount()
+        && !BG_UnlockablesIsWeaponOptionLocked(controllerIndex, optionIndex) )
     {
         if ( !BG_UnlockablesIsItemLocked(controllerIndex, itemIndex)
             && BG_UnlockablesIsItemPurchased(controllerIndex, itemIndex) )
@@ -4921,7 +4935,7 @@ int __cdecl BG_UnlockablesBuildItemListForSlotName(int controllerIndex, const ch
         }
         if ( loadoutSlot != -1 )
         {
-            for ( itemNum = 0; itemNum <= 256; ++itemNum )
+            for ( itemNum = 0; itemNum < 256; ++itemNum )
             {
                 itemInfo = &s_unlockableItems.itemTable[itemNum];
                 if ( itemInfo->isValid && itemInfo->loadoutSlot == loadoutSlot && itemInfo->cost >= 0 )
@@ -5004,7 +5018,7 @@ int __cdecl BG_UnlockablesBuildItemListForChallengesPerks(int controllerIndex, c
         }
         if ( loadoutSlot != -1 )
         {
-            for ( itemNum = 0; itemNum <= 256; ++itemNum )
+            for ( itemNum = 0; itemNum < 256; ++itemNum )
             {
                 itemInfo = &s_unlockableItems.itemTable[itemNum];
                 if ( itemInfo->isValid
@@ -5187,7 +5201,7 @@ int __cdecl BG_UnlockablesBuildItemListForSlotNameAndGroup(
         }
         if ( loadoutSlot != -1 && group != -1 )
         {
-            for ( itemNum = 0; itemNum <= 256; ++itemNum )
+            for ( itemNum = 0; itemNum < 256; ++itemNum )
             {
                 if ( s_unlockableItems.itemTable[itemNum].isValid
                     && s_unlockableItems.itemTable[itemNum].loadoutSlot == loadoutSlot
@@ -5627,7 +5641,7 @@ void __cdecl BG_UnlockablesCopyClassCmd()
         classToCopy = customClassDvars[classIndexToCopy];
         if ( classToCopy && classToReplace && *classToCopy && *classToReplace )
         {
-            for ( currLoadout = LOADOUTSLOT_FIRST; currLoadout < LOADOUTSLOT_COUNT; ++currLoadout )
+            for ( currLoadout = LOADOUTSLOT_FIRST; currLoadout < LOADOUTSLOT_GLOBAL_ITEMS_START; ++currLoadout )
             {
                 loadoutName = BG_UnlockablesGetLoadoutName(currLoadout);
                 if ( loadoutName )

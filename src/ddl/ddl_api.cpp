@@ -256,13 +256,15 @@ int __cdecl DDL_MoveToPath(const ddlState_t *searchState, ddlState_t *resultStat
     int i; // [esp+0h] [ebp-14h]
     ddlState_t tempState; // [esp+4h] [ebp-10h] BYREF
 
-    if ( !*ddlPath || !DDL_MoveToName(searchState, &tempState, *ddlPath) )
+    if ( !searchState || !searchState->ddl || !resultState || !ddlPath || depth <= 0
+        || !*ddlPath || !DDL_MoveToName(searchState, &tempState, *ddlPath) )
         return 0;
     for ( i = 1; i < depth; ++i )
     {
         if ( ddlPath[i] )
         {
-            if ( tempState.member && tempState.member->arraySize > 1 && tempState.member->enumIndex == -1 )
+            if ( tempState.member && tempState.member->arraySize > 1
+                && tempState.member->enumIndex == -1 && tempState.arrayIndex == -1 )
             {
                 v4 = atoi(ddlPath[i]);
                 if ( !DDL_MoveToIndex(&tempState, &tempState, v4, 1) )

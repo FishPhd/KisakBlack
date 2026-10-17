@@ -10,6 +10,12 @@ struct client_t;
 // True once LiveOffline_LoadStats has succeeded (buffers are loaded / freshly initialised).
 bool LiveOffline_StatsLoaded();
 
+// Pump native DDL dirty flags in menus as well as gameplay.
+void LiveOffline_StatsFrame();
+
+// Mirror a successful native purchase/refund into the offline reward buffers.
+void LiveOffline_OnCurrencySpent(int controllerIndex, int amount);
+
 // Server side: fills client->stats / globalStats / globalStatsStable / purchasedItems and marks
 // client->statPacketsReceived = ALL_STATS_PACKETS_RECEIVED.
 //  - local (loopback) human client: copy of the local player's NORMAL (or BASICTRAINING) and GLOBAL buffers
