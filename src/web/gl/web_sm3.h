@@ -60,6 +60,13 @@ struct Result
 // tokens: the shader function as passed to CreateVertexShader/CreatePixelShader (terminated by 0x0000FFFF).
 bool Translate(const uint32_t *tokens, Result &out);
 
+// The WGSL backend shares the SM3 decoder and register analysis with GLSL.
+// Pixel inputs determine the vertex output interface; depthMask specializes
+// texture bindings, because WebGPU distinguishes depth from color textures.
+bool TranslateWgsl(const uint32_t *tokens, const Result &pixelInterface,
+                   uint32_t depthMask, std::string &wgsl, std::string &error,
+                   const int *vertexTypes = nullptr);
+
 // Combines the placeholders of a vertex shader with the varyings its paired pixel shader reads.
 std::string LinkVertexGlsl(const Result &vs, const Result &ps);
 

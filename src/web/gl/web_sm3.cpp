@@ -195,6 +195,8 @@ struct Gen
     std::set<int> labels;
     uint32_t helpers = 0; // bit per helper function
     bool usesCalls = false;
+    bool wgslMode = false;
+    uint32_t wgslDepthMask = 0;
 
     explicit Gen(Result &r) : out(r) {}
 
@@ -579,7 +581,7 @@ struct Gen
     std::string write(const DstOp &d, std::string e)
     {
         if (d.sat)
-            e = "clamp(" + e + ", 0.0, 1.0)";
+            e = "clamp(" + e + (wgslMode ? ", vec4f(0.0), vec4f(1.0))" : ", 0.0, 1.0)");
         if (d.shift > 0)
             e = "(" + e + ") * " + F((float)(1 << d.shift));
         else if (d.shift < 0)
@@ -590,6 +592,14 @@ struct Gen
         if (d.mask == 0xF || d.mask == 0)
             return name + " = " + e + ";";
         const std::string m = MaskStr(d.mask);
+        if (wgslMode)
+        {
+            // WGSL forbids assigning a multi-component swizzle. Evaluate once:
+            // destinations and sources can overlap (e.g. mov r0.xy, r0.yx).
+            std::string s = "{ let masked = " + e + "; ";
+            for (char c : m) s += name + "." + c + " = masked." + c + "; ";
+            return s + "}";
+        }
         return name + "." + m + " = (" + e + ")." + m + ";";
     }
 
@@ -669,8 +679,8 @@ struct Gen
         case OP_DP4: W("vec4(dot(" + S(0) + ", " + S(1) + "))"); break;
         case OP_MIN: W("min(" + S(0) + ", " + S(1) + ")"); break;
         case OP_MAX: W("max(" + S(0) + ", " + S(1) + ")"); break;
-        case OP_SLT: W("vec4(lessThan(" + S(0) + ", " + S(1) + "))"); break;
-        case OP_SGE: W("vec4(greaterThanEqual(" + S(0) + ", " + S(1) + "))"); break;
+        case OP_SLT: W(wgslMode ? "select(vec4f(0.0), vec4f(1.0), " + S(0) + " < " + S(1) + ")" : "vec4(lessThan(" + S(0) + ", " + S(1) + "))"); break;
+        case OP_SGE: W(wgslMode ? "select(vec4f(0.0), vec4f(1.0), " + S(0) + " >= " + S(1) + ")" : "vec4(greaterThanEqual(" + S(0) + ", " + S(1) + "))"); break;
         case OP_EXP: W("exp2(" + S(0) + ")"); break;
         case OP_LOG: W("log2(abs(" + S(0) + "))"); break;
         case OP_LIT: helpers |= 1; W("k_lit(" + S(0) + ")"); break;
@@ -724,7 +734,7 @@ struct Gen
         // CMP selects a component; it does not interpolate its two values.
         // A float mask evaluates 0 * infinity from an unused branch as NaN,
         // which can poison the sky shader's height-fog calculations.
-        case OP_CMP: W("mix(" + S(2) + ", " + S(1) + ", greaterThanEqual(" + S(0) + ", vec4(0.0)))"); break;
+        case OP_CMP: W(wgslMode ? "select(" + S(2) + ", " + S(1) + ", " + S(0) + " >= vec4f(0.0))" : "mix(" + S(2) + ", " + S(1) + ", greaterThanEqual(" + S(0) + ", vec4(0.0)))"); break;
         case OP_DP2ADD: W("vec4(dot(" + S(0) + ".xy, " + S(1) + ".xy) + " + S(2) + ".x)"); break;
         case OP_DSX: W("dFdx(" + S(0) + ")"); break;
         case OP_DSY: W("dFdy(" + S(0) + ")"); break;
@@ -733,6 +743,7 @@ struct Gen
             break;
         case OP_TEXLD: case OP_TEXLDL: case OP_TEXLDD:
         {
+            if (wgslMode) { W(wgslSample(in)); break; }
             if (in.ns < 2)
             {
                 out.error = "texld with too few operands";
@@ -931,6 +942,9 @@ struct Gen
         o += indent(depth) + stmt + "\n";
         return true;
     }
+
+    // Kept separate to make the existing GLSL output byte-for-byte stable.
+#include "web_sm3_wgsl.inc"
 
     // ---------------------------------------------------------------------------------- program
     bool build()
@@ -1244,6 +1258,22 @@ bool Translate(const uint32_t *tokens, Result &out)
         out.ok = false;
         return false;
     }
+    return true;
+}
+
+bool TranslateWgsl(const uint32_t *tokens, const Result &pixelInterface,
+                   uint32_t depthMask, std::string &wgsl, std::string &error, const int *vertexTypes)
+{
+    Result metadata;
+    Gen g(metadata);
+    g.wgslMode = true;
+    g.wgslDepthMask = depthMask;
+    if (!g.decode(tokens) || !g.buildWgsl(pixelInterface, wgsl, vertexTypes))
+    {
+        error = metadata.error;
+        return false;
+    }
+    error.clear();
     return true;
 }
 
