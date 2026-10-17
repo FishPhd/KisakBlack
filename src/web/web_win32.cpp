@@ -300,7 +300,9 @@ EXTERN_C DWORD WINAPI SetThreadExecutionState(DWORD) { return ES_CONTINUOUS; }
 EXTERN_C BOOL WINAPI GetProcessAffinityMask(HANDLE, DWORD_PTR *process, DWORD_PTR *system)
 {
     int cores = emscripten_num_logical_cores();
-    if (cores > 4) cores = 4;
+    // The engine's legacy affinity tables support up to eight CPU slots. The
+    // browser schedules the actual pthreads; do not hide available cores.
+    if (cores > 8) cores = 8;
     DWORD_PTR mask = (cores >= 32) ? 0xFFFFFFFFul : ((1ul << (cores > 0 ? cores : 1)) - 1);
     if (process) *process = mask;
     if (system) *system = mask;
@@ -965,7 +967,7 @@ EXTERN_C void WINAPI GetSystemInfo(LPSYSTEM_INFO si)
 {
     memset(si, 0, sizeof(*si));
     int cores = emscripten_num_logical_cores();
-    if (cores > 4) cores = 4;
+    if (cores > 8) cores = 8;
     si->dwPageSize = 4096;
     si->dwAllocationGranularity = 65536;
     si->dwNumberOfProcessors = cores > 0 ? cores : 1;

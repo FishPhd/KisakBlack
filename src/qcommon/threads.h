@@ -46,6 +46,11 @@ typedef struct tagTHREADNAME_INFO
 
 
 unsigned int __cdecl Sys_GetDefaultWorkerThreadsCount();
+#ifdef KISAK_WEB
+constexpr int SYS_MIN_WORKER_THREADS = 1;
+#else
+constexpr int SYS_MIN_WORKER_THREADS = 2;
+#endif
 unsigned int __cdecl Sys_GetCpuCount();
 void __cdecl Sys_InitMainThread();
 unsigned int __cdecl Sys_GetCurrentThreadId();

@@ -959,7 +959,7 @@ void __cdecl R_RegisterDvars()
     r_smp_backend = _Dvar_RegisterBool("r_smp_backend", 1, 0, "Process renderer back end in a separate thread");
     r_smp_worker = _Dvar_RegisterBool("r_smp_worker", 1, 0, "Process renderer front end in a separate thread");
     value = Sys_GetDefaultWorkerThreadsCount();
-    r_smp_worker_threads = _Dvar_RegisterInt("r_smp_worker_threads", value, 2, 8, 0, "Number of worker threads");
+    r_smp_worker_threads = _Dvar_RegisterInt("r_smp_worker_threads", value, SYS_MIN_WORKER_THREADS, 8, 0, "Number of worker threads");
     for ( i = 0; i < r_smp_worker_threads->current.integer; ++i )
         r_smp_worker_thread[i] = R_RegisterWorkerThreadDvar(names[i], i);
     r_aaAlpha = _Dvar_RegisterEnum("r_aaAlpha", s_aaAlphaNames, 1, 1u, "Transparency anti-aliasing method");

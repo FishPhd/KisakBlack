@@ -2,6 +2,7 @@
 #include <universal/dvar.h>
 #include <universal/com_files.h>
 #include <qcommon/common.h>
+#include <qcommon/threads.h>
 #include "stringed_ingame.h"
 #include "stringed_remote.h"
 #include <ui/ui_shared.h>
@@ -180,7 +181,10 @@ const char *__cdecl SE_GetString_FastFile(char *psPackageAndStringReference)
     value = GetString(psPackageAndStringReference);
     if ( value )
         return value;
-    localize = DB_FindXAssetHeader(ASSET_TYPE_LOCALIZE_ENTRY, psPackageAndStringReference, 1, -1).localize;
+    // The loading-screen renderer owns DBHASH while drawing. Waiting for a
+    // missing localized entry there would prevent the database from adding it.
+    const int waitTime = Sys_IsRenderThread() ? 0 : -1;
+    localize = DB_FindXAssetHeader(ASSET_TYPE_LOCALIZE_ENTRY, psPackageAndStringReference, 1, waitTime).localize;
     if ( localize )
         return localize->value;
     else

@@ -1928,7 +1928,7 @@ void __cdecl Com_Init_Try_Block_Function(char *commandLine)
     {
         r_smp_worker_threads = _Dvar_RegisterInt("r_smp_worker_threads",
             Sys_GetDefaultWorkerThreadsCount(),
-            2,
+            SYS_MIN_WORKER_THREADS,
             8,
             0,
             "Number of worker threads");

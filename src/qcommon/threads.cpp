@@ -12,6 +12,9 @@
 
 #include <atomic>
 #include <chrono>
+#ifdef KISAK_WEB
+#include <web/web_thread_policy.h>
+#endif
 
 // Events are a 32-bit futex word instead of a kernel event handle: a Set/Wait pair that does not
 // have to sleep never enters the kernel, and the same code runs on the web build (Atomics.wait).
@@ -193,6 +196,10 @@ void *rgRegisteredEvent;
 void *renderEvent;
 unsigned int __cdecl Sys_GetDefaultWorkerThreadsCount()
 {
+#ifdef KISAK_WEB
+    const int cores = emscripten_num_logical_cores();
+    return Web_DefaultJobWorkers(cores > 0 ? unsigned(cores) : 1);
+#else
     unsigned int cpuCount; // [esp+0h] [ebp-4h]
 
     cpuCount = Sys_GetCpuCount();
@@ -201,6 +208,7 @@ unsigned int __cdecl Sys_GetDefaultWorkerThreadsCount()
     if ( cpuCount > 0xA )
         return 8;
     return cpuCount - 2;
+#endif
 }
 
 unsigned int __cdecl Sys_GetCpuCount()
