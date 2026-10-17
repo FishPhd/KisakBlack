@@ -8,59 +8,6 @@
 #include "actor_orientation.h"
 #include "actor_events.h"
 #include <cgame_mp/cg_local_mp.h>
-#include "actor_team_move.h"
-#include "actor_dog_exposed.h"
-
-bool __fastcall Actor_Exposed_Start(actor_s *self, ai_state_t previousState)
-{
-    self->ProneInfo.prone = 0;
-    self->ProneInfo.orientPitch = 0;
-    Actor_SetSubState(self, STATE_EXPOSED_COMBAT);
-    return true;
-}
-
-actor_think_result_t __fastcall Actor_Exposed_Think(actor_s *self)
-{
-    // The biped animation scripts own melee, pain, and pose transitions.
-    // Keep navigation, targeting, collision, and movement in the actor engine.
-    self->pszDebugInfo = "exposed";
-    Actor_PreThink(self);
-    sentient_s *enemy = Actor_GetTargetSentient(self);
-    const bool combatRunning = self->pAnimScriptFunc == &g_animScriptTable[self->species]->combat
-        && Actor_IsAnimScriptAlive(self) && !self->safeToChangeScript;
-    int goalPosSet = 0;
-    const bool enemyInRange = enemy && !combatRunning
-        && Actor_Dog_IsEnemyInAttackRange(self, enemy, &goalPosSet);
-    if (!goalPosSet) Actor_UpdateGoalPos(self);
-    if (Actor_HasPath(self) && !Actor_PointAt(self->Path.vFinalGoal, self->codeGoal.pos))
-        Actor_ClearPath(self);
-    Actor_FindPathToGoalDirect(self);
-    if (!Actor_HasPath(self)) Actor_FindPathToGoalNearestNode(self);
-
-    if (self->flashBanged)
-        Actor_Exposed_FlashBanged(self);
-    else if (combatRunning || enemyInRange)
-    {
-        Actor_SetOrientMode(self, AI_ORIENT_TO_ENEMY);
-        Actor_SetAnimScript(self, &g_animScriptTable[self->species]->combat,
-            AI_MOVE_STOP, AI_ANIM_MOVE_CODE, AI_ANIM_FUNCTION_COMBAT);
-    }
-    else if (Actor_HasPath(self))
-    {
-        Actor_SetOrientMode(self, AI_ORIENT_TO_MOTION);
-        Actor_MoveAlongPathWithTeam(self, 1, false, false);
-    }
-    else if (enemy)
-    {
-        Actor_SetOrientMode(self, AI_ORIENT_TO_ENEMY);
-        Actor_SetAnimScript(self, &g_animScriptTable[self->species]->combat,
-            AI_MOVE_STOP, AI_ANIM_MOVE_CODE, AI_ANIM_FUNCTION_COMBAT);
-    }
-    else
-        Actor_AnimStop(self, &g_animScriptTable[self->species]->stop);
-    Actor_PostThink(self);
-    return ACTOR_THINK_DONE;
-}
 
 void __fastcall Actor_Exposed_FindReacquireNode(actor_s *self)
 {

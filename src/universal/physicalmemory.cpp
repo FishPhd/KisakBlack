@@ -8,9 +8,6 @@
 #include <qcommon/mem_track.h>
 #include "../../tl/tl_system.h"
 #include <win32/win_main.h>
-#ifdef KISAK_WEB
-#include <web/web_assets.h>
-#endif
 
 bool g_physicalMemoryInit;
 PhysicalMemory g_mem;
@@ -26,14 +23,8 @@ void __cdecl PMem_Init()
     if ( !g_physicalMemoryInit )
     {
         g_physicalMemoryInit = 1;
-        unsigned int arenaSize = 0x14800000u;
-#ifdef KISAK_WEB
-        // The hybrid Zombies boot retains MP bootstrap assets alongside the SP
-        // common and map zones. The original 328 MiB arena cannot hold both.
-        if (Web_IsZombieBoot()) arenaSize = 768u * 1024u * 1024u;
-#endif
-        memory = (unsigned __int8 *)VirtualAlloc(0, arenaSize, 0x1000u, 4u);
-        PMem_InitPhysicalMemory(&g_mem, "main", memory, arenaSize);
+        memory = (unsigned __int8 *)VirtualAlloc(0, 0x14800000u, 0x1000u, 4u);
+        PMem_InitPhysicalMemory(&g_mem, "main", memory, 0x14800000u);
     }
 }
 

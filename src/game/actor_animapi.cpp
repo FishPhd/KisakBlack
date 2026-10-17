@@ -7,7 +7,7 @@
 #include <clientscript/cscr_stringlist.h>
 #include <game_mp/actor_mp.h>
 
-AnimScriptList *g_animScriptTable[MAX_AI_SPECIES];
+AnimScriptList *g_animScriptTable[1];
 
 void __fastcall Actor_InitAnim(actor_s *self)
 {

@@ -97,7 +97,7 @@ struct GfxVisionSet // sizeof=0x288
         GfxLightScale charPrimaryLightScale;
 };
 
-struct visionSetVars_t // sizeof=0x330
+struct visionSetVars_t // sizeof=0x2E0
 {                                                                             // XREF: cg_s/r cg_s/r ...
         bool filmEnable;                                        // XREF: CG_VisionSetUpdateTweaksFromFile_Film(void)+5E/r
         // padding byte
@@ -212,18 +212,6 @@ struct visionSetVars_t // sizeof=0x330
                                                                                 // CG_VisionSetUpdateTweaksFromFile_Bloom(void)+590/r ...
         float bloomStreakYTint[3];                    // XREF: CG_VisionSetUpdateTweaksFromFile_Bloom(void)+5B1/r
                                                                                 // CG_VisionSetUpdateTweaksFromFile_Bloom(void)+5B8/r ...
-        float reviveContrastEdge;
-        float reviveBrightnessEdge;
-        float reviveDesaturationEdge;
-        float reviveDarkTintEdge[3];
-        float reviveLightTintEdge[3];
-        float reviveBlurRadiusEdge;
-        float reviveMotionblurWeight;
-        float reviveContrastCenter;
-        float reviveBrightnessCenter;
-        float reviveDesaturationCenter;
-        float reviveDarkTintCenter[3];
-        float reviveLightTintCenter[3];
         char name[64];
 };
 

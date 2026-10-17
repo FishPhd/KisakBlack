@@ -440,24 +440,6 @@ const char *__cdecl ClientConnect(unsigned int clientNum, unsigned int scriptPer
     ent->sentient = sentient;
     sentient->ent = ent;
     sentient->eTeam = client->sess.cs.team;
-    if (zombiemode && zombiemode->current.enabled)
-    {
-        // Co-op spawnPlayer copies the native starting health into maxhealth
-        // before calling Spawn. MP scripts initialize these fields themselves.
-        // Supply the SP/Zombies starting state before the connect callback runs.
-        ent->health = 100;
-        ent->maxHealth = 100;
-        client->sess.maxHealth = 100;
-        client->ps.stats[0] = 100;
-        client->ps.stats[2] = 100;
-    }
-#ifdef KISAK_WEB
-    if (zombiemode && zombiemode->current.enabled)
-    {
-        client->sess.cs.team = TEAM_ALLIES;
-        sentient->eTeam = TEAM_ALLIES;
-    }
-#endif
     sentient->maxVisibleDist = 8192.0f;
     sentient->attackerAccuracy = 1.0f;
     ClientUserinfoChanged(clientNum);
@@ -607,15 +589,6 @@ void __cdecl ClientSpawn(gentity_s *ent, const float *spawn_origin, const float 
     client->spectatorClient = -1;
     client->ps.stats[4] = savedSpawnCount + 1;
     client->ps.stats[2] = client->sess.maxHealth;
-    if (zombiemode && zombiemode->current.enabled
-        && client->sess.sessionState == SESS_STATE_PLAYING)
-    {
-        // Spawn restores health once, before ClientEndFrame and movement inspect
-        // it. Script changes to the maximum (including mutators) remain authoritative.
-        ent->maxHealth = client->sess.maxHealth;
-        ent->health = client->sess.maxHealth;
-        client->ps.stats[0] = ent->health;
-    }
     client->ps.eFlags = iFlags;
     client->sess.cs.clientIndex = index;
     client->sess.cs.attachedVehEntNum = 1023;

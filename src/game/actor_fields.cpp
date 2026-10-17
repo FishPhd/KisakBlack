@@ -4,8 +4,6 @@
 #include <clientscript/cscr_stringlist.h>
 #include <clientscript/scr_const.h>
 #include <game_mp/actor_mp.h>
-#include <game_mp/g_scr_main_mp.h>
-#include <server/sv_world.h>
 #include "g_weapon.h"
 #include <universal/surfaceflags.h>
 #include <game_mp/g_cmds_mp.h>
@@ -178,10 +176,7 @@ const actor_fields_s aifields[80] =
 actor_fields_s aifield_list =
 { NULL, 0, { 0 }, F_INT, NULL, NULL };
 
-static unsigned __int16 humanSpeciesName, zombieSpeciesName, zombieDogSpeciesName;
-const unsigned __int16 *g_AISpeciesNames[MAX_AI_SPECIES] = {
-    &scr_const.dog, &humanSpeciesName, &zombieSpeciesName, &zombieDogSpeciesName
-};
+const unsigned __int16 *g_AISpeciesNames[1] = { (const unsigned __int16 *)&scr_const.dog };
 
 void __cdecl ActorScr_SetSpecies(actor_s *pSelf, const actor_fields_s *pField)
 {
@@ -198,12 +193,8 @@ void __cdecl ActorScr_SetSpecies(actor_s *pSelf, const actor_fields_s *pField)
         if ( type == *g_AISpeciesNames[i] )
         {
             pSelf->species = i;
-            pSelf->ent->s.lerp.u.actor.species = i;
-            const bool dog = i == AI_SPECIES_DOG || i == AI_SPECIES_ZOMBIE_DOG;
-            pSelf->ent->r.maxs[2] = dog ? 48.0f : 72.0f;
-            pSelf->Physics.vMaxs[2] = pSelf->ent->r.maxs[2];
+            pSelf->ent->s.lerp.u.loopFx.period = (unsigned __int8)i;
             G_DObjUpdate(pSelf->ent);
-            SV_LinkEntity(pSelf->ent);
             return;
         }
     }
@@ -216,14 +207,14 @@ void __cdecl ActorScr_GetSpecies(actor_s *pSelf, const actor_fields_s *pField)
 {
     if ( !pSelf && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_fields.cpp", 330, 0, "%s", "pSelf") )
         __debugbreak();
-    if ( (unsigned int)pSelf->species >= MAX_AI_SPECIES
+    if ( pSelf->species
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_fields.cpp",
                     331,
                     0,
                     "pSelf->species doesn't index MAX_AI_SPECIES\n\t%i not in [0, %i)",
                     pSelf->species,
-                    MAX_AI_SPECIES) )
+                    1) )
     {
         __debugbreak();
     }
@@ -236,18 +227,18 @@ void __cdecl ActorScr_GetIsDog(actor_s *pSelf, const actor_fields_s *pField)
 
     if ( !pSelf && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_fields.cpp", 343, 0, "%s", "pSelf") )
         __debugbreak();
-    if ( (unsigned int)pSelf->species >= MAX_AI_SPECIES
+    if ( pSelf->species
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_fields.cpp",
                     344,
                     0,
                     "pSelf->species doesn't index MAX_AI_SPECIES\n\t%i not in [0, %i)",
                     pSelf->species,
-                    MAX_AI_SPECIES) )
+                    1) )
     {
         __debugbreak();
     }
-    LocalClientSourceRange = pSelf->species == AI_SPECIES_DOG || pSelf->species == AI_SPECIES_ZOMBIE_DOG;
+    LocalClientSourceRange = Flame_GetLocalClientSourceRange();
     Scr_AddBool(LocalClientSourceRange, SCRIPTINSTANCE_SERVER);
 }
 
@@ -1301,9 +1292,6 @@ void __cdecl Cmd_AI_Name(
 
 void __cdecl GScr_AddFieldsForActor()
 {
-    humanSpeciesName = GScr_AllocString("human");
-    zombieSpeciesName = GScr_AllocString("zombie");
-    zombieDogSpeciesName = GScr_AllocString("zombie_dog");
     const actor_fields_s *f; // [esp+4h] [ebp-4h]
 
     for ( f = aifields; f->name; ++f )

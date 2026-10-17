@@ -1602,13 +1602,6 @@ void __cdecl Com_Init(char *commandLine)
         UI_LoadCustomMatchGameTypes();
         UI_LoadMaps();
     }
-
-#ifdef KISAK_WEB
-    // /zombies boots directly into the stock Zombies frontend without loading a map.
-    if (!IsDedicatedServer() && Web_IsZombieBoot() && sv_mapname && sv_mapname->current.string
-        && !sv_mapname->current.string[0])
-        UI_SetActiveMenu(0, UIMENU_MAIN);
-#endif
 }
 
 int lastErrorTime;
@@ -2508,22 +2501,11 @@ void Com_LoadUiFastFile()
 
         zoneInfo[zone].name = "ui_mp";
         //zoneInfo[zone].allocFlags = 0x2000000;
-#ifdef KISAK_WEB
-        if (Web_IsZombieBoot()) zoneInfo[zone].name = "frontend";
-#endif
         zoneInfo[zone].allocFlags = 0x4000000;//  0x2000000; (KISAKTODO: flag fix, this flag doesn't load for some reason)
         zoneInfo[zone].freeFlags = 0;
         zone++;
 
         DB_LoadXAssets(zoneInfo, zone, 0);
-#endif
-
-#ifdef KISAK_WEB
-        if (Web_IsZombieBoot())
-        {
-            Dvar_SetStringByName("fs_usermapdir", (char *)"");
-            return;
-        }
 #endif
 
         zone = 0;
@@ -2610,17 +2592,9 @@ void __cdecl Com_LoadLevelFastFiles(char *mapName)
     {
         Dvar_SetBool((dvar_s *)legacy_zombiemode, 0);
     }
-    // level_dependencies.csv is a common_mp rawfile. The zombie common load
-    // frees that zone, and looking the file up while the replacement load is
-    // in progress deadlocks: the main thread waits in DB_FindXAssetHeader
-    // and the connect screen keeps the database lock from the loader.
-    // The rows are copied into gLevelDependencies before the rawfile goes away.
-    if ( isZombieMap )
-        levelSharedFastFile = Com_GetLevelSharedFastFile(mapName);
     if ( !Com_IsMenuLevel(mapName) )
         Com_LoadCommonFastFile();
-    if ( !isZombieMap )
-        levelSharedFastFile = Com_GetLevelSharedFastFile(mapName);
+    levelSharedFastFile = Com_GetLevelSharedFastFile(mapName);
     if ( levelSharedFastFile )
     {
         zoneInfo[zoneCount].name = levelSharedFastFile;
@@ -2697,7 +2671,7 @@ char *__cdecl Com_GetLevelSharedFastFile(char *mapName)
 
 void Com_LoadCommonFastFile()
 {
-    XZoneInfo zoneInfo[4];
+    XZoneInfo zoneInfo[3];
     int zoneCount; // [esp+10h] [ebp-4h]
 
     zoneCount = 0;
@@ -2731,22 +2705,6 @@ void Com_LoadCommonFastFile()
             zoneInfo[zoneCount].allocFlags = 256;
             zoneInfo[zoneCount++].freeFlags = 0;
         }
-        if (!DB_IsZoneLoaded("patch"))
-            zoneInfo[zoneCount++] = {"patch", 256, 0};
-        // code_post_gfx / common / common_zombie / patch replace the MP copies.
-        // Their alloc flag only frees zones at flag 256 and above, so the
-        // frontend zones would stay and the pool would hold both. Park those
-        // names on a flag this load already frees. code_pre_gfx_mp shares
-        // flag 1 with code_post_gfx_mp, so this is by name. MP map loads do
-        // not call this.
-        if ( zoneCount )
-        {
-#ifdef KISAK_WEB
-            // The stock Zombies boot keeps MP stats/DDL support resident.
-            if (!Web_IsZombieBoot())
-#endif
-                DB_MarkMpZonesSupersededByZombieCommon();
-        }
     }
     else if ( !DB_IsZoneLoaded("common_mp") )
     {
@@ -2755,13 +2713,7 @@ void Com_LoadCommonFastFile()
         zoneInfo[zoneCount++].freeFlags = 0;
     }
     if ( zoneCount )
-    {
-        // Finish the zombie common load before the caller draws or looks up
-        // assets from the zones just freed. An async load lets the connect
-        // screen spin on the missing files and starve the database thread.
-        const int syncZombieCommon = zombiemode->current.enabled && !zombietron->current.enabled;
-        DB_LoadXAssets(zoneInfo, zoneCount, syncZombieCommon);
-    }
+        DB_LoadXAssets(zoneInfo, zoneCount, 0);
 }
 
 void __cdecl Com_LoadFrontEnd()

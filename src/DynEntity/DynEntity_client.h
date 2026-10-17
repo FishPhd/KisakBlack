@@ -120,7 +120,6 @@ unsigned __int16 __cdecl DynEntCl_CreateEntityModel(
                 PhysPreset *preset);
 unsigned __int16 __cdecl DynEntCl_AddEntityModel();
 void DynEntCl_CleanUpOldModels();
-int DynEntCl_CleanupSpawnedEntities();
 void __cdecl DynEntCl_PointTrace(const pointtrace_t *clip, trace_t *results);
 void __cdecl DynEntCl_PointTrace_r(
                 DynEntityCollType drawType,

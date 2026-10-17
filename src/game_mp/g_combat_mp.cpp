@@ -93,9 +93,7 @@ void __cdecl G_ParseHitLocDmgTable()
         g_HitLocConstNames[i] = v0;
     }
     g_fHitLocDamageMult[18] = 0.0f;
-    const char *damageTable = zombiemode->current.enabled
-        ? "info/ai_lochit_dmgtable" : "info/mp_lochit_dmgtable";
-    pszBuffer = Com_LoadInfoString((char*)damageTable, "hitloc damage table", "LOCDMGTABLE", loadBuffer);
+    pszBuffer = Com_LoadInfoString((char*)"info/mp_lochit_dmgtable", "hitloc damage table", "LOCDMGTABLE", loadBuffer);
     if (!ParseConfigStringToStruct(
         (unsigned __int8 *)g_fHitLocDamageMult,
         pFieldList,
@@ -104,7 +102,7 @@ void __cdecl G_ParseHitLocDmgTable()
         0,
         0,
         BG_StringCopy))
-        Com_Error(ERR_DROP, "Error parsing hitloc damage table %s", damageTable);
+        Com_Error(ERR_DROP, "Error parsing hitloc damage table %s", "info/mp_lochit_dmgtable");
 }
 
 void __cdecl LookAtKiller(gentity_s *self, gentity_s *inflictor, gentity_s *attacker)

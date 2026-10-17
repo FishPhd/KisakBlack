@@ -1,5 +1,4 @@
 #pragma once
-void GScr_InitActorTypes();
 #include <clientscript/cscr_main.h>
 #include <clientscript/cscr_variable.h>
 #include <database/db_registry.h>

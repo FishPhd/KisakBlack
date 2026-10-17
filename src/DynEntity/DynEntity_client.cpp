@@ -1504,30 +1504,6 @@ void DynEntCl_CleanUpOldModels()
         DynEntCl_DestroyEntityModel(furthestId);
 }
 
-int DynEntCl_CleanupSpawnedEntities()
-{
-    // Dynamic fragments occupy the extra model slots after the BSP's original
-    // dynents. Keep the original map models, brushes and scripted movers intact.
-    // Walk backwards because DestroyEntityModel contracts the high-water count.
-    if (!cm.dynEntClientList[0]) return 0;
-    int removed = 0;
-    for (int extraId = ARRAY_COUNT(usedExtraDynEnts) - 1; extraId >= 0; --extraId)
-    {
-        if (!usedExtraDynEnts[extraId]) continue;
-        const int id = cm.originalDynEntCount + extraId;
-        if (id >= cm.dynEntCount[0])
-        {
-            Com_Printf(14, "Zombies: spawned dynent slot %d outside model count %d\n", id, cm.dynEntCount[0]);
-            continue;
-        }
-        DynEntCl_DestroyEntityModel(static_cast<unsigned short>(id));
-        ++removed;
-    }
-    // Earlier removals can leave unused holes at the end of the allocation.
-    if (!numExtraDynEnts) cm.dynEntCount[0] = cm.originalDynEntCount;
-    return removed;
-}
-
 void __cdecl DynEntCl_PointTrace(const pointtrace_t *clip, trace_t *results)
 {
     _QWORD start[2]; // [esp+28h] [ebp-20h] BYREF

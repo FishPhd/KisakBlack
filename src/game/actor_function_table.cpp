@@ -65,23 +65,5 @@ const ai_funcs_t AIDogFuncTable[12] =
 
 
 
-static const ai_funcs_t *BipedFunctionTable()
-{
-    // Death, pain, bad-place handling and negotiation are species-independent.
-    static ai_funcs_t table[AIS_COUNT];
-    static bool initialized;
-    if (!initialized)
-    {
-        for (int i = 0; i < AIS_COUNT; ++i) table[i] = AIDogFuncTable[i];
-        table[AIS_EXPOSED] = { Actor_Exposed_Start, Actor_Dog_Exposed_Finish,
-            Actor_Dog_Exposed_Suspend, Actor_Generic_Resume, Actor_Exposed_Think,
-            Actor_Exposed_Touch, Actor_Generic_Pain };
-        initialized = true;
-    }
-    return table;
-}
-
-const ai_funcs_t *AIFuncTable[MAX_AI_SPECIES] = {
-    AIDogFuncTable, BipedFunctionTable(), BipedFunctionTable(), AIDogFuncTable
-};
+const ai_funcs_t *AIFuncTable[1] = { AIDogFuncTable };
 

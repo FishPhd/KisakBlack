@@ -70,4 +70,4 @@ void __stdcall Actor_AnimSetCompleteGoalWeight(
                 int bRestart);
 void __stdcall Actor_AnimClearGoalWeight(unsigned int animIndex, float blendTime);
 
-extern AnimScriptList *g_animScriptTable[MAX_AI_SPECIES];
+extern AnimScriptList *g_animScriptTable[1];

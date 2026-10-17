@@ -1,9 +1,7 @@
 #include "db_registry.h"
-#include <xanim/xmodel.h>
 #include <setjmp.h> // _setjmp (Release/NDEBUG builds don't get it transitively)
 #ifdef KISAK_WEB
 #include <web/web_assets.h> // Web_EnsureFile / Web_RemoteKnown (per-map on-demand fastfiles)
-#include <web/gpu/web_gpu.h>
 #endif
 #include <universal/profile.h>
 #include <clientscript/cscr_parsetree.h>
@@ -51,25 +49,12 @@
 #define POOLSIZE_PHYSPRESET        64
 #define POOLSIZE_PHYSCONSTRAINTS   64
 #define POOLSIZE_DESTRUCTIBLEDEF   64
-#ifdef KISAK_WEB
-// The Zombies path retains MP client support alongside the SP animation sets.
-#define POOLSIZE_XANIM             10200
-#else
 #define POOLSIZE_XANIM             5100
-#endif
 #define POOLSIZE_XMODEL            1000
-#ifdef KISAK_WEB
-#define POOLSIZE_MATERIAL          8192 // Includes override copies from MP and SP support zones.
-#else
 #define POOLSIZE_MATERIAL          4096
-#endif
 #define POOLSIZE_TECHSET           2048
 //#define POOLSIZE_IMAGE             4224
-#ifdef KISAK_WEB
-#define POOLSIZE_IMAGE             8192 // MP client support, stock frontend, and Zombies map images.
-#else
 #define POOLSIZE_IMAGE             4608
-#endif
 #define POOLSIZE_SOUND             32
 #define POOLSIZE_SOUND_PATCH       16
 #define POOLSIZE_COL_MAP_SP        1
@@ -81,10 +66,7 @@
 #define POOLSIZE_GFX_MAP           1
 #define POOLSIZE_LIGHTDEF          32
 #define POOLSIZE_UI_MAP            0
-// MP frontend keeps code_post_gfx_mp, en_code_post_gfx_mp, and common_mp. A zombie
-// map then loads code_post_gfx / en_code_post_gfx, which register those same font
-// names again as overrides: 9 resident fonts + 8 override copies.
-#define POOLSIZE_FONT              17
+#define POOLSIZE_FONT              16
 //#define POOLSIZE_MENUFILE          128
 #define POOLSIZE_MENUFILE          164
 //#define POOLSIZE_MENU              850
@@ -99,28 +81,15 @@
 #define POOLSIZE_WEAPONVARIANT     0
 #define POOLSIZE_SNDDRIVERGLOBALS  2
 //#define POOLSIZE_FX                450
-#ifdef KISAK_WEB
-#define POOLSIZE_FX                1000 // Resident MP client support plus Zombies effects.
-#else
 #define POOLSIZE_FX                500
-#endif
-#ifdef KISAK_WEB
-#define POOLSIZE_IMPACTFX          8 // MP and SP impact tables coexist during Zombies startup.
-#else
 #define POOLSIZE_IMPACTFX          4
-#endif
 #define POOLSIZE_AITYPE            0
 #define POOLSIZE_MPTYPE            0
 #define POOLSIZE_MPBODY            0
 #define POOLSIZE_MPHEAD            0
 #define POOLSIZE_CHARACTER         0
 #define POOLSIZE_XMODELALIAS       0
-#ifdef KISAK_WEB
-// Zombies uses SP scripts alongside the shared client's MP support assets.
-#define POOLSIZE_RAWFILE           2048
-#else
 #define POOLSIZE_RAWFILE           1024
-#endif
 //#define POOLSIZE_STRINGTABLE       256
 #define POOLSIZE_STRINGTABLE       576
 #define POOLSIZE_PACKINDEX         16
@@ -1358,10 +1327,6 @@ XAssetHeader __cdecl DB_FindXAssetHeader(XAssetType type, char *name, bool error
     so_prefix = "maps/so_";
     bspext = ".d3dbsp";
     use_so_name = 0;
-    // Callers that bypass XModelPrecache (UI viewer, precache checks) must not
-    // wait on or report a control-character name. "void" is the default xmodel.
-    if (type == ASSET_TYPE_XMODEL && !XModel_NameIsUsable(name))
-        name = (char *)"void";
     if (!I_strncmp("maps/so_", name, strlen("maps/so_")))
     {
         v17 = strlen(name);
@@ -1397,7 +1362,7 @@ XAssetHeader __cdecl DB_FindXAssetHeader(XAssetType type, char *name, bool error
                 DB_RegisteredReorderAsset(type, name, assetEntry);
             if (assetEntry && (assetEntry->zoneIndex || Sys_IsDatabaseReady2()))
                 goto returnAsset;
-            if (Sys_IsDatabaseThread() || waitTime == 0)
+            if (Sys_IsDatabaseThread())
                 goto LABEL_62;
             if (start)
                 break;
@@ -2003,9 +1968,6 @@ bool __cdecl DB_IsXAssetDefault(XAssetType type, const char *name)
 {
     const char *XAssetName; // eax
     unsigned int hash; // [esp+0h] [ebp-Ch]
-
-    if (type == ASSET_TYPE_XMODEL && !XModel_NameIsUsable(name))
-        return true;
     unsigned int assetEntryIndex; // [esp+4h] [ebp-8h]
     XAssetEntryPoolEntry *assetEntry; // [esp+8h] [ebp-4h]
 
@@ -2049,10 +2011,6 @@ int __cdecl DB_GetAllXAssetOfType_FastFile(XAssetType type, XAssetHeader *assets
             {
                 if ( assets )
                 {
-#ifdef KISAK_WEB
-                    if (assetCount >= maxCount)
-                        Com_Error(ERR_DROP, "Too many active '%s' assets for list capacity %d", g_assetNames[type], maxCount);
-#endif
                     if ( assetCount >= maxCount
                         && !Assert_MyHandler(
                                     "C:\\projects_pc\\cod\\codsrc\\src\\database\\db_registry.cpp",
@@ -2261,16 +2219,7 @@ XAssetHeader __cdecl DB_AddXAsset(XAssetType type, XAssetHeader header)
     newEntry.asset.type = type;
     newEntry.asset.header = header;
     Sys_EnterCriticalSection(CRITSECT_DBHASH);
-#ifdef KISAK_WEB
-    const bool renderDependency = type == ASSET_TYPE_IMAGE || type == ASSET_TYPE_MATERIAL || type == ASSET_TYPE_XMODEL || type == ASSET_TYPE_TECHNIQUE_SET;
-    const auto *previousEntry = renderDependency ? DB_FindXAssetEntry(type, DB_GetXAssetName(&newEntry.asset)) : nullptr;
-    const auto *previousHeader = previousEntry ? previousEntry->entry.asset.header.xmodelPieces : nullptr;
-#endif
     existingEntry = DB_LinkXAssetEntry(&newEntry, 0);
-#ifdef KISAK_WEB
-    if (renderDependency && existingEntry->entry.asset.header.xmodelPieces != previousHeader)
-        webgpu::NotifyPreparationAsset(type, DB_GetXAssetName(&existingEntry->entry.asset));
-#endif
     Sys_LeaveCriticalSection(CRITSECT_DBHASH);
     DB_SyncLostDevice();
     return existingEntry->entry.asset.header;
@@ -2524,7 +2473,6 @@ XAssetEntryPoolEntry *__cdecl DB_LinkXAssetEntry(XAssetEntry *newEntry, int allo
         }
         const bool zombieCoreOverride = zombiemode && zombiemode->current.enabled
             && ((type == ASSET_TYPE_DDL && (g_zoneNames[newEntry->zoneIndex].flags & 16))
-                || (type == ASSET_TYPE_DDL && !I_stricmp(g_zoneNames[newEntry->zoneIndex].name, "patch"))
                 || ((type == ASSET_TYPE_DDL || type == ASSET_TYPE_SNDDRIVER_GLOBALS)
                     && !I_stricmp(g_zoneNames[newEntry->zoneIndex].name, "code_post_gfx")));
         if ( !*g_defaultAssetName[type] && type != ASSET_TYPE_RAWFILE && type != ASSET_TYPE_MAP_ENTS && !zombieCoreOverride )
@@ -5073,70 +5021,9 @@ void __cdecl DB_AddUserMapDir(char *zoneName)
     }
 }
 
-// allocFlags 256 expands to a free mask of every flag >= 256 in the low 20
-// bits (0xFFF00). 1024 sits in that mask and is not used by a resident zone.
-// An MP map frees 0x4000 and up, plus the 0x4000000 UI band, so this flag stays.
-static const int kZombieSupersededMpZoneFlag = 1024;
-
-static bool DB_ZoneNameIsMpFastFile(const char *loaded, const char *base)
-{
-    unsigned int baseLen;
-    unsigned int loadedLen;
-
-    if ( !I_stricmp(loaded, base) )
-        return true;
-    baseLen = (unsigned int)strlen(base);
-    loadedLen = (unsigned int)strlen(loaded);
-    if ( loadedLen <= baseLen )
-        return false;
-    if ( I_stricmp(loaded + (loadedLen - baseLen), base) )
-        return false;
-    return loaded[loadedLen - baseLen - 1] == '_';
-}
-
-void DB_MarkMpZonesSupersededByZombieCommon()
-{
-    static const char *bases[] = {"code_post_gfx_mp", "patch_mp", "common_mp"};
-    int i;
-    int b;
-
-    for ( i = 0; i < g_zoneCount; ++i )
-    {
-        XZone *zone = &g_zones[i];
-        XZoneName *zoneName = &g_zoneNames[zone->index];
-        if ( !zoneName->name[0] )
-            continue;
-        for ( b = 0; b < (int)(sizeof(bases) / sizeof(bases[0])); ++b )
-        {
-            if ( !DB_ZoneNameIsMpFastFile(zoneName->name, bases[b]) )
-                continue;
-            zone->flags = kZombieSupersededMpZoneFlag;
-            zoneName->flags = kZombieSupersededMpZoneFlag;
-            break;
-        }
-    }
-}
-
 void __cdecl DB_LoadFastFilesForPC()
 {
     XZoneInfo zoneInfo[6]; // [esp+0h] [ebp-50h] BYREF
-
-#ifdef KISAK_WEB
-    if (Web_IsZombieBoot())
-    {
-        // Shared client code still consumes MP stats/DDL assets; retain that support
-        // zone while loading the stock Zombies menus from the SP frontend.
-        zoneInfo[0] = {"common_mp", 64, 0};
-        zoneInfo[1] = {"common", 64, 0};
-        DB_LoadXAssets(zoneInfo, 2, 0);
-        if (!IsDedicatedServer())
-        {
-            zoneInfo[0] = {"frontend", 0x4000000, 0};
-            DB_LoadXAssets(zoneInfo, 1, 0);
-        }
-        return;
-    }
-#endif
 
     int zone = 0;
 
@@ -5189,15 +5076,6 @@ void __cdecl DB_LoadGraphicsAssetsForPC()
     DB_LoadXAssets(zoneInfo, zoneCount, 0);
     DB_SyncXAssets();
     zoneCount = 0;
-#ifdef KISAK_WEB
-    if (Web_IsZombieBoot())
-    {
-        zoneInfo[zoneCount++] = {"code_post_gfx", 1, (int)0x80000000};
-        zoneInfo[zoneCount++] = {"patch", 16, 0};
-        DB_LoadXAssets(zoneInfo, zoneCount, 0);
-        return;
-    }
-#endif
     zoneInfo[zoneCount++] = {"dev_mp", 4, 0};
     zoneInfo[zoneCount++] = {"patch_mp", 16, 0};
     if ( DB_ModFileExists() )

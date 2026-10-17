@@ -1,8 +1,4 @@
 #include "actor_mp.h"
-#include "g_scripted_anim.h"
-#include "actor_spawn_limit.h"
-#include <new>
-
 #include "g_main_mp.h"
 #include "g_utils_mp.h"
 #include <game/actor_spawner.h>
@@ -39,14 +35,6 @@
 #include <xanim/dobj_utils.h>
 #include <game/actor_team_move.h>
 #include <glass/glass_server.h>
-
-static int actorSpawnLimit = 16;
-int Actor_GetSpawnLimit() { return actorSpawnLimit; }
-int Actor_SetSpawnLimit(int requested)
-{
-    actorSpawnLimit = requested < 0 ? 0 : (requested > 16 ? 16 : requested);
-    return actorSpawnLimit;
-}
 
 unsigned __int16 *modNames[21] =
 {
@@ -325,7 +313,7 @@ LABEL_2:
         actor->fProneLastDiff = 0.0f;
         Actor_InitLookAt(actor);
         Actor_InitActorState(ent);
-        anims = G_GetActorAnimationTree(ent);
+        anims = Dog_GetAnims();
         if ( !anims && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\actor_mp.cpp", 403, 0, "%s", "anims") )
             __debugbreak();
         ent->pAnimTree = Com_XAnimCreateSmallTree(anims);
@@ -392,10 +380,6 @@ actor_s *__cdecl Actor_Alloc()
     {
         __debugbreak();
     }
-    int active = 0;
-    for (int slot = 0; slot < 16; ++slot)
-        if (level.actors[slot].inuse) ++active;
-    if (active >= actorSpawnLimit) return nullptr;
     for ( i = 0; i < 16; ++i )
     {
         actor = &level.actors[i];
@@ -730,7 +714,6 @@ void __cdecl G_InitActors()
 {
     int i; // [esp+4h] [ebp-4h]
 
-    actorSpawnLimit = 16;
     for ( i = 0; i < 16; ++i )
         level.actors[i].inuse = 0;
 }
@@ -764,11 +747,7 @@ int __cdecl G_GetActorIndex(actor_s *actor)
 
 XAnimTree_s *__cdecl G_GetActorAnimTree(actor_s *actor)
 {
-    iassert(actor);
-    iassert(actor->ent);
-    // SP_actor and G_SetAnimTree own the live tree on the entity. The
-    // decompiler's corpse-array arithmetic does not address that tree.
-    return actor->ent->pAnimTree;
+    return *(XAnimTree_s **)&g_scr_data.actorCorpseInfo[4 * G_GetActorIndex(actor) - 32];
 }
 
 void __cdecl Actor_SetDefaults(actor_s *actor)
@@ -776,7 +755,7 @@ void __cdecl Actor_SetDefaults(actor_s *actor)
     Actor_SetDefaultState(actor);
     actor->species = AI_SPECIES_DOG;
     actor->talkToSpecies = -1;
-    actor->deathContents = 0x4002000; // corpse contents, not a DObj pool address
+    actor->deathContents = (int)&objBuf[1824][4];
     actor->fovDot = ACTOR_DEFAULT_FOV_COS;
     actor->fMaxSightDistSqrd = 6.7108864e7f;
     actor->eTraverseMode = AI_TRAVERSE_NOGRAVITY;
@@ -958,11 +937,7 @@ void __cdecl Actor_FinishSpawningAll()
     actor_s *actor; // [esp+0h] [ebp-4h]
 
     for ( actor = Actor_FirstActor(-1); actor; actor = Actor_NextActor(actor, -1) )
-    {
-        if (zombiemode->current.enabled)
-            Actor_FinishSpawning(actor);
         Actor_InitAnimScript(actor);
-    }
 }
 
 void __cdecl Actor_DissociateSentient(actor_s *self, sentient_s *other)
@@ -1175,8 +1150,7 @@ void __fastcall Actor_PostThink(actor_s *self)
         __debugbreak();
     }
     Actor_UpdateOriginAndAngles(self);
-    if (self->species == AI_SPECIES_DOG && !zombiemode->current.enabled)
-        BG_Dog_UpdateAnimationState(-1, &self->ent->s, &level_bgs.actorinfo[self - level.actors]);
+    BG_Dog_UpdateAnimationState(-1, &self->ent->s, &level_bgs.actorinfo[self - level.actors]);
     if ( self->eAnimMode != AI_ANIM_MOVE_CODE )
     {
         if ( ai_showPaths->current.integer )
@@ -1537,12 +1511,12 @@ actor_think_result_t __fastcall Actor_CallThink(actor_s *self)
         __debugbreak();
     }
     if ( self->Path.wPathLen > 1
-        && self->Path.pts[self->Path.wPathLen - 2].fOrigLength < self->Path.fCurrLength )
+        && *((float *)&self->Physics.proximity_data.prims[195].tree + 7 * self->Path.wPathLen) < self->Path.fCurrLength )
     {
         v1 = va(
                      "self->Path.fCurrLength: %g, self->Path.pts[self->Path.wPathLen - 2].fOrigLength: %g",
                      self->Path.fCurrLength,
-                     self->Path.pts[self->Path.wPathLen - 2].fOrigLength);
+                     *((float *)&self->Physics.proximity_data.prims[195].tree + 7 * self->Path.wPathLen));
         if ( !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\actor_mp.cpp",
                         1379,
@@ -1554,8 +1528,7 @@ actor_think_result_t __fastcall Actor_CallThink(actor_s *self)
     }
     if ( Path_HasNegotiationNode(&self->Path)
         && (self->Path.pts[self->Path.wNegotiationStartNode].iNodeNum < 0
-         || self->Path.wNegotiationStartNode <= 0
-         || self->Path.pts[self->Path.wNegotiationStartNode - 1].iNodeNum < 0)
+         || *((int *)&self->Physics.proximity_data.prims[199].tree + 7 * self->Path.wNegotiationStartNode) < 0)
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\actor_mp.cpp",
                     1380,
@@ -2704,10 +2677,22 @@ void __fastcall Actor_InitMove(actor_s *self)
         __debugbreak();
     }
 
-    // Actor slots are raw-cleared on allocation. Reconstruct the physics object
-    // so its embedded polymorphic collision visitor has a valid vtable. Member
-    // assignment after memset does not restore that vtable in C++/WASM.
-    new (&self->Physics) actor_physics_t{};
+    memset(&self->Physics, 0, sizeof(self->Physics));
+
+    static colgeom_visitor_inlined_t<200> dummy_3;
+    //if ( (_S2_8 & 1) == 0 )
+    //{
+    //    _S2_8 |= 1u;
+    //    colgeom_visitor_t::colgeom_visitor_t(&dummy_3);
+    //    dummy_3.__vftable = (colgeom_visitor_inlined_t<200>_vtbl *)&colgeom_visitor_inlined_t<200>::`vftable';
+    //    colgeom_visitor_inlined_t<500>::reset(&dummy_3);
+    //    atexit(Actor_InitMove_::_2_::_dynamic_atexit_destructor_for__dummy__);
+    //}
+
+    //self->Physics.proximity_data.__vftable = dummy_3.__vftable;
+    self->Physics.proximity_data = dummy_3;
+    //colgeom_visitor_inlined_t<500>::reset(&self->Physics.proximity_data);
+    self->Physics.proximity_data.reset();
     self->Physics.vOrigin[0] = 0.0f;
     self->Physics.vOrigin[1] = 0.0f;
     self->Physics.vOrigin[2] = 0.0f;
@@ -2742,7 +2727,7 @@ bool __cdecl Actor_IsDodgeEntity(actor_s *self, int entnum)
 {
     gentity_s *ent; // [esp+0h] [ebp-4h]
 
-    if ( (0x4000000u & level.gentities[1023].flags) == 0
+    if ( ((unsigned int)&objBuf[1758][2] & level.gentities[1023].flags) == 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\actor_mp.cpp",
                     2598,
@@ -2752,11 +2737,10 @@ bool __cdecl Actor_IsDodgeEntity(actor_s *self, int entnum)
     {
         __debugbreak();
     }
-    if ((unsigned int)entnum >= MAX_GENTITIES) return false;
     ent = &level.gentities[entnum];
     if ( ent->sentient )
         return level.time < self->iTeamMoveDodgeTime;
-    if ( (0x4000000u & ent->flags) != 0 )
+    if ( ((unsigned int)&objBuf[1758][2] & ent->flags) != 0 )
         return 0;
     return self->Path.iPathTime > ent->iDisconnectTime;
 }
@@ -2973,7 +2957,8 @@ int __fastcall Actor_PhysicsAndDodge(actor_s *self)
         {
             __debugbreak();
         }
-        pathDir = self->Path.pts[self->Path.wPathLen - 2].fDir2D;
+        //pathDir = (float *)(&self->Physics.proximity_data.prims[194].4 + 7 * self->Path.wPathLen);
+        pathDir = (float *)(&self->Physics.proximity_data.prims[194].tree + 7 * self->Path.wPathLen);
         length = Vec2Length(self->Physics.vWishDelta);
         for ( attempts = 0; attempts < 2; ++attempts )
         {

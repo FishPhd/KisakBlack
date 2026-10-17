@@ -1,9 +1,4 @@
 #include "cg_servercmds_mp.h"
-#include <gfx_d3d/r_init.h>
-#include <qcommon/common.h>
-#include <cstdlib>
-#include <cstring>
-
 #include "cg_actors_mp.h"
 #include <client_mp/cl_cgame_mp.h>
 #include <universal/q_shared.h>
@@ -51,21 +46,6 @@
 #include <EffectsCore/fx_load_obj.h>
 #include <gfx_d3d/r_model.h>
 #include "cg_ui_animate_mp.h"
-
-static bool zombieViewModelHidden[4];
-
-bool CG_IsZombieViewModelHidden(int localClientNum)
-{
-    return localClientNum >= 0 && localClientNum < ARRAY_COUNT(zombieViewModelHidden)
-        && zombieViewModelHidden[localClientNum];
-}
-
-void CG_ResetZombiePlayerPresentation(int localClientNum)
-{
-    if (localClientNum >= 0 && localClientNum < ARRAY_COUNT(zombieViewModelHidden))
-        zombieViewModelHidden[localClientNum] = false;
-    CG_GetLocalClientGlobals(localClientNum)->refdef.transportedFx = {};
-}
 
 GfxFog cg_serverVolFog;
 
@@ -539,7 +519,6 @@ void __cdecl CG_MapRestart(int localClientNum, int savepersist)
 
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     cgs = CG_GetLocalClientStaticGlobals(localClientNum);
-    CG_ResetZombiePlayerPresentation(localClientNum);
     CG_ClearGenericFilter(cgameGlob);
     destroy_client_gjkcc_info(localClientNum);
     if ( cg_showmiss->current.integer )
@@ -847,56 +826,6 @@ void __cdecl CG_DeployServerCommand(int localClientNum)
 
     cmd = Cmd_Argv(0);
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
-    if (zombiemode && zombiemode->current.enabled && !strcmp(cmd, "zombie_cleanup_spawned_dynents"))
-    {
-        // The reconstruction shares dynent scene storage between local viewports.
-        if (Cmd_Argc() == 1 && localClientNum == 0)
-        {
-            const int removed = DynEntCl_CleanupSpawnedEntities();
-            if (removed) Com_Printf(14, "Zombies: cleaned up %d spawned dynent fragments\n", removed);
-        }
-        return;
-    }
-    // Full names must precede the retail one-character command dispatcher.
-    // These Zombies-only additions avoid reusing player snapshot flag bits.
-    if (zombiemode && zombiemode->current.enabled && !strcmp(cmd, "zombie_viewmodel"))
-    {
-        if (Cmd_Argc() == 2 && (!strcmp(Cmd_Argv(1), "0") || !strcmp(Cmd_Argv(1), "1"))
-            && localClientNum >= 0 && localClientNum < ARRAY_COUNT(zombieViewModelHidden))
-            zombieViewModelHidden[localClientNum] = !strcmp(Cmd_Argv(1), "0");
-        return;
-    }
-    if (zombiemode && zombiemode->current.enabled && !strcmp(cmd, "zombie_transported"))
-    {
-        if (Cmd_Argc() != 2) return;
-        char *end = nullptr;
-        const long duration = strtol(Cmd_Argv(1), &end, 10);
-        if (!*Cmd_Argv(1) || *end || duration < 0 || duration > 2147483000L) return;
-        GfxCompositeFx &effect = cgameGlob->refdef.transportedFx;
-        if (!duration) { effect = {}; return; }
-        if (!rgp.permapAssets.transportedFXMaterial)
-        {
-            static bool reportedMissingMaterial = false;
-            if (!reportedMissingMaterial)
-            {
-                reportedMissingMaterial = true;
-                Com_Printf(14, "Zombies: teleport overlay blocked by missing zombie_transporter_overlay material\n");
-            }
-            effect = {};
-            return;
-        }
-        if (!effect.enabled || effect.duration != duration)
-        {
-            effect = {};
-            effect.startMSec = cgameGlob->time;
-            effect.duration = static_cast<int>(duration);
-            effect.frameRate = 20.0f;
-            effect.enabled = true;
-            effect.scriptEnabled = true;
-        }
-        effect.currentTime = cgameGlob->time;
-        return;
-    }
     switch ( *cmd )
     {
         case 0:

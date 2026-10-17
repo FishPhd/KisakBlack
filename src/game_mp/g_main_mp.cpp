@@ -1,8 +1,4 @@
 #include "g_main_mp.h"
-#include "g_scripted_anim.h"
-#include "g_actor_anim_bridge.h"
-#include <clientscript/cscr_animtree.h>
-#include <game/actor_event_listeners.h>
 #include <universal/dvar.h>
 #include <gfx_d3d/r_reflection_probe.h>
 #include <universal/assertive.h>
@@ -68,17 +64,6 @@
 #include "g_cmds_mp.h"
 #include <game/actor_spawner.h>
 #include "pregame.h"
-
-static XAnim_s *zombieHumanAnims;
-static XAnim_s *zombieDogAnims;
-
-XAnim_s *G_GetActorAnimationTree(const gentity_s *ent)
-{
-    if (!zombiemode->current.enabled) return Dog_GetAnims();
-    const char *classname = ent && ent->classname
-        ? SL_ConvertToString(ent->classname, SCRIPTINSTANCE_SERVER) : "";
-    return strstr(classname, "dog") ? zombieDogAnims : zombieHumanAnims;
-}
 
 const char *g_entcountNames[8] =
 {
@@ -714,9 +699,6 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
     }
     
     PROF_SCOPED("G_InitGame");
-    G_ClearScriptedAnimations();
-    G_ClearSoundNotifies();
-    Actor_EventListener_Init();
 
     Com_Printf(15, "------- Game Initialization -------\n");
     if (zombiemode->current.enabled)
@@ -851,12 +833,6 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
         // IDA being annoying here too
         const char *mapname = Dvar_GetString("mapname");
         BG_LoadAnim(mapname);
-        if (zombiemode->current.enabled)
-        {
-            // Capture these while the script animation registry is still live.
-            zombieHumanAnims = Scr_FindAnimTree(SCRIPTINSTANCE_SERVER, "generic_human").anims;
-            zombieDogAnims = Scr_FindAnimTree(SCRIPTINSTANCE_SERVER, "zombie_dog").anims;
-        }
         BG_PostLoadAnim(mapname);
         G_LoadAnimTreeInstances();
     }
@@ -941,7 +917,6 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
             {
                 PROF_SCOPED("Load Structs");
                 G_LoadStructs();
-                GScr_InitActorTypes();
             }
 
             if (!r_reflectionProbeGenerate->current.enabled)
@@ -1057,10 +1032,6 @@ void G_RegisterDvars()
                                                 0x80u,
                                                 "Turn on debug information for vehicle paths");
     ai_enableBadPlaces = _Dvar_RegisterBool("ai_enableBadPlaces", 1, 0, "toggle badplaces system on/off");
-    // Stock zombie_run.gsc reads this instead of the ordinary run.gsc's
-    // explicit 0.05-second interval. Zero would resume its wait in this frame.
-    _Dvar_RegisterFloat("ai_runAnimUpdateFrequency", 0.05f, 0.05f, 1.0f, 0x4080u,
-        "Interval in seconds between AI run animation updates");
     g_ai = _Dvar_RegisterBool("g_ai", 1, 0x2080u, "Enable AI");
     g_spawnai = _Dvar_RegisterBool("g_spawnai", 1, 0x20A0u, "Enable AI spawning");
     g_dumpAIEvents = _Dvar_RegisterInt("g_aiEventDump", -1, -1, 1023, 0x80u, "Print AI events happening for this entity");
@@ -2160,7 +2131,7 @@ void G_LoadAnimTreeInstances()
     for ( int i = 0; i < 4; ++i )
         g_scr_data.playerCorpseInfo[i].tree = XAnimCreateTree(level_bgs.animData->generic_human.tree.anims, Hunk_AllocXAnimServer);
 
-    anims = G_GetActorAnimationTree(nullptr);
+    anims = Dog_GetAnims();
     iassert(anims);
 
     for ( int i = 0; i < 8; ++i )
@@ -2196,10 +2167,12 @@ void __cdecl G_PrintFastFileErrors(char *fastfile)
     {
         __debugbreak();
     }
-    // Build reports are optional metadata, not required game assets. Creating
-    // a default rawfile here can assert for a zone with no embedded report.
-    rawfile = DB_FindXAssetHeader(ASSET_TYPE_RAWFILE, fastfile, 0, -1).rawfile;
-    if (!rawfile || DB_IsXAssetDefault(ASSET_TYPE_RAWFILE, fastfile)) return;
+    rawfile = DB_FindXAssetHeader(ASSET_TYPE_RAWFILE, fastfile, 1, -1).rawfile;
+    if ( !rawfile
+        && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_main_mp.cpp", 1839, 1, "%s", "rawfile") )
+    {
+        __debugbreak();
+    }
     if ( rawfile->len )
     {
         Com_PrintError(1, "There were errors when building fast file '%s'\n", fastfile);
@@ -2321,8 +2294,6 @@ unsigned __int16 __cdecl G_AttachWeapon(DObjModel_s *dobjModels, unsigned __int1
 
 void __cdecl G_ShutdownGame(int freeScripts)
 {
-    G_ClearLocalActorAnimations();
-    G_ClearSoundNotifies();
     colgeom_visitor_inlined_t<200> *p_proximity_data; // [esp+0h] [ebp-14h]
     int i; // [esp+Ch] [ebp-8h]
     int file; // [esp+10h] [ebp-4h]
@@ -3002,7 +2973,6 @@ void    G_RunFrame(int levelTime)
     level_bgs.frametime = levelTime - level.previousTime;
     iassert(bgs == 0);
     bgs = &level_bgs;
-    G_UpdateSoundNotifies();
     if ( level.frametime < 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_main_mp.cpp",
@@ -3259,7 +3229,6 @@ void    G_RunFrame(int levelTime)
     G_ProcessRadiantCmds();
     G_UpdateActorCorpses();
     Path_Update();
-    G_PublishLocalActorAnimations();
     DebugDumpAnims();
 
     iassert(bgs == &level_bgs);
@@ -3377,7 +3346,6 @@ void __cdecl G_RunFrameForEntity(gentity_s *ent)
             iassert(ent->tagInfo->parent);
             G_RunFrameForEntity(ent->tagInfo->parent);
         }
-        if (G_UpdateScriptedAnimation(ent)) return;
 
         iassert(((ent->r.svFlags & ((1 << 1) | (1 << 2))) != ((1 << 1) | (1 << 2))));
         iassert(ent->r.maxs[0] >= ent->r.mins[0]);

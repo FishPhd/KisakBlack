@@ -1,5 +1,4 @@
 #include "cg_actors_mp.h"
-#include <game_mp/g_actor_anim_bridge.h>
 #include "cg_local_mp.h"
 #include <client/splitscreen.h>
 #include <clientscript/cscr_vm.h>
@@ -23,12 +22,6 @@ void __cdecl CG_ActorProcessSnapshot(int localClientNum, centity_s *cent)
     cg_s *cgameGlob; // [esp+4h] [ebp-4h]
 
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
-    if (cent->nextState.lerp.u.actor.actorNum >= ARRAY_COUNT(cgameGlob->bgs.actorinfo))
-    {
-        Com_PrintError(14, "Invalid actor slot %u for entity %d\n",
-            cent->nextState.lerp.u.actor.actorNum, cent->nextState.number);
-        return;
-    }
     CG_UpdateActorDObj(localClientNum, cent, &cgameGlob->bgs.actorinfo[cent->nextState.lerp.u.actor.actorNum]);
     if ( CL_LocalClient_IsFirstActive(localClientNum) )
     {
@@ -65,7 +58,7 @@ void __cdecl CG_UpdateActorDObj(int localClientNum, centity_s *cent, actorInfo_t
     {
         p_nextState = &cent->nextState;
         cgameGlob = CG_GetLocalClientGlobals(localClientNum);
-        if ( cent->nextState.eType == ET_ACTOR && cent->nextState.lerp.u.actor.actorNum >= 0x10u
+        if ( cent->nextState.lerp.u.actor.actorNum >= 0x10u
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\cgame_mp\\cg_actors_mp.cpp",
                         123,
@@ -81,10 +74,6 @@ void __cdecl CG_UpdateActorDObj(int localClientNum, centity_s *cent, actorInfo_t
         FX_MarkEntUpdateBegin(&markUpdateContext, pDObj, 0, 0);
         objExists = pDObj != 0;
         pAnimTree = ai->pXAnimTree;
-        XAnim_s *previousAnims = pAnimTree ? pAnimTree->anims : nullptr;
-        if (G_CopyLocalActorAnimation(cent->nextState.number,
-            cent->nextState.lerp.useCount, pAnimTree) && pAnimTree->anims != previousAnims)
-            ai->dobjDirty = 1;
         model = CG_WhatModelShouldLocalPlayerSee(
                             localClientNum,
                             cgameGlob,
@@ -92,21 +81,9 @@ void __cdecl CG_UpdateActorDObj(int localClientNum, centity_s *cent, actorInfo_t
                             cent->nextState.lerp.u.actor.team,
                             cent->nextState.index.brushmodel,
                             cent->nextState.enemyModel);
-        unsigned int localHideBits[5] = {};
-        int numModels = G_CopyLocalActorModels(p_nextState->number,
-            p_nextState->lerp.useCount, dobjModels, ARRAY_COUNT(dobjModels), localHideBits);
-        // A published frame can precede this snapshot; do not borrow the old
-        // body's attachments after a model change or an entity-slot reuse.
-        if (numModels && dobjModels[0].model != cgs->gameModels[model]) numModels = 0;
-        if (!numModels)
+        if ( pAnimTree && !model )
         {
-            numModels = 1;
-            dobjModels[0] = { cgs->gameModels[model], 0, false };
-            memcpy(localHideBits, p_nextState->partBits, sizeof(localHideBits));
-        }
-        if (!model || !cgs->gameModels[model])
-        {
-            if (pAnimTree) XAnimClearTree(pAnimTree);
+            XAnimClearTree(pAnimTree);
             if ( objExists )
                 CG_SafeDObjFree(localClientNum, p_nextState->number);
             return;
@@ -117,27 +94,12 @@ void __cdecl CG_UpdateActorDObj(int localClientNum, centity_s *cent, actorInfo_t
             if ( !ai->dobjDirty )
             {
                 Tree = DObjGetTree(pDObj);
-                bool compositionMatches = DObjGetNumModels(pDObj) == numModels;
-                if (compositionMatches)
-                {
-                    DObjModel_s oldModels[32];
-                    unsigned short oldCount, oldEntity;
-                    XAnimTree_s *oldTree;
-                    DObjGetCreateParms(pDObj, oldModels, &oldCount, &oldTree, &oldEntity);
-                    for (int i = 0; i < numModels; ++i)
-                        if (oldModels[i].model != dobjModels[i].model
-                            || oldModels[i].boneName != dobjModels[i].boneName
-                            || oldModels[i].ignoreCollision != dobjModels[i].ignoreCollision)
-                            compositionMatches = false;
-                }
-                if (pAnimTree == Tree && cgs->gameModels[model] == xmodel && compositionMatches)
-                {
-                    DObjSetHidePartBits(pDObj, localHideBits);
+                if ( pAnimTree == Tree && cgs->gameModels[model] == xmodel )
                     return;
-                }
             }
             CG_SafeDObjFree(localClientNum, p_nextState->number);
         }
+        dobjModels[0].model = cgs->gameModels[model];
         if ( !dobjModels[0].model
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\cgame_mp\\cg_actors_mp.cpp",
@@ -148,10 +110,11 @@ void __cdecl CG_UpdateActorDObj(int localClientNum, centity_s *cent, actorInfo_t
         {
             __debugbreak();
         }
+        dobjModels[0].boneName = 0;
+        dobjModels[0].ignoreCollision = 0;
         if ( pAnimTree )
         {
-            v4 = Com_ClientDObjCreate(dobjModels, numModels, pAnimTree, p_nextState->number, localClientNum);
-            DObjSetHidePartBits(v4, localHideBits);
+            v4 = Com_ClientDObjCreate(dobjModels, 1u, pAnimTree, p_nextState->number, localClientNum);
             ai->dobjDirty = 0;
             v5 = cg_entityOriginArray[localClientNum][p_nextState->number];
             *v5 = 131072.0f;
@@ -182,8 +145,6 @@ void __cdecl CG_ResetActorEntity(int localClientNum, cg_s *cgameGlob, centity_s 
 {
     actorInfo_t *ai; // [esp+8h] [ebp-10h]
     XAnimTree_s *pAnimTree; // [esp+14h] [ebp-4h]
-
-    if (cent->nextState.lerp.u.actor.actorNum >= ARRAY_COUNT(cgameGlob->bgs.actorinfo)) return;
 
     if ( cent->nextState.lerp.u.actor.actorNum >= 0x10u
         && !Assert_MyHandler(
@@ -231,7 +192,6 @@ void __cdecl CG_Actor(int localClientNum, centity_s *cent)
     actorInfo_t *actorInfo; // [esp+84h] [ebp-4h]
 
     s1 = &cent->nextState;
-    if (s1->lerp.u.actor.actorNum >= ARRAY_COUNT(CG_GetLocalClientGlobals(localClientNum)->bgs.actorinfo)) return;
     if ( (cent->nextState.lerp.eFlags & 0x20) == 0 )
     {
         cgs = CG_GetLocalClientStaticGlobals(localClientNum);
@@ -246,8 +206,7 @@ void __cdecl CG_Actor(int localClientNum, centity_s *cent)
                 Scr_FreeThread(t, SCRIPTINSTANCE_CLIENT);
             }
             actorInfo = &CG_GetLocalClientGlobals(localClientNum)->bgs.actorinfo[cent->nextState.lerp.u.actor.actorNum];
-            if (!zombiemode->current.enabled)
-                BG_Dog_UpdateAnimationState(localClientNum, &cent->nextState, actorInfo);
+            BG_Dog_UpdateAnimationState(localClientNum, &cent->nextState, actorInfo);
             CG_Actor_PreControllers(localClientNum, cent);
             lightingOrigin[0] = cent->pose.origin[0];
             lightingOrigin[1] = cent->pose.origin[1];
@@ -323,7 +282,6 @@ void __cdecl CG_ActorCorpse(int localClientNum, centity_s *cent)
     if ( (cent->nextState.lerp.eFlags & 0x20) == 0 )
     {
         corpseIndex = p_nextState->number - 36;
-        if (corpseIndex >= 8) return;
         if ( corpseIndex >= 8
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\cgame_mp\\cg_actors_mp.cpp",
@@ -334,16 +292,12 @@ void __cdecl CG_ActorCorpse(int localClientNum, centity_s *cent)
         {
             __debugbreak();
         }
-        ai = &CG_GetLocalClientStaticGlobals(localClientNum)->actorCorpseInfo[corpseIndex];
+        ai = (actorInfo_t *)&CG_GetLocalClientStaticGlobals(localClientNum)->actorCorpseInfo[corpseIndex].animInfo.legs.pitchAngle;
         CG_UpdateActorDObj(localClientNum, cent, ai);
         obj = Com_GetClientDObj(p_nextState->number, localClientNum);
         if ( obj )
         {
-            if (zombiemode->current.enabled)
-                G_CopyLocalActorAnimation(cent->nextState.number,
-                    cent->nextState.lerp.useCount, ai->pXAnimTree);
-            else
-                BG_Dog_UpdateAnimationState(localClientNum, &cent->nextState, ai);
+            BG_Dog_UpdateAnimationState(localClientNum, &cent->nextState, ai);
             lightingOrigin[0] = cent->pose.origin[0];
             lightingOrigin[1] = cent->pose.origin[1];
             lightingOrigin[2] = cent->pose.origin[2];

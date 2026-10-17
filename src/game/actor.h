@@ -46,11 +46,8 @@ enum actor_think_result_t : __int32
 enum AISpecies : __int32
 {                                       // XREF: actor_s/r
     AI_SPECIES_DOG = 0x0,
-    AI_SPECIES_HUMAN = 0x1,
-    AI_SPECIES_ZOMBIE = 0x2,
-    AI_SPECIES_ZOMBIE_DOG = 0x3,
-    MAX_AI_SPECIES = 0x4,
-    AI_SPECIES_ALL = (1 << MAX_AI_SPECIES) - 1,
+    MAX_AI_SPECIES = 0x1,
+    AI_SPECIES_ALL = 0x1,
 };
 inline AISpecies &operator++(AISpecies &t)
 {
@@ -420,6 +417,6 @@ constexpr float meleeAttackOffsets[4][2] = { { 1.0, 0.0 }, { 0.0, 1.0 }, { -1.0,
 //constexpr float ACTOR_EYE_OFFSET = 64.0f; // in actor_mp.h
 
 
-extern const unsigned __int16 *g_AISpeciesNames[MAX_AI_SPECIES];
+extern const unsigned __int16 *g_AISpeciesNames[1];
 
-extern const ai_funcs_t *AIFuncTable[MAX_AI_SPECIES];
+extern const ai_funcs_t *AIFuncTable[1];

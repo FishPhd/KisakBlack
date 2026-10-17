@@ -2039,10 +2039,15 @@ void __cdecl ActorCmd_SetOverrideRunToPos(scr_entref_t entref)
 
 void __cdecl ActorCmd_ClearOverrideRunToPos(scr_entref_t entref)
 {
-    actor_s *self = Actor_Get(entref);
-    self->arrivalInfo.animscriptOverrideRunTo = 0;
-    memset(self->arrivalInfo.animscriptOverrideRunToPos, 0,
-        sizeof(self->arrivalInfo.animscriptOverrideRunToPos));
+    actor_s *v1; // eax
+
+    v1 = Actor_Get(entref);
+    v1->arrivalInfo.animscriptOverrideRunTo = 0;
+    v1->arrivalInfo.animscriptOverrideRunToPos[0] = 0.0f;
+    v1 = (actor_s *)((char *)v1 + 3836);
+    //v1->sentient = *(sentient_s **)&FLOAT_0_0;
+    v1->sentient = NULL;
+    v1->species = AI_SPECIES_DOG;
 }
 
 void __cdecl ActorCmd_NearNode(scr_entref_t entref)
@@ -2327,13 +2332,13 @@ void __cdecl ActorCmd_SetTalkToSpecies(scr_entref_t entref)
     speciesFlag = 0;
     for ( paramNum = 0; paramNum < Scr_GetNumParam(SCRIPTINSTANCE_SERVER); ++paramNum )
     {
-        species = Scr_GetConstString(paramNum, SCRIPTINSTANCE_SERVER);
+        species = Scr_GetConstString(0, SCRIPTINSTANCE_SERVER);
         if ( species == scr_const.all )
         {
             self->talkToSpecies = -1;
             return;
         }
-        for ( i = 0; i < MAX_AI_SPECIES; ++i )
+        for ( i = 0; i < 1; ++i )
         {
             if ( species == *g_AISpeciesNames[i] )
             {
@@ -2351,7 +2356,7 @@ void __cdecl ActorCmd_GetDeltaTurnYaw(scr_entref_t entref)
     actor_s *self; // [esp+8h] [ebp-4h]
 
     self = Actor_Get(entref);
-    if ( self->species != AI_SPECIES_DOG && self->species != AI_SPECIES_ZOMBIE_DOG
+    if ( !Flame_GetLocalClientSourceRange()
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\actor_script_cmd.cpp",
                     4069,
