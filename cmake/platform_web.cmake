@@ -138,8 +138,16 @@ target_compile_options(
 # ----- Link flags -----
 # PROXY_TO_PTHREAD: main() runs on a worker, so the blocking while(1) Com_Frame
 #   loop and the futex waits run unchanged (no ASYNCIFY).
-# Fixed memory: growth with pthreads makes JS heap views slow. Tune
-#   KISAK_WEB_INITIAL_MEMORY from the high-water mark the engine logs.
+# Wasm32 starts at KISAK_WEB_INITIAL_MEMORY and may grow to one page below 4 GiB.
+# A fixed heap aborts when mimalloc reserves another arena: that sbrk is larger
+# than the bytes still free, and with growth disabled emscripten traps instead of
+# letting mimalloc retry a smaller arena. Full WebGPU preparation of an MP map
+# hits this while the break is still short of 3 GiB.
+# Do not set GROWABLE_ARRAYBUFFERS. toResizableBuffer() makes the heap a
+# resizable ArrayBuffer, and WebGL2 bufferData/texImage2D (and WebGPU
+# queue.writeBuffer of the same HEAPU8 view) throw
+# "ArrayBufferView value must not be resizable" during startup. Growth still
+# works: Emscripten replaces the ordinary SharedArrayBuffer views after sbrk.
 # WASMFS: the OPFS backend (persistent storage) is part of it in Emscripten 6.
 # The same wasm also runs under Node (headless tests: tools/web/run_node.mjs mounts a host
 # directory through WasmFS' Node backend). The glue it adds is negligible; turn it off for a
@@ -151,6 +159,7 @@ else()
   set(KISAK_WEB_ENVIRONMENT "web,worker")
 endif()
 
+# Default matches Web_Wasm32InitialMemory in src/web/web_memory_policy.h.
 set(KISAK_WEB_INITIAL_MEMORY 3072MB CACHE STRING "wasm linear memory size")
 set(KISAK_WEB_POOL_SIZE 8 CACHE STRING "pre-spawned pthread workers")
 
@@ -163,10 +172,20 @@ set(KISAK_WEB_POOL_SIZE 8 CACHE STRING "pre-spawned pthread workers")
 # growing the heap. Memory starts at KISAK_WEB_INITIAL_MEMORY and may grow to 16 GB; it does not
 # reserve 16 GB up front.
 option(KISAK_WEB_MEMORY64 "Web: wasm64 Memory64 comparison build (preset web-m64, up to 16GB)" OFF)
+# Byte ceiling lives in src/web/web_memory_policy.h so the Node policy test and the link line match.
+file(READ "${SRC_DIR}/web/web_memory_policy.h" _kisak_web_memory_policy)
+if(NOT _kisak_web_memory_policy MATCHES "Web_Wasm32MaximumMemory = ([0-9]+)u")
+  message(FATAL_ERROR "src/web/web_memory_policy.h is missing Web_Wasm32MaximumMemory")
+endif()
+set(KISAK_WEB_WASM32_MAXIMUM_MEMORY "${CMAKE_MATCH_1}")
 if(KISAK_WEB_MEMORY64)
   set(KISAK_WEB_MEMORY_LINK_FLAGS -sMEMORY64=1 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=16GB)
 else()
-  set(KISAK_WEB_MEMORY_LINK_FLAGS -sALLOW_MEMORY_GROWTH=0)
+  # Growth also turns off ABORTING_MALLOC, so a reservation past the ceiling returns null
+  # and mimalloc retries a smaller arena instead of trapping in ___trap.
+  # GROWABLE_ARRAYBUFFERS stays off: see the note above the link flags.
+  set(KISAK_WEB_MEMORY_LINK_FLAGS -sALLOW_MEMORY_GROWTH=1 -sGROWABLE_ARRAYBUFFERS=0
+                                  -sMAXIMUM_MEMORY=${KISAK_WEB_WASM32_MAXIMUM_MEMORY})
 endif()
 
 set(KISAK_WEB_LINK_FLAGS
