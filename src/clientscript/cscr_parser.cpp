@@ -1202,23 +1202,6 @@ char *__cdecl Scr_ReadFile_FastFile(
     }
     else
     {
-#ifdef KISAK_WEB
-        // The installed assets omit this hotfix module. Its referenced entry
-        // points initialize room policy and gate retail leaderboard submissions.
-        if (zombiemode && zombiemode->current.enabled && inst == SCRIPTINSTANCE_SERVER
-            && !I_stricmp(extFilename, "maps/_zombiemode_ffotd.gsc"))
-        {
-            static const char localHotfix[] =
-                "init() { level.systemLink = true; }\n"
-                "nazizombies_checking_for_cheats() { return GetDvarInt(\"sv_cheats\") != 0; }\n";
-            len = sizeof(localHotfix) - 1;
-            sourceBuf = (char *)Hunk_AllocateTempMemoryHigh(sizeof(localHotfix), "LocalZombieHotfix");
-            memcpy(sourceBuf, localHotfix, sizeof(localHotfix));
-            Scr_AddSourceBufferInternal(inst, extFilename, codePos, sourceBuf, len, 1, archive);
-            Com_Printf(23, "Zombies: using local room hotfix policy; retail leaderboard uploads disabled\n");
-            return sourceBuf;
-        }
-#endif
         Scr_AddSourceBufferInternal(inst, extFilename, codePos, 0, -1, 1, archive);
         return 0;
     }

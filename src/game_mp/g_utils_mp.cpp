@@ -1,6 +1,4 @@
 #include "g_utils_mp.h"
-#include "g_scripted_anim.h"
-#include "g_actor_anim_bridge.h"
 #include <qcommon/dobj_management.h>
 #include <clientscript/cscr_stringlist.h>
 #include <server_mp/sv_init_mp.h>
@@ -33,7 +31,6 @@
 #include <stringed/stringed_hooks.h>
 #include <vector>
 #include <string>
-#include <mutex>
 
 namespace
 {
@@ -47,122 +44,6 @@ struct ScriptSoundNotify
 };
 std::vector<ScriptSoundNotify> scriptSoundNotifies;
 unsigned int nextSoundNotifyToken;
-#ifdef KISAK_WEB
-struct LocalActorAnimation
-{
-    XAnimTree_s *tree;
-    int entityNum;
-    int useCount;
-    bool active;
-    DObjModel_s models[32];
-    unsigned short numModels;
-    unsigned int hidePartBits[5];
-};
-LocalActorAnimation localActorAnimations[24];
-std::mutex localActorAnimationMutex;
-
-void ClearLocalActorAnimationNotifies(XAnimTree_s *tree, unsigned int index)
-{
-    while (index)
-    {
-        XAnimInfo *info = GetAnimInfo(index);
-        XAnimClearServerNotify(info, (scriptInstance_t)tree->inst);
-        info->notifyType = 0;
-        ClearLocalActorAnimationNotifies(tree, info->children);
-        index = info->next;
-    }
-}
-#endif
-}
-
-void G_ClearLocalActorAnimations()
-{
-#ifdef KISAK_WEB
-    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
-    for (auto &frame : localActorAnimations)
-    {
-        if (frame.tree) Com_XAnimFreeSmallTree(frame.tree);
-        frame = {};
-    }
-#endif
-}
-
-void G_PublishLocalActorAnimations()
-{
-#ifdef KISAK_WEB
-    if (!zombiemode || !zombiemode->current.enabled) return;
-    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
-    for (auto &frame : localActorAnimations) frame.active = false;
-    for (int i = 0; i < level.num_entities; ++i)
-    {
-        const gentity_s *ent = &g_entities[i];
-        if (!ent->r.inuse) continue;
-        const int slot = ent->s.eType == ET_ACTOR ? ent->s.lerp.u.actor.actorNum
-            : ent->s.eType == ET_ACTOR_CORPSE ? 16 + ent->s.number - 36 : -1;
-        if (slot < 0 || slot >= ARRAY_COUNT(localActorAnimations)) continue;
-        XAnimTree_s *source = G_GetEntAnimTree(const_cast<gentity_s *>(ent));
-        if (!source) continue;
-        auto &frame = localActorAnimations[slot];
-        if (frame.tree && frame.tree->anims != source->anims)
-        {
-            Com_XAnimFreeSmallTree(frame.tree);
-            frame.tree = nullptr;
-        }
-        if (!frame.tree) frame.tree = Com_XAnimCreateSmallTree(source->anims);
-        DObj *obj = Com_GetServerDObj(ent->s.number);
-        if (!obj) continue;
-        XAnimTree_s *modelTree;
-        unsigned short modelEntity;
-        DObjGetCreateParms(obj, frame.models, &frame.numModels, &modelTree, &modelEntity);
-        DObjGetHidePartBits(obj, frame.hidePartBits);
-        XAnimCloneAnimTree(source, frame.tree);
-        // Gameplay notifications belong to the server's original tree.
-        ClearLocalActorAnimationNotifies(frame.tree, frame.tree->children);
-        frame.entityNum = ent->s.number;
-        frame.useCount = ent->s.lerp.useCount & 63; // USE_COUNT_BITS in native snapshots.
-        frame.active = true;
-    }
-#endif
-}
-
-bool G_CopyLocalActorAnimation(int entityNum, int useCount, XAnimTree_s *target)
-{
-#ifdef KISAK_WEB
-    if (!target || !zombiemode || !zombiemode->current.enabled
-        || !com_sv_running || !com_sv_running->current.enabled) return false;
-    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
-    for (const auto &frame : localActorAnimations)
-        if (frame.active && frame.entityNum == entityNum && frame.useCount == useCount)
-        {
-            if (target->anims != frame.tree->anims)
-            {
-                XAnimClearTree(target);
-                target->anims = frame.tree->anims;
-            }
-            XAnimCloneAnimTree(frame.tree, target);
-            return true;
-        }
-#endif
-    return false;
-}
-
-int G_CopyLocalActorModels(int entityNum, int useCount, DObjModel_s *models,
-    int capacity, unsigned int *hidePartBits)
-{
-#ifdef KISAK_WEB
-    if (!zombiemode || !zombiemode->current.enabled || !com_sv_running
-        || !com_sv_running->current.enabled) return 0;
-    std::lock_guard<std::mutex> lock(localActorAnimationMutex);
-    for (const auto &frame : localActorAnimations)
-        if (frame.active && frame.entityNum == entityNum && frame.useCount == useCount
-            && frame.numModels > 0 && frame.numModels <= capacity)
-        {
-            memcpy(models, frame.models, frame.numModels * sizeof(*models));
-            memcpy(hidePartBits, frame.hidePartBits, sizeof(frame.hidePartBits));
-            return frame.numModels;
-        }
-#endif
-    return 0;
 }
 
 void G_ClearSoundNotifies()

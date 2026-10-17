@@ -88,8 +88,7 @@ function loadAllowList() {
   try {
     const m = JSON.parse(fs.readFileSync(path.join(opts.gen, "manifest.json"), "utf8"));
     const all = [...m.boot, ...Object.values(m.maps).flat(),
-                 ...(m.client ? [...m.client.boot, ...Object.values(m.client.maps).flat()] : []),
-                 ...(m.zombies ? [...m.zombies.boot, ...Object.values(m.zombies.maps).flat()] : [])].filter((e) => !e.gen);
+                 ...(m.client ? [...m.client.boot, ...Object.values(m.client.maps).flat()] : [])].filter((e) => !e.gen);
     if (m.installation?.version === 1 && m.installation.path === 'installation.json') {
       const inventory = JSON.parse(fs.readFileSync(path.join(opts.gen, 'installation.json'), 'utf8'));
       if (inventory.version === 1) for (const e of inventory.files || []) {
@@ -542,10 +541,6 @@ const server = http.createServer((req, res) => {
       return;
     }
     const cache = cacheable(p);
-    if (p === "/zombies" || p === "/zombies/") {
-      const src = path.join(opts.web, "zombies.html");
-      return serveFile(req, res, fs.existsSync(src) ? src : path.join(opts.root, "zombies.html"), false);
-    }
     // The page files are served from the source directory when it exists (edits show up on reload);
     // the copy CMake stages next to the build output is the fallback.
     if (p === "/" || p === "/index.html") {

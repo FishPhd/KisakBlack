@@ -699,14 +699,9 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
     }
     
     PROF_SCOPED("G_InitGame");
+    G_ClearSoundNotifies();
 
     Com_Printf(15, "------- Game Initialization -------\n");
-    if (zombiemode->current.enabled)
-    {
-        // Shared actor navigation consumes this view of the loaded world.
-        gameWorldMp.name = gameWorldSp.name;
-        gameWorldMp.path = gameWorldSp.path;
-    }
     GScr_DumpLoadedScripts();
     Com_Printf(15, "gamename: %s\n", "Call of DutyÂ®");
     Com_Printf(15, "gamedate: %s\n", "Nov    5 2010");
@@ -799,8 +794,7 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
         __debugbreak();
     }
 
-    if (!zombiemode->current.enabled)
-        Dog_CreateAnims(Hunk_AllocXAnimServer);
+    Dog_CreateAnims(Hunk_AllocXAnimServer);
     SpawnSystem_Init();
 
     VehAnim_Init();
@@ -2294,6 +2288,7 @@ unsigned __int16 __cdecl G_AttachWeapon(DObjModel_s *dobjModels, unsigned __int1
 
 void __cdecl G_ShutdownGame(int freeScripts)
 {
+    G_ClearSoundNotifies();
     colgeom_visitor_inlined_t<200> *p_proximity_data; // [esp+0h] [ebp-14h]
     int i; // [esp+Ch] [ebp-8h]
     int file; // [esp+10h] [ebp-4h]
@@ -2973,6 +2968,7 @@ void    G_RunFrame(int levelTime)
     level_bgs.frametime = levelTime - level.previousTime;
     iassert(bgs == 0);
     bgs = &level_bgs;
+    G_UpdateSoundNotifies();
     if ( level.frametime < 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_main_mp.cpp",

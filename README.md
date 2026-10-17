@@ -23,8 +23,9 @@ Learn about the Development of KisakBlack here: [https://lwss.github.io/Kisak-Bl
 4) Open the generated .sln file
 5) Build Debug or Release (Visual Studio dropdown)
 6) Copy BLOPS Game files to `build/(BUILD_TYPE)/*` (Don't try to cherry-pick them, small files like localization.txt are needed)
-8) Copy `binkw32.dll` and `vpx.dll` into the folder as well (in-tree under `src/binklib` and `src/libs/libvpx-1.5.0`)
-11) Run the game via Visual Studio play button or just the .exe
+7) Run the game via Visual Studio play button or just the .exe
+
+`binkw32.dll` stays in `src/binklib` and `vpx.dll` stays in `src/libs/libvpx-1.5.0`. The default build stubs Bink and links VPX from the static `libvpx.lib` in that folder. A build with `-DKISAK_NO_BINK=OFF` loads `src/binklib/binkw32.dll` directly.
 
 
 ```
@@ -45,7 +46,7 @@ Short path, from the repo root, after `tools\web\setup_emsdk.ps1` and `$env:EMSD
 ```
 cmake --preset web
 cmake --build --preset web
-python tools/web/gen_manifest.py --game D:\GitHub\KisakBlack\build --build build-web --out build-web/assets-gen --client --client-zombies
+python tools/web/gen_manifest.py --game D:\GitHub\KisakBlack\build --build build-web --out build-web/assets-gen --client
 tools\web\play.ps1
 ```
 
@@ -57,7 +58,7 @@ Fresh browser profiles choose a resolution that fits the window's physical pixel
 
 The browser already uses pthreads for the game, renderer, database and job queue, plus a yielding WebGPU executor. Visibility, effects, skeletal animation/skinning and physics use the existing job queue. Automatic job-worker counts now use the browser's reported cores: one on 1–3 cores, two on four, three on five, and four on six or more. This bounds contention with game/render work without pretending all Apple silicon cores have equal throughput; the browser controls core placement. `+set r_smp_worker_threads 1` or `2` in `?args=` provides a lower-budget comparison. The pre-spawned Emscripten pool is separate from the number of active job workers. WebGPU pipeline and queue completion callbacks wake the executor on the next event-loop turn instead of waiting for another display tick. Depth-write state changes retain the current render pass; read-only depth attachments are used when the shader samples that same depth texture.
 
-Apple silicon and low-end validation still require real hardware: test Chrome and Safari with the same map, bot count, camera and resolution and record median/p95/p99 frame intervals. Missing BC compression uses WebGL2; optional float32 support depends on the adapter/browser. The fixed 3 GB Wasm heap remains a substantial memory requirement (a saved Zombies run reached about 2.5 GB of program-break high-water). Reducing duplicate CPU/GPU asset storage and auditing resource lifetimes should precede shrinking that heap. Further frame optimizations should follow CPU/GPU profiling: batch draws/uploads for CPU overhead, reduce internal resolution for fill-rate pressure, and cap AI/physics load for heavy local matches. More threads alone cannot fix a GPU or memory bottleneck.
+Apple silicon and low-end validation still require real hardware: test Chrome and Safari with the same map, bot count, camera and resolution and record median/p95/p99 frame intervals. Missing BC compression uses WebGL2; optional float32 support depends on the adapter/browser. The fixed 3 GB Wasm heap remains a substantial memory requirement (a saved session reached about 2.5 GB of program-break high-water). Reducing duplicate CPU/GPU asset storage and auditing resource lifetimes should precede shrinking that heap. Further frame optimizations should follow CPU/GPU profiling: batch draws/uploads for CPU overhead, reduce internal resolution for fill-rate pressure, and cap AI/physics load for heavy local matches. More threads alone cannot fix a GPU or memory bottleneck.
 
 `node tools/web/test_portability.mjs` uses the owned browser session to check two-core/one-worker startup, eight-core/four-worker startup without optional float32 GPU features, and four-core/two-worker WebGL2 fallback after an adapter-request rejection. It reloads the game between cases and restores normal capabilities afterward. This simulates capability reporting, not the speed or memory pressure of those devices. `tools/web/test_thread_policy.cpp` checks the worker budget across core counts; compile it with Emscripten and run its output under Node.
 
@@ -72,8 +73,6 @@ Joining tabs have separate persistent profiles under `profile/guests/`. The host
 For a returning test player, add `&player=client2` to the guest URL. A named player retains its guest identity across tab closes in the same browser profile and origin; use a different name for each simultaneous guest. Without `player`, identity lasts for that tab's session. The browser host's authoritative saves are in OPFS at `profile/players/kisak_mpstats.dat`, `profile/players/kisak_btstats.dat`, and `profile/players/by_xuid/<xuid>/`. These are local files managed by the host browser, not files inside the Node HTTP server's `build/` folder. Keep the same browser profile, hostname and port, and do not reset storage to retain them.
 
 Play > Wager Match opens the existing local lobby. One in the Chamber, Sticks and Stones, Gun Game, and Sharpshooter are available in its gametype picker. Selecting one starts its shipped wager script with the BOTS setting. Missing `playlists_mp.info` falls back to local wager metadata; an installed playlist file takes precedence. Developer testing: `kisak_wager gun mp_nuked` (enable `con_restricted_access 0` for developer commands). The PC assets contain a wager server browser rather than a separate wager lobby.
-
-The experimental `--zombies` boot path loads the installed Zombies assets and stock map scripts inside the shared engine, with an isolated player profile. `/zombies` and `/zombies/` automatically open the stock Zombies frontend; SOLO selects Kino der Toten and launches its map. Generate frontend assets and Kino's client pack with `--client-zombies`. Menu navigation, map loading, player movement, and camera input have been checked in visible Chrome. Native actor and client integration remains incomplete: this checkout builds the multiplayer runtime, whose actor species and animation bindings only support dogs. Zombie spawning, kills, and round progression are not yet verified as a playable solo path.
 
 Web pacing uses a fractional deadline and bitmap presentation waits for the page to consume the previous frame. F1 shows copied/shown counters. Shader constants use shared stage uniform buffers, relative address components are preserved, and position W defaults to one. Loaded PCM16, MS ADPCM, and WMAv2 sounds use the same PCM voice graph, with WMAv2 decoded once per loaded sound. Bad loaded buffers/packets are refused. Codec source and license are in `src/web/audio/wma/`.
 
@@ -155,7 +154,7 @@ Memory64 (up to 16 GB) is a separate build, `cmake --preset web-m64` then `cmake
 - ***Can't Connect to Dedicated Server*** :
   -  Check `net_ip` and `net_port`, the server will increment the port if the preferred one isn't available but the client won't sweep upwards.
  - ***DLL Error upon launch*** :
-   - You didn't copy over the necessary runtime DLL's
+   - The default build stubs Bink, links VPX statically, and uses the static Visual C++ runtime. With `-DKISAK_NO_BINK=OFF`, `binkw32.dll` is loaded from `src/binklib`.
 
 ## FAQ
 - Can we use AI in this project?

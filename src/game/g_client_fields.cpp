@@ -30,7 +30,7 @@ const char *g_scoreboardColumnNames[18] =
   "headshots"
 };
 
-const client_fields_s fields[44] =
+const client_fields_s fields[42] =
 {
   {
     "sessionteam",
@@ -177,10 +177,6 @@ const client_fields_s fields[44] =
     ClientScr_ReadOnly,
     ClientScr_GetGroundType
   },
-  // Co-op exposes these as native, zero-initialized scoreboard counters.
-  // Reuse the shared session score storage without changing gclient_s layout.
-  { "downs", 10288, { 4 }, F_INT, 0u, ClientScr_SetDeaths, NULL },
-  { "revives", 10284, { 4 }, F_INT, 0u, ClientScr_SetAssists, NULL },
   { NULL, 0, { 0 }, F_INT, 0u, NULL, NULL }
 };
 
@@ -936,8 +932,6 @@ void __cdecl GScr_AddFieldsForClient()
 
     for ( f = fields; f->name; ++f )
     {
-        if ((!strcmp(f->name, "downs") || !strcmp(f->name, "revives"))
-            && (!zombiemode || !zombiemode->current.enabled)) continue;
         if ( ((f - fields) & 0xC000) != 0
             && !Assert_MyHandler(
                         "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_client_fields.cpp",

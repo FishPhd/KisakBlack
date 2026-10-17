@@ -1,7 +1,6 @@
 #include "ui_shared.h"
 #ifdef KISAK_WEB
 #include <web/web_graphics.h>
-#include <web/web_assets.h>
 #include <web/web_party.h>
 #endif
 #include "ui_shared_obj.h"
@@ -11330,18 +11329,6 @@ void __cdecl UI_AddMenuList(int localClientNum, UiContext *dc, MenuList *menuLis
 void __cdecl UI_AddMenu(int localClientNum, UiContext *dc, menuDef_t *menu, int close)
 {
     int i; // [esp+8h] [ebp-8h]
-
-#ifdef KISAK_WEB
-    // The stock SP frontend projects these menus onto a TV in the campaign room.
-    // The web client has no frontend world: render the same menus directly on screen.
-    const char *loadedMap = Dvar_GetString("mapname");
-    if (Web_IsZombieBoot() && menu && (!loadedMap || !*loadedMap))
-    {
-        menu->ui3dWindowId = -1;
-        if (menu->window.name && !I_stricmp(menu->window.name, "main_online"))
-            menu->fullScreen = 1;
-    }
-#endif
 
     for ( i = 0; i < dc->menuCount; ++i )
     {

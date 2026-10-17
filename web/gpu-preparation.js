@@ -19,14 +19,12 @@ export async function assetIdentity(manifest) {
   const {gpuPreparation, installation, ...assets} = manifest;
   return sha256(new TextEncoder().encode(JSON.stringify(canonical(assets))));
 }
-export function preparationMode(params, zombies = false) {
-  void zombies;
+export function preparationMode(params) {
   const mode = params.get('preparation') || 'full';
   if (!['full', 'normal', 'off'].includes(mode)) throw new Error('preparation must be full, normal, or off');
   return mode;
 }
-export function residentStaticImages(mode, backend, zombies = false) {
-  void zombies;
+export function residentStaticImages(mode, backend) {
   return mode === 'full' && backend === 'webgpu';
 }
 export function pipelineNostall(params) {
@@ -41,8 +39,8 @@ export function settleFinished(pipelineJobs, elapsedMs, cancelled = false) {
 export function persistWarmRecipe(capture, learned) {
   return !!(capture || learned);
 }
-// Temporary: gameplay map loads skip the graphics gate. Catalog capture
-// (preparation=full with capture) still prepares maps. Frontend warmup is separate.
+// Predicate retained for policy tests. The graphics Shader Warming toggle
+// selects runtime shader caching; it defaults on.
 export function skipMapLoadPreparation(mode, capture = false) {
   return !(mode === 'full' && capture);
 }

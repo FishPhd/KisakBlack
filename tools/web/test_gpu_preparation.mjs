@@ -23,7 +23,6 @@ assert.equal(residentStaticImages('full','webgpu'),true);
 assert.equal(residentStaticImages('normal','webgpu'),false);
 assert.equal(residentStaticImages('off','webgpu'),false);
 assert.equal(residentStaticImages('full','webgl2'),false);
-assert.equal(residentStaticImages('full','webgpu',true),true);
 assert.equal(pipelineNostall(new URLSearchParams()), true);
 assert.equal(pipelineNostall(new URLSearchParams('pipelineNostall=0')), false);
 assert.equal(pipelineNostall(new URLSearchParams('pipelineNostall=1')), true);

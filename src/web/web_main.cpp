@@ -678,7 +678,7 @@ int __stdcall WinMain(HINSTANCE__ *, HINSTANCE__ *, char *lpCmdLine, int)
 
     MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakBootStage) Module.kisakBootStage("engineInit"); });
     Com_Init(sys_cmdline);
-    if (!IsDedicatedServer() && !Web_IsZombieBoot()) webgpu::WarmFrontend();
+    if (!IsDedicatedServer()) webgpu::WarmFrontend();
     MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakBootStage) Module.kisakBootStage("engineReady"); });
     if (!IsDedicatedServer())
         Cbuf_AddText(0, "readStats\n");
@@ -803,7 +803,7 @@ static void Web_AppendGraphicsFields(std::ostringstream &out)
         bool first = true;
         for (const char *name : {"r_mode", "ui_r_mode", "r_aaSamples", "ui_r_aaSamples", "ui_r_fullscreen",
             "r_picmip_manual", "r_picmip", "r_picmip_bump", "r_picmip_spec", "r_texFilterAnisoMax", "r_texFilterAnisoMin",
-            "sm_enable", "r_dof_enable", "web_disableDistortion", "web_disableMotionBlur", "web_reduceDynamicLights", "web_warmShaders", "web_disableWeaponFiringEffects", "web_adsBindingVersion"})
+            "sm_enable", "r_dof_enable", "web_disableDistortion", "web_disableMotionBlur", "web_reduceDynamicLights", "r_shaderWarming", "web_warmShaders", "web_disableWeaponFiringEffects", "web_adsBindingVersion"})
         {
             if (!first) out << ',';
             first = false;
@@ -838,9 +838,7 @@ static void Web_ObserveTick()
             for (int m = 0; m < dc->openMenuCount && !frontendReady; ++m)
             {
                 menuDef_t *menu = dc->menuStack[m].menu;
-                if (!menu || !menu->window.name
-                    || (strcmp(menu->window.name, "main_text")
-                        && !(Web_IsZombieBoot() && !strcmp(menu->window.name, "main_online"))))
+                if (!menu || !menu->window.name || strcmp(menu->window.name, "main_text"))
                     continue;
                 for (int i = 0; i < menu->itemCount; ++i)
                 {
@@ -907,8 +905,7 @@ static void Web_ObserveTick()
             if (!it || !Item_IsFocusDefType(it) || !Item_IsVisible(0, dc->contextIndex, it)
                 || ((it->dvarFlags & 3) && !Item_EnableShowViaDvar(it, 1))) continue;
             interactive = true;
-            if (menu->window.name && (!strcmp(menu->window.name, "main_text")
-                || (Web_IsZombieBoot() && !strcmp(menu->window.name, "main_online")))) frontendReady = true;
+            if (menu->window.name && !strcmp(menu->window.name, "main_text")) frontendReady = true;
             if (!agent) continue;
             rectDef_s r = it->window.rect;
             ScrPlace_ApplyRect(&scrPlaceView[0], &r.x, &r.y, &r.w, &r.h, r.horzAlign, r.vertAlign);
@@ -1054,34 +1051,6 @@ static void Web_ObserveTick()
                 << ",\"width\":" << info.width << ",\"height\":" << info.height << '}';
         }
         out << ']';
-    }
-    if (agent && com_sv_running && com_sv_running->current.enabled
-        && zombiemode && zombiemode->current.enabled && level.clients)
-    {
-        out << ",\"zombies\":{\"serverTime\":" << level.time
-            << ",\"score\":" << level.clients[0].sess.cs.score.score
-            << ",\"health\":" << g_entities[0].health;
-        for (const char *name : {"round_number", "zombie_total"})
-        {
-            const unsigned int key = SL_FindString(name, SCRIPTINSTANCE_SERVER);
-            const unsigned int id = key && gScrVarPub[SCRIPTINSTANCE_SERVER].levelId
-                ? FindVariable(SCRIPTINSTANCE_SERVER, gScrVarPub[SCRIPTINSTANCE_SERVER].levelId, key) : 0;
-            if (id && GetValueType(SCRIPTINSTANCE_SERVER, id) == VAR_INTEGER)
-                out << ',' << Web_JsonString(name) << ':' << GetVariableValueAddress(SCRIPTINSTANCE_SERVER, id)->u.intValue;
-        }
-        out << ",\"actors\":[";
-        bool first = true;
-        for (int i = 0; i < level.num_entities; ++i)
-        {
-            const gentity_s &ent = g_entities[i];
-            if (!ent.r.inuse || !ent.actor) continue;
-            if (!first) out << ',';
-            first = false;
-            out << "{\"entity\":" << i << ",\"species\":" << ent.actor->species
-                << ",\"health\":" << ent.health << ",\"pathLength\":" << ent.actor->Path.wPathLen
-                << ",\"origin\":[" << ent.r.currentOrigin[0] << ',' << ent.r.currentOrigin[1] << ',' << ent.r.currentOrigin[2] << "]}";
-        }
-        out << "]}";
     }
     Web_AppendPartyFields(out, dc);
     Web_AppendGraphicsFields(out);

@@ -2889,7 +2889,6 @@ void __cdecl FS_Flush(int f)
 
 void __cdecl Com_GetBspFilename(char *filename, unsigned int size, const char *mapname)
 {
-    const bool zombieMap = !I_strncmp(mapname, "zombie_", 7) || !I_strcmp(mapname, "zombietron");
-    Com_sprintf(filename, size, zombieMap ? "maps/%s.d3dbsp" : "maps/mp/%s.d3dbsp", mapname);
+    Com_sprintf(filename, size, "maps/mp/%s.d3dbsp", mapname);
 }
 

@@ -1510,10 +1510,6 @@ void Executor::ProcessWarmup() {
     }
     if (r.done && !r.cancel && !r.catalog && r.map != "@frontend") {
         mapReadyForSettle.store(true);
-        if (Web_IsZombieBoot() && !settleStarted.exchange(true) && !settleCancel) {
-            settleBegan.store(now);
-            settling.store(true);
-        }
     }
 }
 void Executor::ProcessLateRecipes() {
@@ -1536,12 +1532,6 @@ void Executor::ProcessLateRecipes() {
     }
 }
 void Executor::UpdateMapSettle() {
-    if (!settleStarted && mapReadyForSettle && !settleCancel && !loadingWarm && Web_IsZombieBoot()) {
-        if (!settleStarted.exchange(true)) {
-            settleBegan.store(emscripten_get_now());
-            settling.store(true);
-        }
-    }
     if (!settling && !settleStarted) return;
     const double now = emscripten_get_now();
     const unsigned pend = pipelineJobs;
@@ -1983,8 +1973,8 @@ std::string PreparationProfile() {
     return key.str();
 }
 void WarmMap(const char *map, int localClientNum) {
+    if (!Web_ShaderWarmingEnabled()) return;
     if (!Requested() || started != 1 || preparationMode == 0) return;
-    if (localClientNum >= 0 && Web_SkipMapLoadPreparation(preparationMode.load(), captureRecipes.load())) return;
     const auto profile = PreparationProfile();
     if (preparedMap == map && preparedProfile == profile && preparedGeneration == mapGeneration) return;
     auto request = std::make_shared<WarmRequest>(); request->token = ++warmSequence;
@@ -2271,11 +2261,7 @@ void NotifyPreparationAsset(int type, const char *name) {
 void CheckPreparation() {
     if (preparationMode == 0 || !Requested() || started != 1 || loadingWarm || preparedProfile.empty()) return;
     if (PreparationProfile() != preparedProfile) {
-        if (rgp.world && !preparedMap.empty() && preparedMap != "@frontend") {
-            if (Web_SkipMapLoadPreparation(preparationMode.load(), captureRecipes.load())) {
-                preparedProfile = PreparationProfile();
-                return;
-            }
+        if (rgp.world && !preparedMap.empty() && preparedMap != "@frontend")
             WarmMap(preparedMap.c_str(), 0);
         } else WarmFrontend();
         return;

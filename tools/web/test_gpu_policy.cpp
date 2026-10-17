@@ -20,10 +20,9 @@ int main(int argc, char **argv) {
     static_assert(!Web_ShaderWarmPolicy(1,false));
     static_assert(!Web_ShaderWarmPolicy(0,true));
     static_assert(!Web_ShaderWarmPolicy(0,false));
-    static_assert(Web_ResidentStaticImagePolicy(true,true,false));
-    static_assert(!Web_ResidentStaticImagePolicy(false,true,false));
-    static_assert(!Web_ResidentStaticImagePolicy(true,false,false));
-    static_assert(Web_ResidentStaticImagePolicy(true,true,true));
+    static_assert(Web_ResidentStaticImagePolicy(true,true));
+    static_assert(!Web_ResidentStaticImagePolicy(false,true));
+    static_assert(!Web_ResidentStaticImagePolicy(true,false));
     static_assert(Web_PipelineNostallPolicy(false));
     static_assert(!Web_PipelineNostallPolicy(true));
     static_assert(Web_RuntimePipelineJobs(0) == 8);

@@ -7158,7 +7158,7 @@ void __cdecl CG_SetupWeaponDef()
     CG_GetWeaponIndexForName((char*)"defaultweapon_mp");
     if ( !G_ExitAfterToolComplete() )
     {
-        if (!zombiemode->current.enabled) BG_LoadWeaponTable("_mp", 0);
+        BG_LoadWeaponTable("_mp", 0);
         for ( configStringIndex = 0; configStringIndex < 0x100; ++configStringIndex )
             CG_SetupWeaponConfigString(configStringIndex);
     }

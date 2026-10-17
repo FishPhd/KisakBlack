@@ -1,7 +1,6 @@
 #include "ui_main.h"
 #ifdef KISAK_WEB
 #include <emscripten.h>
-#include <web/web_assets.h>
 #include <web/web_party.h>
 #include <cgame/cg_info.h>
 #include <algorithm>
@@ -906,9 +905,6 @@ MenuList *__cdecl Load_ScriptMenuInternal(const char *pszMenu, int imageTrack)
     char szMenuFile[260]; // [esp+0h] [ebp-108h] BYREF
 
     strcpy(szMenuFile, "ui_mp/scriptmenus/");
-#ifdef KISAK_WEB
-    if (Web_IsZombieBoot()) strcpy(szMenuFile, "ui/scriptmenus/");
-#endif
     I_strncat(szMenuFile, 256, pszMenu);
     I_strncat(szMenuFile, 256, ".menu");
     return UI_LoadMenu(szMenuFile, imageTrack);
@@ -3611,9 +3607,6 @@ void UI_InitUIInfos()
     MenuList *menuList; // [esp+94h] [ebp-4h]
     const char *menuDir = "ui_mp/";
     const char *patchList = "patch.txt";
-#ifdef KISAK_WEB
-    if (Web_IsZombieBoot()) { menuDir = "ui/"; patchList = "patch_menus.txt"; }
-#endif
 
     for ( infoIndex = 0; infoIndex < 1; ++infoIndex )
     {
@@ -3905,9 +3898,6 @@ void __cdecl UI_LoadIngameMenus(int contextIndex)
     {
         g_ingameMenusLoaded[contextIndex] = 1;
         v1 = va("%singame.txt", "ui_mp/");
-#ifdef KISAK_WEB
-        if (Web_IsZombieBoot()) v1 = "ui/ingame.txt";
-#endif
         menuList = UI_LoadMenus(v1, 3);
         uiInfo = UI_UIContext_GetInfo(contextIndex);
         UI_AddMenuList(contextIndex, &uiInfo->uiDC, menuList, 1);
@@ -4101,7 +4091,7 @@ const char *Web_PartyMemberName(int index)
 
 void Web_EnsurePartyMenu(UiContext *dc, menuDef_t *menu)
 {
-    if (!menu || !menu->window.name || Web_IsZombieBoot()) return;
+    if (!menu || !menu->window.name) return;
     if (!I_strnicmp(menu->window.name, "server_browser", 14))
         // Discovery may have completed before this menu was opened. Refresh
         // after the stock onOpen script selects the browser's network source.

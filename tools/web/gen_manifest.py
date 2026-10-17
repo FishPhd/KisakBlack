@@ -16,13 +16,6 @@ Loading model (see web/kisak.js):
   per map   = the fastfiles only that map loaded; fetched the first time the map is played (and
               prefetched when it is next in the rotation), so a session transfers boot + played maps.
 
-Without --client-zombies, Zombie maps are not traced. When zone/ contains complete zombie_*.ff or zombietron.ff sets, those
-fastfiles are added to the per-map set with the shared zones Com_LoadCommonFastFile loads for
-that name (code_post_gfx, common, common_zombie or waw_zombie, patch; zombietron has none).
-An english en_<zone>.ff pair is included when that file is in the tree. Missing zombies files
-are reported in zombies-assets.json, and the mp_ boot set is unchanged. --client-zombies
-traces every installed complete map, preserves logs, and packs its map-specific IWD and loose assets.
-
 Usage:
   python tools/web/gen_manifest.py --game D:\\game --build build-web --out build-web/assets-gen
 Options:
@@ -74,86 +67,6 @@ def engine_rel(game, os_path):
     if p.startswith("/game/"):
         p = p[len("/game/"):]
     return resolve_ci(game, p)
-
-
-# Com_LoadCommonFastFile. Legacy World at War maps swap common_zombie for waw_zombie.
-# zombietron is special-cased and loads no named common zones.
-ZOMBIE_SHARED_ZONES = ("code_post_gfx", "common", "common_zombie", "patch")
-ZOMBIE_COD5_ZONES = ("code_post_gfx", "common", "waw_zombie", "patch")
-STOCK_ZOMBIE_MAPS = (
-    "zombie_theater", "zombie_pentagon", "zombietron", "zombie_cosmodrome",
-    "zombie_coast", "zombie_temple", "zombie_moon", "zombie_cod5_prototype",
-    "zombie_cod5_asylum", "zombie_cod5_sumpf", "zombie_cod5_factory",
-)
-
-
-def zombie_asset_inventory(zones_by_name):
-    """Required base/shared zones vs optional localized/patch files; presence is not gameplay validation."""
-    inventory = {}
-    for name in sorted(set(STOCK_ZOMBIE_MAPS) | set(discover_zombie_maps(zones_by_name))):
-        shared = () if name == "zombietron" else (
-            ZOMBIE_COD5_ZONES if name.startswith("zombie_cod5_") else ZOMBIE_SHARED_ZONES)
-        required = [name, *shared]
-        missing = [zone + ".ff" for zone in required if zone not in zones_by_name]
-        inventory[name] = {
-            "status": "blocked by missing assets" if missing else "installed; gameplay unverified",
-            "missing_required": missing,
-            "present": [zones_by_name[zone] for zone in zombie_fastfile_names(name) if zone in zones_by_name],
-            "trace_status": "not traced",
-        }
-    return inventory
-
-
-def discover_zombie_maps(zones_by_name):
-    """Basenames of zombie_*.ff and zombietron.ff present in the zone index. [] if none."""
-    maps = []
-    for name in zones_by_name:
-        if name == "zombietron" or (re.fullmatch(r"zombie_[a-z0-9_]+", name) and not name.endswith("_patch")):
-            maps.append(name)
-    return sorted(set(maps))
-
-
-def zombie_fastfile_names(map_name):
-    """Zone basenames Com_LoadLevelFastFiles / Com_LoadCommonFastFile load for this map.
-
-    The map fastfile is always included. Shared zones follow Com_LoadCommonFastFile:
-    a name containing zombietron loads none; zombie_cod5_* uses waw_zombie instead of
-    common_zombie. en_<zone> is the language pair DB_LoadXAssets queues beside those
-    alloc flags (the web client is english, same as the mp_ en_ pair).
-    """
-    names = [map_name, map_name + "_patch"]
-    if "zombietron" not in map_name:
-        shared = ZOMBIE_COD5_ZONES if "zombie_cod5_" in map_name else ZOMBIE_SHARED_ZONES
-        names.extend(shared)
-    out = []
-    for name in names:
-        out.append(name)
-        out.append("en_" + name)
-    return out
-
-
-def add_zombie_maps(zones_by_name, maps_out, entry):
-    """Add zombies fastfiles that exist in the asset tree. Does not trace, and does not
-    require the files. Existing mp_ map lists are not rewritten."""
-    added = 0
-    for map_name, audit in zombie_asset_inventory(zones_by_name).items():
-        if audit["missing_required"]:
-            continue
-        have = {e["path"] for e in maps_out.get(map_name, [])}
-        rows = []
-        for zone in zombie_fastfile_names(map_name):
-            rel = zones_by_name.get(zone)
-            if not rel or rel in have:
-                continue
-            have.add(rel)
-            rows.append(entry(rel))
-        if not rows:
-            continue
-        maps_out.setdefault(map_name, []).extend(rows)
-        added += 1
-    if added:
-        print(f"added {added} zombies map(s) from the asset tree (not traced)")
-    return added
 
 
 def discover_maps(game):
@@ -238,9 +151,8 @@ def write_manifest_files(out_dir, manifest):
         for m, es in sorted(manifest.get("maps", {}).items()):
             for e in es:
                 f.write(f"{e['path']}\t{e['size']}\t{m}\n")
-        for client_set in [manifest.get("client"), manifest.get("zombies")]:
-            if not client_set:
-                continue
+        client_set = manifest.get("client")
+        if client_set:
             for e in client_set.get("boot", []):
                 f.write(f"{e['path']}\t{e['size']}\t\n")
             for m, es in sorted(client_set.get("maps", {}).items()):
@@ -312,7 +224,7 @@ def update_existing_manifest(args, game, out_dir, zones_by_name, entry):
     return {"listed": listed, "packed": packed, "manifest": manifest}
 
 
-def run_trace(args, game, map_name, gametype, client=False, frontend=False, zombies=False):
+def run_trace(args, game, map_name, gametype, client=False, frontend=False):
     if frontend:
         mode = ["+set", "dedicated", "0", "+set", "com_introPlayed", "1"]
         exit_on = r"web: status|Com_Error|ERROR:"
@@ -322,18 +234,13 @@ def run_trace(args, game, map_name, gametype, client=False, frontend=False, zomb
     else:
         mode = ["+set", "dedicated", "1", "+map", map_name]
         exit_on = r"svs\.time=[1-9]|Com_Error|ERROR:"
-    if zombies and not frontend:
-        # Server time advances before a local client receives its gamestate. A
-        # client trace must reach CG_Init so HUD, materials and images are opened.
-        ready = r"CL_InitCGame:\s+[0-9.]+ seconds" if client else r"svs\.time=[1-9]"
-        exit_on = ready + r"|Com_Error|Com_ERROR:|ERROR:(?! Could not open 'devgui_)|wasm trap:"
     cmd = [
         args.node, RUNNER, "--build", args.build, "--gamedir", game,
         "--seconds", str(args.client_timeout if (client or frontend) else args.timeout),
         "--exit-on", exit_on,
         "--", "+set", "sv_maxclients", "4", "+set", "g_gametype", gametype,
         "+set", "fs_traceOpens", "1", "+set", "web_status", "1",
-        *(["--zombies"] if zombies else []), *mode,
+        *mode,
     ]
     t0 = time.time()
     proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
@@ -358,8 +265,7 @@ def run_trace(args, game, map_name, gametype, client=False, frontend=False, zomb
         m = LOADED_RE.match(line)
         if m:
             entries.append(("zone", m.group(1), ""))
-    ready = r"web: status" if frontend else (
-        r"CL_InitCGame:\s+[0-9.]+ seconds" if zombies and client else r"svs\.time=[1-9]")
+    ready = r"web: status" if frontend else r"svs\.time=[1-9]"
     ok = re.search(ready, text) is not None
     failed = re.search(r"Com_Error|Com_ERROR:|ERROR:(?! Could not open 'devgui_)|wasm trap:", text) is not None
     return {
@@ -474,59 +380,6 @@ def stage_game(game, out_dir, stage_dir, boot):
 CLIENT_IWD_NAME = "iw_web_client.iwd"
 
 
-def build_zombies_frontend(args, game, out_dir, zones_by_name, entry, allow_partial=False):
-    """Keep the stock SP/Zombies frontend separate from multiplayer's boot set."""
-    inventory = zombie_asset_inventory(zones_by_name)
-    report_path = os.path.join(out_dir, "zombies-assets.json")
-
-    def save_inventory():
-        with open(report_path, "w", encoding="utf-8") as f:
-            json.dump(inventory, f, indent=2)
-
-    save_inventory()
-    print("tracing Zombies frontend ...")
-    front = run_trace(args, game, "frontend", "zclassic", client=True, frontend=True, zombies=True)
-    if not front["ok"]:
-        print(front["log_tail"], file=sys.stderr)
-        sys.exit("Zombies frontend trace failed")
-    zones, iwd, files = collect(game, front, zones_by_name)
-    pack_name = "iw_web_zombies.iwd"
-    pack_path = os.path.join(out_dir, pack_name)
-    repack_iwd(game, iwd, pack_path)
-    boot = [entry(p) for p in sorted(zones | files)]
-    boot.append({"path": f"main/{pack_name}", "size": os.path.getsize(pack_path), "gen": True})
-    maps_out = {}
-    add_zombie_maps(zones_by_name, maps_out, entry)
-    failed = []
-    for map_name, audit in inventory.items():
-        if audit["missing_required"]:
-            print(f"  blocked {map_name}: missing {', '.join(audit['missing_required'])}", file=sys.stderr)
-            continue
-        print(f"tracing {map_name} solo client assets ...")
-        run = run_trace(args, game, map_name, "zclassic", client=True, zombies=True)
-        audit.update({"trace_status": "passed" if run["ok"] else "failed",
-                      "trace_seconds": run["seconds"], "trace_log": run["log"],
-                      "trace_returncode": run["returncode"]})
-        save_inventory()
-        if not run["ok"]:
-            print(run["log_tail"], file=sys.stderr)
-            failed.append(map_name)
-            maps_out.pop(map_name, None)
-            continue
-        map_zones, map_iwd, map_files = collect(game, run, zones_by_name)
-        have = {e["path"] for e in maps_out[map_name]}
-        maps_out[map_name].extend(entry(p) for p in sorted((map_zones | map_files) - zones - files - have))
-        map_pack = f"iw_web_map_{map_name}.iwd"
-        map_pack_path = os.path.join(out_dir, map_pack)
-        count = repack_iwd(game, map_iwd - iwd, map_pack_path)
-        maps_out[map_name].append({"path": f"main/{map_pack}", "size": os.path.getsize(map_pack_path), "gen": True})
-        audit["map_iwd_entries"] = count
-        save_inventory()
-    if failed and not allow_partial:
-        sys.exit("Zombies client asset traces failed: " + ", ".join(failed) + "; see " + report_path)
-    return {"boot": boot, "maps": maps_out, "asset_inventory": inventory}
-
-
 def build_client_set(args, game, out_dir, zones_by_name, server_boot_zones, server_maps, server_iwd, server_files, entry):
     """Trace the engine as a client (null GL under Node) and return {"boot": [...], "maps": {...}}:
     what the Play button needs on top of the server set (ui/gfx fastfiles, images from IWDs, loose files)."""
@@ -619,7 +472,7 @@ def write_installation_inventory(game, out_dir, manifest):
                 rel = os.path.relpath(source, game).replace('\\', '/')
                 files[rel.lower()] = ({'path': rel, 'size': os.path.getsize(source)}, source)
     entries = [*manifest['boot'], *sum(manifest.get('maps', {}).values(), [])]
-    for mode in ('client', 'zombies'):
+    for mode in ('client',):
         group = manifest.get(mode, {})
         entries += group.get('boot', []) + sum(group.get('maps', {}).values(), [])
     superseded = []
@@ -694,7 +547,6 @@ def main():
                     help="keep the existing manifest and add maps now present in zone/ (DLC copies)")
     ap.add_argument("--client", action="store_true",
                     help="also trace the *client* (dedicated 0, +devmap) and add a client set for the Play button")
-    ap.add_argument("--client-zombies", action="store_true", help="also trace and pack the stock Zombies frontend")
     ap.add_argument("--client-maps", default=None,
                     help="maps to trace as a client; defaults to every discovered multiplayer map")
     ap.add_argument("--client-timeout", type=int, default=900, help="seconds per traced client run")
@@ -725,13 +577,6 @@ def main():
     if args.update:
         update_existing_manifest(args, game, out_dir, zones_by_name, entry)
         return
-
-    inventory = zombie_asset_inventory(zones_by_name)
-    with open(os.path.join(out_dir, "zombies-assets.json"), "w", encoding="utf-8") as f:
-        json.dump(inventory, f, indent=2)
-    for map_name, audit in inventory.items():
-        if audit["missing_required"]:
-            print(f"  blocked {map_name}: missing {', '.join(audit['missing_required'])}", file=sys.stderr)
 
     maps = [m for m in args.maps.split(",") if m] or discover_maps(game)
     if args.client and args.client_maps is None:
@@ -774,7 +619,6 @@ def main():
     maps_out = {}
     for r, zones, _, _ in map_runs:
         maps_out[r["map"]] = [entry(z) for z in sorted(zones - boot_zones)]
-    add_zombie_maps(zones_by_name, maps_out, entry)
 
     # Generated IWDs. The engine only accepts iw_*.iwd in main/ (pure check) ...
     iwd_path = os.path.join(out_dir, IWD_NAME)
@@ -803,8 +647,6 @@ def main():
     }
     if client_out:
         manifest["client"] = client_out
-    if args.client_zombies:
-        manifest["zombies"] = build_zombies_frontend(args, game, out_dir, zones_by_name, entry)
     write_installation_inventory(game, out_dir, manifest)
     with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1)
@@ -814,9 +656,8 @@ def main():
         for m, es in sorted(maps_out.items()):
             for e in es:
                 f.write(f"{e['path']}\t{e['size']}\t{m}\n")
-        for client_set in [manifest.get("client"), manifest.get("zombies")]:
-            if not client_set:
-                continue
+        client_set = manifest.get("client")
+        if client_set:
             for e in client_set["boot"]:
                 f.write(f"{e['path']}\t{e['size']}\t\n")
             for m, es in sorted(client_set["maps"].items()):

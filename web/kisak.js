@@ -25,8 +25,6 @@ import {loadCatalog, openCatalogStore} from './gpu-preparation.js';
 //
 // URL parameters: gen, assets, mode=lazy|bulk, args="<engine command line>", autostart, bots=<n>,
 // refresh (force a full manifest download; otherwise the boot revalidates with the server ETag).
-// /zombies uses this same module. web/zombies.html calls bootZombies(), which adds --zombies to the
-// Play client args and does not pass a map. Play on / does not pass --zombies.
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -53,7 +51,7 @@ if (!guestProfile || !/^[a-f0-9]{32}$/.test(guestProfile)) {
 }
 
 const cfg = {
-  // Root-absolute defaults. /zombies and /zombies/ must resolve the same /gen and /assets as /.
+  // Root-absolute defaults so a deep link resolves the same /gen and /assets as /.
   gen: new URL(params.get("gen") || "/gen/", location.href).href.replace(/\/?$/, "/"),
   assets: new URL(params.get("assets") || "/assets/", location.href).href.replace(/\/?$/, "/"),
   mode: params.get("mode") || "lazy",
@@ -236,10 +234,9 @@ async function writeRootText(name, text) {
 
 // Key bindings and the look settings live in the profile's config_mp.cfg (OPFS). localStorage
 // keeps a copy so a cleared or evicted profile can be put back before the engine starts.
-const controlsKey = (cfg.join ? "kisak.controls:" + guestProfile : "kisak.controls") + (useZombiesArgs() ? ":zombies" : "");
+const controlsKey = cfg.join ? "kisak.controls:" + guestProfile : "kisak.controls";
 const controlsParts = () => {
   const parts = ["profile"];
-  if (useZombiesArgs()) parts.push("zombies");
   if (cfg.join) parts.push("guests", guestProfile);
   parts.push("players", "config_mp.cfg");
   return parts;
@@ -483,7 +480,7 @@ async function fullInstallation(manifest) {
   const inventory = JSON.parse(data), entries = installationEntries(inventory);
   const superseded = new Set((inventory.superseded || []).map(p => p.toLowerCase()));
   for (const name of superseded) {
-    if (!/^main\/(iw_web(?:_client|_zombies|_map_[a-z0-9_]+)?|localized_[a-z_]+_web)\.iwd$/.test(name))
+    if (!/^main\/(iw_web(?:_client|_map_[a-z0-9_]+)?|localized_[a-z_]+_web)\.iwd$/.test(name))
       throw new Error('Invalid superseded pack');
     const parts = opfsParts(name), file = parts.pop();
     try { await (await dirHandle(parts, false)).removeEntry(file); } catch (error) { if (error.name !== 'NotFoundError') throw error; }
@@ -544,14 +541,14 @@ async function loadManifest() {
   }
   const m = JSON.parse(text);
   state.byKey.clear();
-  const c = (useZombiesArgs() ? m.zombies : m.client) || { boot: [], maps: {} };
+  const c = m.client || { boot: [], maps: {} };
   for (const e of [...m.boot, ...c.boot, ...Object.values(m.maps).flat(), ...Object.values(c.maps).flat()]) state.byKey.set(e.path.toLowerCase(), e);
   return m;
 }
 
 // The engine reads this to know which files it may ask for (Web_RemoteKnown / Web_EnsureFile).
 async function writeManifestTxt(m) {
-  const c = (useZombiesArgs() ? m.zombies : m.client) || { boot: [], maps: {} };
+  const c = m.client || { boot: [], maps: {} };
   const seen = new Set();
   let t = "";
   const add = (e, map) => {
@@ -627,7 +624,7 @@ function kisakEnsureFile(relLower) {
 // Next map in the rotation: start copying its files now so the map change finds them local.
 function kisakPrefetchMap(map, immediate = false) {
   const key = map.toLowerCase();
-  const clientSet = useZombiesArgs() ? state.manifest?.zombies : state.manifest?.client;
+  const clientSet = state.manifest?.client;
   const files = [...((state.manifest?.maps || {})[key] || []), ...((clientSet?.maps || {})[key] || [])];
   if (state.supersededPacks) return; // Complete installation is already local.
   if (!files.length) return;
@@ -734,17 +731,14 @@ function chooseResolution() {
   return fitResolution(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
 }
 
-function clientBootTokens(extra = params.get("args") || "", zombies = false) {
+function clientBootTokens(extra = params.get("args") || "") {
   const res = chooseResolution();
   state.res = res;
   return [
     "+set dedicated 0",
     ...graphicsBootSettings(state.savedGraphics || new Map(), res, document.fullscreenElement === $("stage")),
     "+set com_introPlayed 1", "+set com_maxfps 60", "+set web_status 5",
-    `+set sv_maxclients ${zombies ? 1 : 12}`, `+set g_gametype ${zombies ? "zclassic" : "tdm"}`,
-    ...(zombies ? ["+set zombiemode 1", "+set ui_zombiemode 1", "+set ui_multiplayer 0",
-      // The SP texture streamer has no working WASM path; load the selected low-detail mips eagerly.
-      "+set r_stream 0", "+set onlinegame 0", "+set systemlink 0"] : []),
+    "+set sv_maxclients 12", "+set g_gametype tdm",
     "+set cl_autorecord 0", extra,
   ].filter(Boolean);
 }
@@ -753,36 +747,6 @@ function playArgs() {
   // No +devmap: an empty map name is what makes Com_Init open the real multiplayer frontend.
   // Bots come from the Private Match lobby BOTS row, not from this command line.
   return clientBootTokens().join(" ");
-}
-
-// ?args= can still override client dvars. A zombies boot cannot start a map or force dedicated 1.
-function stripZombiesBlockedArgs(extra) {
-  return extra
-    .replace(/(?:^|\s)--zombies\b/gi, " ")
-    .replace(/(?:^|\s)\+(?:dev)?map(?:\s+\S+)?/gi, " ")
-    .replace(/(?:^|\s)\+set\s+dedicated\s+1\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function zombiesBootArgs() {
-  // --zombies is its own argv token. Web_InitFilesystem consumes it (zombies profile + zombiemode)
-  // and leaves the rest for the engine. No +map: an empty map name opens the zombies map menu.
-  return ["--zombies", ...clientBootTokens(stripZombiesBlockedArgs(params.get("args") || ""), true)].join(" ");
-}
-
-function zombiesPage() {
-  const path = location.pathname.replace(/\/+$/, "") || "/";
-  return path === "/zombies" || document.body?.dataset.boot === "zombies";
-}
-
-function useZombiesArgs() {
-  return state.zombiesBoot === true || zombiesPage();
-}
-
-export function bootZombies() {
-  state.zombiesBoot = true;
-  return start(true);
 }
 
 async function start(play = false) {
@@ -798,13 +762,11 @@ async function start(play = false) {
     await syncControls();
     state.savedGraphics = savedSettings((await readControlsFile())?.text || '');
     state.savedGraphics.delete('web_warmshaders');
-    state.savedGraphics.delete('r_shaderwarming');
 
     if (play) document.body.classList.add("playing", "booting");
     cfg.mode = $("mode").value;
-    cfg.args = play ? (useZombiesArgs() ? zombiesBootArgs() : playArgs()) : $("arg").value.trim();
+    cfg.args = play ? playArgs() : $("arg").value.trim();
     state.play = play;
-    if (play && useZombiesArgs()) log(`zombies boot: ${cfg.args}`);
 
     setStatus("Reading manifest…");
     mark("manifestStart");
@@ -814,8 +776,8 @@ async function start(play = false) {
     try { state.assetReceipts = JSON.parse(await readRootText('asset-verification.json') || '{}'); }
     catch { state.assetReceipts = {}; }
     if (cfg.mode !== 'all') await restoreFullInstallation(m);
-    const clientSet = useZombiesArgs() ? m.zombies : m.client;
-    if (play && !clientSet) throw new Error(`this manifest has no ${useZombiesArgs() ? "Zombies" : "multiplayer"} client set (run tools/web/gen_manifest.py --client --client-zombies)`);
+    const clientSet = m.client;
+    if (play && !clientSet) throw new Error("this manifest has no multiplayer client set (run tools/web/gen_manifest.py --client)");
 
     // Play starts on the frontend boot set. The map fastfile is fetched when the lobby picks one
     // (Web_EnsureFile), so the canvas is not black for the whole map import.
@@ -858,7 +820,7 @@ async function start(play = false) {
     mark("assetsReady");
     log(moved ? `import done: ${mb(moved)} MB in ${((performance.now() - t0) / 1000).toFixed(1)} s` : "import: all files already in OPFS, nothing transferred");
     await writeManifestTxt(m);
-    state.preparationMode = preparationMode(params, useZombiesArgs());
+    state.preparationMode = preparationMode(params);
     state.gpuRecipeExports = {};
     state.gpuRecipeExportCounts = {};
     state.gpuRecipeExportObserved = {};
@@ -911,8 +873,8 @@ async function start(play = false) {
     setBar(0);
       const { default: KisakModule } = await import("./kisak.mjs?v=20261014b");
     const config = {
-      arguments: [...splitArgs(cfg.args), "+set", "web_warmShaders", state.preparationMode === 'off' ? "0" : "1", '+set', 'web_prepareStaticImages',
-        residentStaticImages(state.preparationMode, state.rendererBackend, useZombiesArgs()) ? '1' : '0',
+      arguments: [...splitArgs(cfg.args), '+set', 'web_prepareStaticImages',
+        residentStaticImages(state.preparationMode, state.rendererBackend) ? '1' : '0',
         "--web-session", webSession,
         ...(cfg.agent && params.get("readcache") === "0" ? ["--no-read-cache"] : []),
         ...(cfg.join ? ["--guest-profile", guestProfile] : [])],
@@ -955,7 +917,7 @@ async function start(play = false) {
         state.relay.transport.setParty({ name: partyName(), phase: "loading", map,
           gametype: state.engine?.uiGametype || "tdm" });
       },
-      kisakBootStage: (stage) => { mark(stage); if (!state.menuReady) setStatus(stage === "engineReady" ? (useZombiesArgs() ? "Preparing zombies menu…" : "Preparing multiplayer menu…") : "Initializing engine…"); },
+      kisakBootStage: (stage) => { mark(stage); if (!state.menuReady) setStatus(stage === "engineReady" ? "Preparing multiplayer menu…" : "Initializing engine…"); },
       kisakObserve: (snapshot) => {
         if (state.relay?.host && state.partyHosted && state.partyPhase === "match" && snapshot.connection === 0) {
           state.partyPhase = "lobby";
@@ -988,13 +950,6 @@ async function start(play = false) {
       },
       kisakPumpNetwork: () => state.relay?.pump?.(),
       onExit: (code) => { state.relay?.stop?.(); setStatus(`Engine exited (${code})`); $("cmd").disabled = true; $("send").disabled = true; },
-      kisakMainMenu: () => {
-        state.relay?.stop?.();
-        const target = new URL("/zombies", location.href);
-        for (const key of ["assets", "gen", "ice", "net"])
-          if (params.has(key)) target.searchParams.set(key, params.get(key));
-        location.assign(target.href);
-      },
     };
     if (state.rendererBackend === "webgpu") config.canvas = $("game");
     if (play) {
@@ -1014,7 +969,7 @@ async function start(play = false) {
     $("cmd").disabled = false;
     $("send").disabled = false;
     if (play) {
-      setStatus(useZombiesArgs() ? "Loading zombies menus…" : "Loading multiplayer menus…");
+      setStatus("Loading multiplayer menus…");
       $("game").focus();
     } else {
       setStatus("Server running. Type console commands below.");
@@ -1147,7 +1102,7 @@ function enterPlay() {
           preparation:w,renderer:state.rendererBackend}).compiledOnDevice;
         state.installation.compiledScope=state.installation.compiledOnDevice ? (state.catalog?.scope==='*' ? '*' : w.map) : null;
       }
-      const showSettle = w.stage !== 'settle' || useZombiesArgs();
+      const showSettle = w.stage !== 'settle';
       $("warmup").hidden = !(w.active && showSettle);
       $("warmup").classList.remove('incomplete');
       const message=preparationMessage(w,state.catalog);
@@ -1205,9 +1160,7 @@ function enterPlay() {
           state.menuReady = true;
           mark("menuReady");
           document.body.classList.remove("booting");
-          setStatus(useZombiesArgs()
-            ? `Playing (${state.res}). Choose a zombies map from the game menus. F1 shows the debug page.`
-            : `Playing (${state.res}). Create a private match from the game menus. F1 shows the debug page.`);
+          setStatus(`Playing (${state.res}). Create a private match from the game menus. F1 shows the debug page.`);
         }
       } catch (e) {
         b.close?.();
@@ -1753,7 +1706,7 @@ function startRelay(joinRoom = cfg.join) {
 // ---------------------------------------------------------------- wiring
 
 window.kisak = {
-  state, present, cfg, zombiesBootArgs, bootZombies,
+  state, present, cfg,
   serversText: "",
   // The engine calls this when a server-browser row is chosen. The room id
   // never has to be typed.
@@ -1830,7 +1783,7 @@ if (cfg.agent) window.kisak.agent = {
   },
 };
 
-$("arg").value = zombiesPage() ? zombiesBootArgs() : cfg.args;
+$("arg").value = cfg.args;
 $("mode").value = cfg.mode;
 $("start").onclick = () => start(false);
 $('best-case')?.addEventListener('click', state.bestCase);
@@ -1908,15 +1861,10 @@ window.addEventListener("unhandledrejection", (ev) => {
 
 setStatus(!crossOriginIsolated
   ? "Not cross-origin isolated: serve with COOP/COEP (tools/web/serve.mjs)."
-  : zombiesPage()
-    ? "Loading zombies…"
-    : "Ready. Pick your game folder or start with ?assets=<url>.");
+  : "Ready. Pick your game folder or start with ?assets=<url>.");
 // Registered before boot so the first click or key resumes the context the engine is using.
 window.addEventListener("pointerdown", unlockAudio, true);
 window.addEventListener("keydown", unlockAudio, true);
 // Boot straight into the multiplayer menu. ?server keeps the old headless page.
-// /zombies calls bootZombies() itself so this path never adds --zombies.
-if (!zombiesPage()) {
-  if (params.has("server")) start(false);
-  else start(true);
-}
+if (params.has("server")) start(false);
+else start(true);

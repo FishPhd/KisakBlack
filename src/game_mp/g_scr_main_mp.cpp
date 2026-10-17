@@ -163,28 +163,6 @@ void __cdecl GScr_LoadGameTypeScript()
 {
     char filename[68]; // [esp+0h] [ebp-48h] BYREF
 
-    if (zombiemode->current.enabled)
-    {
-        const auto callback = [](const char *label, bool required = true) {
-            return GScr_LoadScriptAndLabel(SCRIPTINSTANCE_SERVER, "maps/_callbacksetup", label, required);
-        };
-        g_scr_data.gametype.main = 0; // The Zombies level's main owns game initialization.
-        g_scr_data.gametype.startupgametype = callback("CodeCallback_StartGameType");
-        g_scr_data.gametype.playerconnect = callback("CodeCallback_PlayerConnect");
-        g_scr_data.gametype.playerdisconnect = callback("CodeCallback_PlayerDisconnect");
-        g_scr_data.gametype.playerdamage = callback("CodeCallback_PlayerDamage");
-        g_scr_data.gametype.playerkilled = callback("CodeCallback_PlayerKilled");
-        g_scr_data.gametype.actordamage = callback("CodeCallback_ActorDamage");
-        g_scr_data.gametype.actorkilled = callback("CodeCallback_ActorKilled");
-        g_scr_data.gametype.vehicledamage = callback("CodeCallback_VehicleDamage");
-        g_scr_data.gametype.vehicleradiusdamage = callback("CodeCallback_VehicleRadiusDamage", false);
-        g_scr_data.gametype.playerlaststand = callback("CodeCallback_PlayerLastStand");
-        g_scr_data.levelnotify = callback("CodeCallback_LevelNotify");
-        g_scr_data.faceeventnotify = callback("CodeCallback_FaceEventNotify", false);
-        g_scr_data.glassSmash = callback("CodeCallback_GlassSmash", false);
-        return;
-    }
-
     Com_sprintf(filename, 0x40u, "maps/mp/gametypes/%s", g_gametype->current.string);
     g_scr_data.gametype.main = GScr_LoadScriptAndLabel(SCRIPTINSTANCE_SERVER, filename, "main", 1);
     g_scr_data.gametype.startupgametype = GScr_LoadScriptAndLabel(
@@ -298,18 +276,18 @@ void __cdecl    GScr_LoadScripts(scriptInstance_t inst)
     g_scr_data.findstruct = GScr_LoadScriptAndLabel(inst, "codescripts/struct", "findstruct", 1);
     g_scr_data.destructible_callback = GScr_LoadScriptAndLabel(
         inst,
-        zombiemode->current.enabled ? "maps/_destructible" : "maps/mp/_destructible",
+        "maps/mp/_destructible",
         "CodeCallback_DestructibleEvent",
         1);
-    g_scr_data.updatespawnpoints = zombiemode->current.enabled ? 0 : GScr_LoadScriptAndLabel(
+    g_scr_data.updatespawnpoints = GScr_LoadScriptAndLabel(
         inst,
         "maps/mp/gametypes/_spawning",
         "CodeCallback_UpdateSpawnPoints",
         1);
-    if (!zombiemode->current.enabled) GScr_LoadDogAnimScripts(inst);
+    GScr_LoadDogAnimScripts(inst);
 
     GScr_SetScriptsForPathNodes();
-    if (!zombiemode->current.enabled) GScr_LoadPreGameScript();
+    GScr_LoadPreGameScript();
     GScr_LoadGameTypeScript();
     GScr_LoadLevelScript();
     Scr_PostCompileScripts(inst);
@@ -434,7 +412,7 @@ int GScr_LoadLevelScript()
     const dvar_s *mapname; // [esp+44h] [ebp-4h]
 
     mapname = _Dvar_RegisterString("mapname", (char *)"", 0x44u, "The current map name");
-    Com_sprintf(filename, 0x40u, zombiemode->current.enabled ? "maps/%s" : "maps/mp/%s", mapname->current.string);
+    Com_sprintf(filename, 0x40u, "maps/mp/%s", mapname->current.string);
     result = GScr_LoadScriptAndLabel(SCRIPTINSTANCE_SERVER, filename, "main", 0);
     g_scr_data.levelscript = result;
     return result;
@@ -5746,7 +5724,6 @@ void GScr_AddDemoBookmark()
 void __cdecl Scr_UpdateSpawnPoints()
 {
     unsigned __int16 callback; // [esp+0h] [ebp-4h]
-    if (zombiemode->current.enabled && !g_scr_data.updatespawnpoints) return;
 
     callback = Scr_ExecThread(SCRIPTINSTANCE_SERVER, g_scr_data.updatespawnpoints, 0);
     Scr_FreeThread(callback, SCRIPTINSTANCE_SERVER);
@@ -17276,7 +17253,6 @@ bool __cdecl Scr_IsValidGameType(const char *pszGameType)
 void __cdecl Scr_LoadGameType()
 {
     unsigned __int16 t; // [esp+0h] [ebp-4h]
-    if (zombiemode->current.enabled) return;
 
     if ( !g_scr_data.gametype.main
         && !Assert_MyHandler(

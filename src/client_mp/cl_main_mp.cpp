@@ -3671,14 +3671,10 @@ void __cdecl CL_InitDedicated()
 
 void __cdecl CL_startSingleplayer_f()
 {
-#ifdef KISAK_WEB
-    MAIN_THREAD_ASYNC_EM_ASM({ if (Module.kisakMainMenu) Module.kisakMainMenu(); });
-#else
     Dvar_SetStringByName("com_errorMessage", "Campaign and Zombies require the singleplayer runtime. This build contains multiplayer only.");
     Dvar_SetBoolByName("com_isNotice", true);
     UI_OpenMenu(0, "error_popmenu");
     Com_Printf(0, "Campaign and Zombies require the singleplayer runtime; this build contains multiplayer only.\n");
-#endif
 }
 
 void __cdecl CL_DrawLogo(int localClientNum)

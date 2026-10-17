@@ -1,7 +1,6 @@
 #include "common.h"
 #ifdef KISAK_WEB
 #include <emscripten.h>
-#include <web/web_assets.h>
 #endif
 
 #include <string.h>
@@ -2082,11 +2081,7 @@ void Com_InitDvars()
 #endif
     com_maxfps = _Dvar_RegisterInt("com_maxfps", 85, 0, 1000, 1u, "Cap frames per second");
     arcademode = _Dvar_RegisterBool("arcademode", 0, 0x100u, "Current game is an arcade mode game");
-#ifdef KISAK_WEB
-    zombiemode = _Dvar_RegisterBool("zombiemode", Web_IsZombieBoot(), 0x40u, "Current game is an zombie game");
-#else
     zombiemode = _Dvar_RegisterBool("zombiemode", 0, 0x40u, "Current game is an zombie game");
-#endif
     legacy_zombiemode = _Dvar_RegisterBool("legacy_zombiemode", 0, 0x40u, "Current game is a legacy zombie game");
     zombieStopSplitScreen = _Dvar_RegisterBool(
                                                         "zombieStopSplitScreen",
@@ -2573,11 +2568,6 @@ void __cdecl Com_LoadLevelFastFiles(char *mapName)
     zoneInfo[zoneCount].name = 0;
     zoneInfo[zoneCount].allocFlags = 0;
     zoneInfo[zoneCount++].freeFlags = 0x4000000;
-    // Normal BO1 Zombies maps must select their common assets too, not only
-    // Dead Ops and the legacy World at War maps.
-    const bool isZombieMap = !I_strncmp(mapName, "zombie_", 7) || !I_strcmp(mapName, "zombietron");
-    Dvar_SetBool((dvar_s *)zombiemode, isZombieMap);
-    Dvar_SetBool((dvar_s *)zombietron, !I_strcmp(mapName, "zombietron"));
     if ( I_stristr(mapName, "zombietron") )
     {
         Dvar_SetBool((dvar_s *)zombiemode, 1);
@@ -2671,7 +2661,7 @@ char *__cdecl Com_GetLevelSharedFastFile(char *mapName)
 
 void Com_LoadCommonFastFile()
 {
-    XZoneInfo zoneInfo[3];
+    XZoneInfo zoneInfo[1]; // [esp+4h] [ebp-10h] BYREF
     int zoneCount; // [esp+10h] [ebp-4h]
 
     zoneCount = 0;
@@ -2686,10 +2676,6 @@ void Com_LoadCommonFastFile()
     }
     else if ( zombiemode->current.enabled )
     {
-        if (!DB_IsZoneLoaded("code_post_gfx"))
-            zoneInfo[zoneCount++] = {"code_post_gfx", 256, 0};
-        if (!DB_IsZoneLoaded("common"))
-            zoneInfo[zoneCount++] = {"common", 256, 0};
         if ( legacy_zombiemode->current.enabled )
         {
             if ( !DB_IsZoneLoaded("waw_zombie") )

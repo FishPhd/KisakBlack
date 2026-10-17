@@ -1,6 +1,4 @@
 #include "g_weapon.h"
-#include <database/db_registry.h>
-#include <vector>
 #include <game_mp/g_main_mp.h>
 #include <server/sv_world.h>
 #include <glass/glass_server.h>
@@ -1847,17 +1845,7 @@ void __cdecl G_SetupWeaponDef()
         ClearRegisteredItems();
         BG_ClearWeaponDef();
         G_GetWeaponIndexForName((char*)"defaultweapon_mp");
-        if (zombiemode->current.enabled)
-        {
-            std::vector<const char *> weapons;
-            DB_EnumXAssets_FastFile(ASSET_TYPE_WEAPON, [](XAssetHeader asset, void *context) {
-                const char *name = asset.weapon->szInternalName;
-                if (name && !I_stristr(name, "_mp"))
-                    static_cast<std::vector<const char *> *>(context)->push_back(name);
-            }, &weapons, false);
-            for (const char *name : weapons) G_GetWeaponIndexForName((char *)name);
-        }
-        else BG_LoadWeaponTable("_mp", G_RegisterWeapon);
+        BG_LoadWeaponTable("_mp", G_RegisterWeapon);
     }
     Com_DPrintf(17, "----------------------\n");
 }

@@ -1,7 +1,6 @@
 #include "web_graphics.h"
 #include <universal/dvar.h>
 #include <web/gpu/web_gpu.h>
-#include <web/web_assets.h>
 #include "web_preparation_policy.h"
 #include <gfx_d3d/r_init.h>
 #include <gfx_d3d/r_dvars.h>
@@ -46,7 +45,7 @@ void Web_BrowserFullscreenChanged(bool enabled)
 
 bool Web_UseFullTexturePreparation() {
     return Web_ResidentStaticImagePolicy(web_prepareStaticImages && web_prepareStaticImages->current.enabled,
-        webgpu::Requested(), Web_IsZombieBoot());
+        webgpu::Requested());
 }
 
 void Web_RegisterGraphicsDvars()

@@ -9,8 +9,7 @@ constexpr bool Web_SubmitPreparationResources(std::size_t commands, std::uint64_
 constexpr bool Web_ShaderWarmPolicy(int mode, bool webgpu) {
     return mode == 2 || (mode == 1 && webgpu);
 }
-constexpr bool Web_ResidentStaticImagePolicy(bool full, bool webgpu, bool zombies) {
-    (void)zombies;
+constexpr bool Web_ResidentStaticImagePolicy(bool full, bool webgpu) {
     return full && webgpu;
 }
 constexpr bool Web_PipelineNostallPolicy(bool disabled) {

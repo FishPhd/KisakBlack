@@ -71,15 +71,11 @@
 #define POOLSIZE_MENUFILE          164
 //#define POOLSIZE_MENU              850
 #define POOLSIZE_MENU              1024
-#ifdef KISAK_WEB
-#define POOLSIZE_LOCALIZE          24576 // MP core plus SP/Zombies localized strings.
-#else
 #define POOLSIZE_LOCALIZE          10240
-#endif
 #define POOLSIZE_WEAPON            2048
 #define POOLSIZE_WEAPONDEF         0
 #define POOLSIZE_WEAPONVARIANT     0
-#define POOLSIZE_SNDDRIVERGLOBALS  2
+#define POOLSIZE_SNDDRIVERGLOBALS  1
 //#define POOLSIZE_FX                450
 #define POOLSIZE_FX                500
 #define POOLSIZE_IMPACTFX          4
@@ -2471,11 +2467,7 @@ XAssetEntryPoolEntry *__cdecl DB_LinkXAssetEntry(XAssetEntry *newEntry, int allo
         {
             __debugbreak();
         }
-        const bool zombieCoreOverride = zombiemode && zombiemode->current.enabled
-            && ((type == ASSET_TYPE_DDL && (g_zoneNames[newEntry->zoneIndex].flags & 16))
-                || ((type == ASSET_TYPE_DDL || type == ASSET_TYPE_SNDDRIVER_GLOBALS)
-                    && !I_stricmp(g_zoneNames[newEntry->zoneIndex].name, "code_post_gfx")));
-        if ( !*g_defaultAssetName[type] && type != ASSET_TYPE_RAWFILE && type != ASSET_TYPE_MAP_ENTS && !zombieCoreOverride )
+        if ( !*g_defaultAssetName[type] && type != ASSET_TYPE_RAWFILE && type != ASSET_TYPE_MAP_ENTS )
         {
             Sys_LeaveCriticalSection(CRITSECT_DBHASH);
             Com_Error(

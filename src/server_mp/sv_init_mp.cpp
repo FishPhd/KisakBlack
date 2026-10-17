@@ -555,13 +555,8 @@ void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPrelo
     }
 
     CL_AllocatePerLocalClientMemory();
-    if (zombiemode->current.enabled)
-        Dvar_SetString((dvar_s *)sv_gametype, "zclassic");
-    else
-    {
-        Scr_ParseGameTypeList();
-        SV_SetGametype();
-    }
+    Scr_ParseGameTypeList();
+    SV_SetGametype();
 
     if ( !mapIsPreloaded )
         CL_InitLoad(server, sv_gametype->current.string);
@@ -800,17 +795,14 @@ void __cdecl    SV_SpawnServer(int controllerIndex, char *server, int mapIsPrelo
 
     SV_SaveSystemInfo();
 
-    // Zombies menu starts set sv_maxclients to 4 before map. Playlist size and the
-    // listen-server floor below are the multiplayer private-match path.
-    if (Dvar_GetBool("playlist_enabled") && !(zombiemode && zombiemode->current.enabled))
+    if (Dvar_GetBool("playlist_enabled"))
     {
         int maxplayers = Dvar_GetInt("party_maxplayers");
         Dvar_SetIntByName("sv_maxclients", maxplayers);
     }
 #ifdef KISAK_WEB
     // A private match can leave only the host's slot open. Browser joins need more.
-    if (!IsDedicatedServer() && !(zombiemode && zombiemode->current.enabled)
-        && sv_maxclients->current.integer < 12)
+    if (!IsDedicatedServer() && sv_maxclients->current.integer < 12)
         Dvar_SetIntByName("sv_maxclients", 12);
 #endif
 

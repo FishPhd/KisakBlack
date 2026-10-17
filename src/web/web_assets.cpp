@@ -34,9 +34,7 @@
 
 static char s_gameRoot[256] = "/game";
 static char s_webSession[33] = "";
-static bool s_zombieBoot = false;
 static bool s_readCache = true;
-bool Web_IsZombieBoot() { return s_zombieBoot; }
 const char *Web_SessionId() { return s_webSession; }
 void Web_ReportAssetWork(const char *kind, const char *path, double began, unsigned bytes)
 {
@@ -315,90 +313,20 @@ void Web_PrefetchMap(const char *mapName)
     // clang-format on
 }
 
-namespace
-{
-    bool ZoneKeyMatches(const std::string &key, const char *zone)
-    {
-        const std::string file = std::string(zone) + ".ff";
-        const std::string suffix = "/" + file;
-        return key == file
-            || (key.size() >= suffix.size() && key.compare(key.size() - suffix.size(), suffix.size(), suffix) == 0);
-    }
-
-    void AppendZoneFiles(const char *zone, std::vector<std::string> &paths)
-    {
-        for (const auto &kv : s_remote)
-        {
-            if (!ZoneKeyMatches(kv.first, zone))
-                continue;
-            paths.emplace_back(std::string(s_gameRoot) + "/" + kv.second.path);
-        }
-    }
-
-    // Map and map-patch fastfiles from Com_LoadLevelFastFiles, plus the shared zones
-    // Com_LoadCommonFastFile queues. zombietron loads none of those shared zones.
-    // zombie_cod5_* uses waw_zombie instead of common_zombie. Even entries are the
-    // zone; the following en_ name is the language pair DB_LoadXAssets queues for
-    // alloc flags 256 and 0x4000.
-    void CollectZombieZones(const char *mapName, std::vector<std::string> &paths)
-    {
-        std::vector<std::string> names;
-        names.emplace_back(mapName);
-        names.emplace_back(std::string("en_") + mapName);
-        names.emplace_back(std::string(mapName) + "_patch");
-        names.emplace_back(std::string("en_") + mapName + "_patch");
-        if (!strstr(mapName, "zombietron"))
-        {
-            const char *mid = strstr(mapName, "zombie_cod5_") ? "waw_zombie" : "common_zombie";
-            const char *shared[4] = {"code_post_gfx", "common", mid, "patch"};
-            for (int i = 0; i < 4; ++i)
-            {
-                names.emplace_back(shared[i]);
-                names.emplace_back(std::string("en_") + shared[i]);
-            }
-        }
-        for (size_t i = 0; i < names.size(); ++i)
-        {
-            const int before = (int)paths.size();
-            AppendZoneFiles(names[i].c_str(), paths);
-            if ((i % 2) == 0 && (int)paths.size() == before)
-                fprintf(stderr, "web: zombie zone not in manifest: %s\n", names[i].c_str());
-        }
-    }
-}
-
 void Web_EnsureMapPack(const char *mapName)
 {
     if (s_remote.empty() || !mapName)
         return;
-    const bool zombie = !strncmp(mapName, "zombie_", 7) || !strcmp(mapName, "zombietron");
-    if (strncmp(mapName, "mp_", 3) && !zombie)
+    if (strncmp(mapName, "mp_", 3))
         return;
     for (const char *p = mapName; *p; ++p)
         if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '_'))
             return;
 
-    std::vector<std::string> zonePaths;
-    if (zombie)
-        CollectZombieZones(mapName, zonePaths);
-    if (!zonePaths.empty())
-    {
-        std::vector<const char *> ptrs;
-        ptrs.reserve(zonePaths.size());
-        for (size_t i = 0; i < zonePaths.size(); ++i)
-            ptrs.push_back(zonePaths[i].c_str());
-        Web_KickEnsureFiles(ptrs.data(), (int)ptrs.size());
-    }
-
     char path[160];
     snprintf(path, sizeof(path), "%s/main/iw_web_map_%s.iwd", s_gameRoot, mapName);
     if (Web_RemoteKnown(path, nullptr) && !Web_EnsureFile(path))
         fprintf(stderr, "web: map pack unavailable for %s\n", mapName);
-    for (size_t i = 0; i < zonePaths.size(); ++i)
-    {
-        if (!Web_EnsureFile(zonePaths[i].c_str()))
-            fprintf(stderr, "web: zombie zone unavailable: %s\n", zonePaths[i].c_str());
-    }
 }
 
 const char *Web_GameRoot()
@@ -429,11 +357,6 @@ std::string Web_InitFilesystem(int argc, char **argv)
         if (!strcmp(argv[i], "--no-read-cache"))
         {
             s_readCache = false;
-            continue;
-        }
-        if (!strcmp(argv[i], "--zombies"))
-        {
-            s_zombieBoot = true;
             continue;
         }
         if (!strcmp(argv[i], "--web-session") && i + 1 < argc)
@@ -507,13 +430,6 @@ std::string Web_InitFilesystem(int argc, char **argv)
         homeRoot = "/opfs-profile/profile";
     }
 
-    std::string modeHome;
-    if (s_zombieBoot)
-    {
-        modeHome = std::string(homeRoot) + "/zombies";
-        mkdir(modeHome.c_str(), 0777);
-        homeRoot = modeHome.c_str();
-    }
     std::string guestHome;
     if (!guestProfile.empty())
     {

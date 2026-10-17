@@ -1927,7 +1927,7 @@ bool __cdecl BG_UnlockablesIsItemPurchasedFromBuffer(unsigned __int8 *statsBuffe
         return 1;
     v4 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    // Test clients and a zombies boot have no multiplayer unlockables blob until stats.ddl is live.
+    // Test clients have no multiplayer unlockables blob until stats.ddl is live.
     if ( !RootDDLState || !RootDDLState->ddl )
         return 0;
     // ItemStats entries are structs; ownership and the menu's "new" flag are separate leaves.
