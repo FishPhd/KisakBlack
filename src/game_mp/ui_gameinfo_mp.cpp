@@ -487,7 +487,8 @@ void __cdecl UI_LoadCustomMatchGameTypes()
         __debugbreak();
     }
     v0 = StringTable_Lookup(table, 0, "maxnum_gametype", 1);
-    sharedUiInfo.numCustomMatchGameTypes = std::max(0, std::min(32, atoi(v0)));
+    // Parentheses keep the clamp when windows.h defines min/max macros.
+    sharedUiInfo.numCustomMatchGameTypes = (std::max)(0, (std::min)(32, atoi(v0)));
     for ( i = 0; i < sharedUiInfo.numCustomMatchGameTypes; ++i )
     {
         Com_sprintf(index, 4u, "%i", i);
