@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {rendererForLaunch, scheduleRendererRecovery, clearRendererRecovery, rendererFailure} from '../../web/renderer-recovery.js';
+const values = new Map([['kisak-renderer', 'webgl2']]);
+const storage = {getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+const explicit = new URLSearchParams('renderer=webgpu');
+assert.equal(rendererForLaunch(explicit, storage), 'webgpu');
+assert.equal(scheduleRendererRecovery(storage, 'device lost', 100000), true);
+assert.equal(rendererForLaunch(new URLSearchParams('renderer=webgpu&gpuRecovery=100000'), storage), 'webgl2');
+assert.equal(rendererForLaunch(explicit, storage), 'webgpu');
+assert.equal(scheduleRendererRecovery(storage, 'again', 100100), false);
+clearRendererRecovery(storage);
+assert.equal(values.size, 0);
+assert.equal(rendererForLaunch(new URLSearchParams(), storage), 'auto');
+console.log('Renderer recovery tests PASS');
+
+assert.equal(rendererFailure('WebGPU device lost').kind,'device-loss');
+assert.equal(rendererFailure('Device was destroyed.').kind,'device-loss');
+assert.equal(rendererFailure('Vertex buffer slot 1 was not set').kind,'validation');
+assert.equal(rendererFailure('pipeline compilation failed').kind,'pipeline');
+assert.equal(rendererFailure('Out of memory').kind,'memory');
