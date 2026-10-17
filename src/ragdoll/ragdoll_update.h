@@ -18,8 +18,8 @@ struct StateEnt // sizeof=0xC
 void __cdecl Ragdoll_AnimMatToMat43(const DObjAnimMat *mat, float (*out)[3]);
 char __cdecl Ragdoll_RebindBody(int ragdollHandle);
 char __cdecl Ragdoll_ValidateBodyObj(RagdollBody *body);
-void __cdecl Ragdoll_SnapshotBaseLerpOffsets(RagdollBody *body);
-void __cdecl Ragdoll_GetDObjBaseBoneMatrix(DObj *obj, unsigned __int8 boneIndex, DObjAnimMat *outMat);
+bool __cdecl Ragdoll_SnapshotBaseLerpOffsets(RagdollBody *body);
+bool __cdecl Ragdoll_GetDObjBaseBoneMatrix(DObj *obj, unsigned __int8 boneIndex, DObjAnimMat *outMat);
 bool __cdecl Ragdoll_ValidatePrecalcBoneDef(RagdollDef *def, BoneDef *bone);
 void __cdecl Ragdoll_ExplosionEvent(
                 int localClientNum,
@@ -65,7 +65,7 @@ char    Ragdoll_TunnelTest(RagdollBody *body);
 char __cdecl Ragdoll_BoneTrace(trace_t *trace, trace_t *revTrace, const float *start, const float *end);
 void __cdecl Ragdoll_PrintTunnelFail(RagdollBody *body);
 void __cdecl Ragdoll_UpdateVelocityCapture(RagdollBody *body, int __formal);
-void __cdecl Ragdoll_SnapshotAnimOrientations(RagdollBody *body, BoneOrientation *snapshot);
+bool __cdecl Ragdoll_SnapshotAnimOrientations(RagdollBody *body, BoneOrientation *snapshot);
 char __cdecl Ragdoll_GetDObjWorldBoneOriginQuat(
                 int localClientNum,
                 const cpose_t *pose,

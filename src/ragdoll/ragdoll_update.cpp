@@ -1,4 +1,5 @@
 #include "ragdoll_update.h"
+#include "ragdoll_binding.h"
 #include <cgame/cg_drawtools.h>
 #include "ragdoll_controller.h"
 #include <xanim/dobj_utils.h>
@@ -73,10 +74,10 @@ char __cdecl Ragdoll_RebindBody(int ragdollHandle)
     {
         bone->parentBone = boneDef->parentBone;
         bone->animBones[1] = 0;
-        bone->animBones[0] = 0;
+        bone->animBones[0] = 255;
         if ( DObjGetBoneIndex(obj, boneDef->animBoneNames[0], bone->animBones, -1) && bone->animBones[0] != 255 )
         {
-            if ( boneDef->animBoneNames[1] == -1 )
+            if ( !boneDef->animBoneNames[1] )
             {
                 bone->animBones[1] = 0;
             }
@@ -101,8 +102,7 @@ char __cdecl Ragdoll_RebindBody(int ragdollHandle)
         lerpBone->parentBone = def->baseLerpBoneDefs[ia].parentBoneIndex;
         ++lerpBone;
     }
-    Ragdoll_SnapshotBaseLerpOffsets(body);
-    return 1;
+    return Ragdoll_SnapshotBaseLerpOffsets(body);
 }
 
 char __cdecl Ragdoll_ValidateBodyObj(RagdollBody *body)
@@ -151,7 +151,7 @@ char __cdecl Ragdoll_ValidateBodyObj(RagdollBody *body)
     return 1;
 }
 
-void __cdecl Ragdoll_SnapshotBaseLerpOffsets(RagdollBody *body)
+bool __cdecl Ragdoll_SnapshotBaseLerpOffsets(RagdollBody *body)
 {
     RagdollDef *def; // [esp+4Ch] [ebp-E8h]
     BoneOrientation *boneOrientation; // [esp+50h] [ebp-E4h]
@@ -176,9 +176,10 @@ void __cdecl Ragdoll_SnapshotBaseLerpOffsets(RagdollBody *body)
     while ( i < def->numBaseLerpBones )
     {
         parentIndex = bone->parentBone;
-        bcassert(parentIndex, body->numBones);
-        Ragdoll_GetDObjBaseBoneMatrix(obj, bone->animBone, &boneAnimMat);
-        Ragdoll_GetDObjBaseBoneMatrix(obj, body->bones[parentIndex].animBones[0], &parentAnimMat);
+        if (!Ragdoll_ValidParentBone(parentIndex, body->numBones)
+            || !Ragdoll_GetDObjBaseBoneMatrix(obj, bone->animBone, &boneAnimMat)
+            || !Ragdoll_GetDObjBaseBoneMatrix(obj, body->bones[parentIndex].animBones[0], &parentAnimMat))
+            return false;
         ConvertQuatToInverseMat(&parentAnimMat, invParentMat);
         Ragdoll_AnimMatToMat43(&boneAnimMat, boneMat);
         MatrixMultiply43(boneMat, invParentMat, relMat);
@@ -190,12 +191,15 @@ void __cdecl Ragdoll_SnapshotBaseLerpOffsets(RagdollBody *body)
         ++bone;
         ++boneOrientation;
     }
+    return true;
 }
 
-void __cdecl Ragdoll_GetDObjBaseBoneMatrix(DObj *obj, unsigned __int8 boneIndex, DObjAnimMat *outMat)
+bool __cdecl Ragdoll_GetDObjBaseBoneMatrix(DObj *obj, unsigned __int8 boneIndex, DObjAnimMat *outMat)
 {
     iassert(obj);
+    if (!obj || !outMat || !Ragdoll_ValidAnimBone(boneIndex, obj->numBones)) return false;
     DObjGetBasePoseMatrix(obj, boneIndex, outMat);
+    return true;
 }
 
 bool __cdecl Ragdoll_ValidatePrecalcBoneDef(RagdollDef *def, BoneDef *bone)
@@ -888,7 +892,11 @@ char __cdecl Ragdoll_CreatePhysObjs(RagdollBody *body)
             iassert(userData->m_bpb && userData->m_bpb->is_bpi());
 
             aasap_list_remove(userData->m_bpb);
+            // Bones are created with 0x1C7. Clear 0x80, then set 0x8 so the
+            // group collides with every dynent. add_bpi ORs member flags, and
+            // broad_phase_group::collision_prolog rebuilds the group from them.
             userData->m_bpb->m_env_collision_flags &= ~0x80u;
+            userData->m_bpb->m_env_collision_flags |= 0x8u;
             userData->m_bpb->m_my_collision_type_flags |= 0x200u;
             environment_collision_list_remove(userData->m_bpb);
             //v2 = broad_phase_base::get_bpi(userData->m_bpb);
@@ -938,7 +946,7 @@ char __cdecl Ragdoll_CreatePhysObj(RagdollBody *body, BoneDef *boneDef, Bone *bo
     iassert(def->bound);
     iassert(boneDef->animBoneNames[0]);
 
-    bone->animBones[0] = 0;
+    bone->animBones[0] = 255;
     bone->animBones[1] = 0;
 
     if ( !DObjGetBoneIndex(obj, boneDef->animBoneNames[0], bone->animBones, -1) || bone->animBones[0] == 255 )
@@ -946,7 +954,7 @@ char __cdecl Ragdoll_CreatePhysObj(RagdollBody *body, BoneDef *boneDef, Bone *bo
 
     if ( boneDef->animBoneNames[1] )
     {
-        if ( !DObjGetBoneIndex(obj, boneDef->animBoneNames[1], &bone->animBones[1], -1) || bone->animBones[0] == 255 )
+        if ( !DObjGetBoneIndex(obj, boneDef->animBoneNames[1], &bone->animBones[1], -1) || bone->animBones[1] == 255 )
         {
             bone->animBones[0] = -1;
             bone->animBones[1] = -1;
@@ -1013,7 +1021,7 @@ char __cdecl Ragdoll_CreatePhysObj(RagdollBody *body, BoneDef *boneDef, Bone *bo
                                              bone->center,
                                              boneDef->radius,
                                              hlength,
-                                             0,
+                                             dir,
                                              7,
                                              &g_empty_collision_visitor);
     //gjk_geom_list_t::add_geom(&gjk_geom_list, capsule_gjk_geom);
@@ -1047,7 +1055,7 @@ char __cdecl Ragdoll_GetDObjBaseBoneOrigin(
     DObjAnimMat mat; // [esp+0h] [ebp-20h] BYREF
 
     iassert(obj);
-    Ragdoll_GetDObjBaseBoneMatrix(obj, boneIndex, &mat);
+    if (!Ragdoll_GetDObjBaseBoneMatrix(obj, boneIndex, &mat)) return 0;
     Vec3Rotate(mat.trans, axis, origin);
     Vec3Add(origin, offset, origin);
 
@@ -1066,7 +1074,7 @@ char __cdecl Ragdoll_GetDObjBaseBoneOriginQuat(
     float orientation[4]; // [esp+20h] [ebp-10h] BYREF
 
     iassert(obj);
-    Ragdoll_GetDObjBaseBoneMatrix(obj, boneIndex, &mat);
+    if (!Ragdoll_GetDObjBaseBoneMatrix(obj, boneIndex, &mat)) return 0;
     Ragdoll_Mat33ToQuat(axis, orientation);
     Ragdoll_QuatMul(orientation, mat.quat, quat);
     Vec3Rotate(mat.trans, axis, origin);
@@ -1399,26 +1407,38 @@ void __cdecl Ragdoll_UpdateVelocityCapture(RagdollBody *body, int __formal)
         body->velCaptureMsec = body->stateMsec;
         body->curOrientationBuffer ^= 1u;
         snapshot = Ragdoll_BodyBoneOrientations(body);
-        Ragdoll_SnapshotAnimOrientations(body, snapshot);
+        if ( !Ragdoll_SnapshotAnimOrientations(body, snapshot) )
+        {
+            Ragdoll_BodyNewState(body, BS_DEAD);
+            return;
+        }
         Ragdoll_BodyNewState(body, BS_TUNNEL_TEST);
     }
     else
     {
         body->curOrientationBuffer ^= 1u;
         snapshot = Ragdoll_BodyBoneOrientations(body);
-        Ragdoll_SnapshotAnimOrientations(body, snapshot);
+        if ( !Ragdoll_SnapshotAnimOrientations(body, snapshot) )
+        {
+            Ragdoll_BodyNewState(body, BS_DEAD);
+            return;
+        }
         if ( (body->flags & 4) != 0 )
         {
             body->velCaptureMsec = 1;
             body->curOrientationBuffer ^= 1u;
             snapshot = Ragdoll_BodyBoneOrientations(body);
-            Ragdoll_SnapshotAnimOrientations(body, snapshot);
+            if ( !Ragdoll_SnapshotAnimOrientations(body, snapshot) )
+            {
+                Ragdoll_BodyNewState(body, BS_DEAD);
+                return;
+            }
             Ragdoll_BodyNewState(body, BS_TUNNEL_TEST);
         }
     }
 }
 
-void __cdecl Ragdoll_SnapshotAnimOrientations(RagdollBody *body, BoneOrientation *snapshot)
+bool __cdecl Ragdoll_SnapshotAnimOrientations(RagdollBody *body, BoneOrientation *snapshot)
 {
     RagdollDef *def; // [esp+0h] [ebp-18h]
     DObj *obj; // [esp+4h] [ebp-14h]
@@ -1442,14 +1462,15 @@ void __cdecl Ragdoll_SnapshotAnimOrientations(RagdollBody *body, BoneOrientation
             i = 0;
             while ( i < body->numBones )
             {
-                if ( bone->animBones[0] != 255 )
-                    Ragdoll_GetDObjWorldBoneOriginQuat(
+                if ( bone->animBones[0] != 255
+                    && !Ragdoll_GetDObjWorldBoneOriginQuat(
                         body->localClientNum,
                         pose,
                         obj,
                         bone->animBones[0],
                         snapshot->origin,
-                        snapshot->orientation);
+                        snapshot->orientation) )
+                    return false;
                 ++i;
                 ++bone;
                 ++boneDef;
@@ -1458,9 +1479,11 @@ void __cdecl Ragdoll_SnapshotAnimOrientations(RagdollBody *body, BoneOrientation
         }
         else
         {
-            Ragdoll_BodyNewState(body, BS_DEAD);
+            return false;
         }
+        return true;
     }
+    return false;
 }
 
 char __cdecl Ragdoll_GetDObjWorldBoneOriginQuat(
@@ -1478,6 +1501,17 @@ char __cdecl Ragdoll_GetDObjWorldBoneOriginQuat(
 
     mat = Ragdoll_GetDObjLocalBoneMatrix(pose, obj, boneIndex);
     if ( !mat )
+        return 0;
+
+    // Missing/invalid animation data must leave the regular corpse animation
+    // visible, rather than activating physics with an empty or invalid pose.
+    for (int i = 0; i < 3; ++i)
+        if ((LODWORD(mat->trans[i]) & 0x7F800000) == 0x7F800000)
+            return 0;
+    for (int i = 0; i < 4; ++i)
+        if ((LODWORD(mat->quat[i]) & 0x7F800000) == 0x7F800000)
+            return 0;
+    if (Vec4LengthSq(mat->quat) <= 0.0f)
         return 0;
 
     quat[0] = mat->quat[0];
@@ -1532,7 +1566,7 @@ bool __cdecl Ragdoll_ExitDead(RagdollBody *body, RagdollBodyState s1, RagdollBod
     iassert(def);
 
     body->numBones = def->numBones;
-    body->numLerpBones = 0;
+    body->numLerpBones = def->numBaseLerpBones;
     body->numJoints = def->numJoints;
 
     return 1;
@@ -1565,10 +1599,10 @@ bool __cdecl Ragdoll_ExitDObjWait(RagdollBody *body, RagdollBodyState prevState,
     {
         bone->parentBone = boneDef->parentBone;
         bone->animBones[1] = 0;
-        bone->animBones[0] = 0;
+        bone->animBones[0] = 255;
         if ( DObjGetBoneIndex(obj, boneDef->animBoneNames[0], bone->animBones, -1) && bone->animBones[0] != 255 )
         {
-            if ( boneDef->animBoneNames[1] == -1 )
+            if ( !boneDef->animBoneNames[1] )
             {
                 bone->animBones[1] = 0;
             }
@@ -1593,8 +1627,7 @@ bool __cdecl Ragdoll_ExitDObjWait(RagdollBody *body, RagdollBodyState prevState,
         lerpBone->parentBone = def->baseLerpBoneDefs[ia].parentBoneIndex;
         ++lerpBone;
     }
-    Ragdoll_SnapshotBaseLerpOffsets(body);
-    return 1;
+    return Ragdoll_SnapshotBaseLerpOffsets(body);
 }
 
 bool __cdecl Ragdoll_ExitIdle(RagdollBody *body, RagdollBodyState curState, RagdollBodyState newState)

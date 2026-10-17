@@ -48,7 +48,7 @@ void __cdecl Ragdoll_DoControllers(const cpose_t *pose, const DObj *obj, int *pa
                 for ( int i = 0; i < body->numBones; ++i )
                 {
                     boneIdx = bone->animBones[0];
-                    if ( DObjSetSkelRotTransIndex(obj, partBits, boneIdx) )
+                    if ( boneIdx != 255 && DObjSetSkelRotTransIndex(obj, partBits, boneIdx) )
                     {
                         boneMat = &skel[boneIdx];
                         boneMat->trans[0] = boneOrientation->origin[0];

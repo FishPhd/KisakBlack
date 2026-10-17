@@ -1626,6 +1626,74 @@ char are_intersecting(
 }
 
 
+// Ragdolls simulate in physics world 2. A dynent body already in that world
+// meets the corpse through the normal sweep; an extra environment collider
+// would contact it twice.
+static bool PhysObj_SharesRagdollSweep(const PhysObjUserData *userData)
+{
+    for (const PhysObjUserData *body = physGlob.objects_by_world[2].m_first; body; body = body->m_next_link)
+    {
+        if (body == userData)
+            return true;
+    }
+    return false;
+}
+
+// Solid stand-in for a dynent that already has a rigid body. The collider
+// uses that body's live physics pose (m_mat / cg2w / cg2rb). Flag 0x8 matches
+// a ragdoll query and does not match the prop's own flags (0x1C7), so a prop
+// that shares an environment cluster does not hit itself.
+static void add_dynent_phys_pose_collider(
+    PhysObjUserData *userData,
+    broad_phase_environement_query_results *bpeqr)
+{
+    if (!userData->body)
+        return;
+
+    for (gjk_base_t *geom = userData->m_gjk_geom_list.m_first_geom; geom; geom = geom->m_next_geom)
+    {
+        if (!*(void **)geom)
+            continue;
+
+        bpei_database_id key;
+        key.m_id1 = (unsigned int)userData;
+        key.m_id2 = (unsigned int)geom;
+        if (!key.m_id2)
+            key.m_id2 = 1;
+
+        broad_phase_environment_info *bpei_mt = G_BPM->g_bpei_database.get_bpei_mt(key);
+        if (!bpei_mt->m_data)
+        {
+            bpei_mt->m_mutex.Lock();
+            if (!bpei_mt->m_data)
+            {
+                broad_phase_info *bpi_env = allocate_bpi_env();
+                if (bpi_env)
+                {
+                    bpi_env->set(
+                        userData->body,
+                        &userData->body->m_mat,
+                        &userData->cg2w,
+                        &userData->cg2rb,
+                        geom,
+                        geom->get_geom_id(),
+                        false,
+                        geom->stype,
+                        nullptr,
+                        8u);
+                    bpi_env->set_bpi_env(nullptr);
+                    bpi_env->collision_prolog();
+                    bpei_mt->m_data = bpi_env;
+                }
+            }
+            bpei_mt->m_mutex.Unlock();
+        }
+
+        if (bpei_mt->m_data)
+            bpeqr->add((broad_phase_base *)bpei_mt->m_data);
+    }
+}
+
 // aislop supervised
 void standard_query::query(
     const broad_phase_environment_query_input *bpeqi,
@@ -1836,7 +1904,19 @@ void standard_query::query(
                     DynEntityClient *clientEnt = DynEnt_GetClientEntity(id, k);
 
                     if (clientEnt->physObjId)
+                    {
+                        // Active props live in world 0, so they never meet the
+                        // world-2 ragdoll sweep. Pose a solid environment
+                        // collider from the rigid body instead of skipping.
+                        // Bodies already in world 2 share that sweep.
+                        if (clientEnt->physObjId != -1)
+                        {
+                            PhysObjUserData *propBody = Phys_GetUserData(clientEnt->physObjId);
+                            if (propBody && propBody->body && !PhysObj_SharesRagdollSweep(propBody))
+                                add_dynent_phys_pose_collider(propBody, bpeqr);
+                        }
                         continue;
+                    }
 
                     v83.cent = nullptr;
                     v83.dynEntDef = entDef;

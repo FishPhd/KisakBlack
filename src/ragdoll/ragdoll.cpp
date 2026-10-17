@@ -92,13 +92,82 @@ const cpose_t *__cdecl Ragdoll_BodyPose(RagdollBody *body)
     return CG_GetPose(body->localClientNum, body->dobj);
 }
 
+static bool Ragdoll_OriginFinite(const float *origin)
+{
+    return (LODWORD(origin[0]) & 0x7F800000) != 0x7F800000
+        && (LODWORD(origin[1]) & 0x7F800000) != 0x7F800000
+        && (LODWORD(origin[2]) & 0x7F800000) != 0x7F800000;
+}
+
 void __cdecl Ragdoll_BodyRootOrigin(RagdollBody *body, float *origin)
 {
-    if ( Ragdoll_BodyPoseValid(body) )
+    // Bone 0 is the published entity and lighting origin. A non-finite or
+    // detached root must not drag the corpse off the rest of the body.
+    static const float kMaxRootSeparationSq = 1024.0f * 1024.0f;
+
+    if ( !Ragdoll_BodyPoseValid(body) )
+        return;
+
+    BoneOrientation *bones = Ragdoll_BodyBoneOrientations(body);
+    const int count = body->numBones;
+    if ( count <= 0 )
+        return;
+
+    // Bones with no capsule keep a zero origin. They are not part of the body.
+    float sum[3];
+    sum[0] = 0.0f;
+    sum[1] = 0.0f;
+    sum[2] = 0.0f;
+    int finiteCount = 0;
+
+    for ( int i = 1; i < count; ++i )
     {
-        BoneOrientation *boneOrientation = Ragdoll_BodyBoneOrientations(body);
-        Vec3Copy(boneOrientation->origin, origin);
+        if ( !body->bones[i].rigidBody || !Ragdoll_OriginFinite(bones[i].origin) )
+            continue;
+        sum[0] = sum[0] + bones[i].origin[0];
+        sum[1] = sum[1] + bones[i].origin[1];
+        sum[2] = sum[2] + bones[i].origin[2];
+        ++finiteCount;
     }
+
+    const bool rootFinite = body->bones[0].rigidBody && Ragdoll_OriginFinite(bones->origin);
+    if ( !finiteCount )
+    {
+        if ( rootFinite )
+            Vec3Copy(bones->origin, origin);
+        else if ( Ragdoll_OriginFinite(bones->origin) )
+            Vec3Copy(bones->origin, origin);
+        return;
+    }
+
+    float centroid[3];
+    const float inv = 1.0f / (float)finiteCount;
+    centroid[0] = sum[0] * inv;
+    centroid[1] = sum[1] * inv;
+    centroid[2] = sum[2] * inv;
+
+    if ( rootFinite && Vec3DistanceSq(bones->origin, centroid) <= kMaxRootSeparationSq )
+    {
+        Vec3Copy(bones->origin, origin);
+        return;
+    }
+
+    int nearest = -1;
+    float nearestDistSq = 0.0f;
+    for ( int i = 1; i < count; ++i )
+    {
+        if ( !body->bones[i].rigidBody || !Ragdoll_OriginFinite(bones[i].origin) )
+            continue;
+        const float distSq = Vec3DistanceSq(bones[i].origin, centroid);
+        if ( nearest < 0 || distSq < nearestDistSq )
+        {
+            nearest = i;
+            nearestDistSq = distSq;
+        }
+    }
+
+    if ( nearest >= 0 )
+        Vec3Copy(bones[nearest].origin, origin);
 }
 
 bool __cdecl Ragdoll_BodyPoseValid(RagdollBody *body)
