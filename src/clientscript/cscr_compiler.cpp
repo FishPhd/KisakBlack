@@ -1,4 +1,5 @@
 #include "cscr_compiler.h"
+#include "cscr_binding_audit.h"
 #include <cgame/cg_scr_main.h>
 #include "cscr_tempmemory.h"
 #include "cscr_parsetree.h"
@@ -12,6 +13,25 @@
 
 scrCompilePub_t gScrCompilePub[2];
 scrCompileGlob_t gScrCompileGlob[2];
+
+static bool bindingAudit;
+static scriptInstance_t bindingAuditInstance;
+static unsigned int bindingAuditErrors;
+
+void Scr_BeginBindingAudit(bool enabled, scriptInstance_t instance)
+{
+    bindingAudit = enabled;
+    bindingAuditInstance = instance;
+    bindingAuditErrors = 0;
+}
+
+bool Scr_EndBindingAudit(unsigned int *unresolved)
+{
+    const bool enabled = bindingAudit;
+    *unresolved = bindingAuditErrors;
+    bindingAudit = false;
+    return enabled;
+}
 
 void (__cdecl *__cdecl GetFunction(scriptInstance_t inst, const char **pName, int *type))()
 {
@@ -268,6 +288,11 @@ void __cdecl LinkThread(scriptInstance_t inst, unsigned int threadCountId, Varia
             }
             if (!pos->type || !allowFarCall && *(_DWORD *)value->next == 1)
             {
+                if (bindingAudit && inst == bindingAuditInstance && !pos->type)
+                {
+                    ++bindingAuditErrors;
+                    continue; // Leave the reference unresolved; this bytecode is never executed.
+                }
                 CompileError2(inst, (char *)value->next, "unknown function");
                 return;
             }
@@ -2745,7 +2770,14 @@ void __cdecl EmitFunction(scriptInstance_t inst, sval_u func, sval_u sourcePos)
     }
     else
     {
-        CompileError(inst, sourcePos.stringValue, "unknown function '%s'", SL_ConvertToString(threadName, inst));
+        if (bindingAudit && inst == bindingAuditInstance)
+        {
+            ++bindingAuditErrors;
+            Com_Printf(23, "Unresolved script function: %s\n", SL_ConvertToString(threadName, inst));
+            EmitCodepos(inst, nullptr);
+        }
+        else
+            CompileError(inst, sourcePos.stringValue, "unknown function '%s'", SL_ConvertToString(threadName, inst));
     }
 }
 

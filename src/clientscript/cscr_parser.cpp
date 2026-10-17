@@ -1202,6 +1202,23 @@ char *__cdecl Scr_ReadFile_FastFile(
     }
     else
     {
+#ifdef KISAK_WEB
+        // The installed assets omit this hotfix module. Its referenced entry
+        // points initialize room policy and gate retail leaderboard submissions.
+        if (zombiemode && zombiemode->current.enabled && inst == SCRIPTINSTANCE_SERVER
+            && !I_stricmp(extFilename, "maps/_zombiemode_ffotd.gsc"))
+        {
+            static const char localHotfix[] =
+                "init() { level.systemLink = true; }\n"
+                "nazizombies_checking_for_cheats() { return GetDvarInt(\"sv_cheats\") != 0; }\n";
+            len = sizeof(localHotfix) - 1;
+            sourceBuf = (char *)Hunk_AllocateTempMemoryHigh(sizeof(localHotfix), "LocalZombieHotfix");
+            memcpy(sourceBuf, localHotfix, sizeof(localHotfix));
+            Scr_AddSourceBufferInternal(inst, extFilename, codePos, sourceBuf, len, 1, archive);
+            Com_Printf(23, "Zombies: using local room hotfix policy; retail leaderboard uploads disabled\n");
+            return sourceBuf;
+        }
+#endif
         Scr_AddSourceBufferInternal(inst, extFilename, codePos, 0, -1, 1, archive);
         return 0;
     }
@@ -1692,6 +1709,15 @@ void __cdecl Scr_GetFileAndLine(scriptInstance_t inst, const char *codePos, char
     OpcodeLookup *opcodeLookup; // [esp+4h] [ebp-8h]
     unsigned int sourcePos; // [esp+8h] [ebp-4h]
 
+    // Release scripts have no source lookup. Error reporting must not turn a
+    // script failure into an out-of-bounds access in the Wasm worker.
+    if (!gScrParserGlob[inst].opcodeLookup || !gScrParserGlob[inst].opcodeLookupLen)
+    {
+        *filename = (char *)"";
+        *linenum = 0;
+        return;
+    }
+
     if (!Scr_IsInOpcodeMemory(inst, codePos)
         && !Assert_MyHandler(
             "C:\\projects_pc\\cod\\codsrc\\src\\clientscript\\cscr_parser.cpp",
@@ -1893,6 +1919,13 @@ void __cdecl RuntimeError(
             if (gScrVmPub[inst].terminal_error)
                 Scr_IgnoreLeaks(inst);
             Monkey_Error(0);
+            if (!gScrVarPub[inst].developer || !gScrParserPub[inst].sourceBufferLookupLen)
+            {
+                Com_Error((errorParm_t)(gScrVmPub[inst].terminal_error + 4),
+                    "%s script runtime error %s (source metadata unavailable)",
+                    inst == SCRIPTINSTANCE_CLIENT ? "client" : "server", msg);
+                return;
+            }
             bufferIndex = Scr_GetSourceBuffer(inst, codePos - 1);
             sourcePos = Scr_GetPrevSourcePos(inst, codePos - 1, index);
             lineNum = Scr_GetLineInfo(gScrParserPub[inst].sourceBufferLookup[bufferIndex].sourceBuf, sourcePos, &col, line);

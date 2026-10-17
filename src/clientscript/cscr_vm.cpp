@@ -1,4 +1,5 @@
 #include "cscr_vm.h"
+#include "scr_wait.h"
 #include "cscr_stringlist.h"
 #include "cscr_compiler.h"
 #include <qcommon/cmd.h>
@@ -27,6 +28,12 @@ scrVmPub_t gScrVmPub[2];
 scrVmDebugPub_t gScrVmDebugPub[2];
 
 function_stack_t gFs[2];
+#ifdef KISAK_WEB
+// The x86 decompilation keeps the interpreter frame in automatic storage across
+// setjmp/longjmp. Modified non-volatile automatic values are indeterminate after
+// longjmp in C++; keep one persistent frame per nested VM invocation on WASM.
+static function_stack_t webExecutionFrames[2][33];
+#endif
 int gThreadCount[2];
 int gOpcode[2];
 int gCaseCount[2];
@@ -130,15 +137,16 @@ void __cdecl Scr_Settings(int developer, int developer_script, int abort_on_erro
     {
         __debugbreak();
     }
-#if 0
+#ifdef KISAK_WEB
     gScrVarPub[inst].developer = developer != 0;
     gScrVarPub[inst].developer_script = developer_script != 0;
     gScrVmPub[inst].abort_on_error = abort_on_error != 0;
-#endif
+#else
     // KISAKTODO: script debug "potential infinite loop!!!"
     gScrVarPub[inst].developer = false;
     gScrVarPub[inst].developer_script = false;
     gScrVmPub[inst].abort_on_error = false;
+#endif
 }
 
 void __cdecl Scr_Shutdown(scriptInstance_t inst)
@@ -1948,6 +1956,8 @@ unsigned __int16 __cdecl Scr_ExecThread(scriptInstance_t inst, int handle, unsig
 
 unsigned int __cdecl VM_Execute(scriptInstance_t inst, unsigned int localId, char *pos, unsigned int paramcount)
 {
+    const int opcodeBackup = gOpcode[inst];
+    const int caseCountBackup = gCaseCount[inst];
     function_stack_t *v4; // edx
     function_stack_t *v5; // ecx
     function_stack_t *v6; // ecx
@@ -2035,6 +2045,8 @@ unsigned int __cdecl VM_Execute(scriptInstance_t inst, unsigned int localId, cha
         v7->top = v6->top;
         v7->startTop = v6->startTop;
         gThreadCount[inst] = thread_count_backup;
+        gOpcode[inst] = opcodeBackup;
+        gCaseCount[inst] = caseCountBackup;
         startTop->type = type;
         gScrVmPub[inst].top = startTop + 1;
         gScrVmPub[inst].inparamcount = paramcounta + 1;
@@ -4349,11 +4361,17 @@ unsigned int __cdecl VM_Execute_0(scriptInstance_t inst)
     const char *currentCodePos; // [esp+2D0h] [ebp-6Ch]
     const char *tempCodePos; // [esp+2D4h] [ebp-68h]
     unsigned int stackId; // [esp+2D8h] [ebp-64h]
-    unsigned int fieldValueId; // [esp+2DCh] [ebp-60h]
+    volatile unsigned int fieldValueId; // Retained by error recovery after longjmp.
     int waitTime; // [esp+2E0h] [ebp-5Ch]
     int jumpOffset; // [esp+2E4h] [ebp-58h]
+#ifdef KISAK_WEB
+    if ((unsigned int)(g_script_error_level[inst] + 1) >= ARRAY_COUNT(webExecutionFrames[inst]))
+        Com_Error(ERR_DROP, "script VM error-handler stack overflow");
+    function_stack_t &localFs = webExecutionFrames[inst][g_script_error_level[inst] + 1];
+#else
     function_stack_t localFs; // [esp+2E8h] [ebp-54h] BYREF
-    unsigned int objectId; // [esp+2FCh] [ebp-40h]
+#endif
+    volatile unsigned int objectId; // Retained by error recovery after longjmp.
     unsigned int caseValue; // [esp+300h] [ebp-3Ch]
     unsigned int fieldName; // [esp+304h] [ebp-38h]
     unsigned int threadId; // [esp+308h] [ebp-34h]
@@ -4362,7 +4380,7 @@ unsigned int __cdecl VM_Execute_0(scriptInstance_t inst)
     unsigned int paramcount; // [esp+314h] [ebp-28h]
     int type; // [esp+318h] [ebp-24h]
     int entnum; // [esp+31Ch] [ebp-20h]
-    unsigned int fieldValueIndex; // [esp+320h] [ebp-1Ch]
+    volatile unsigned int fieldValueIndex; // Retained by error recovery after longjmp.
     const char *debugpos; // [esp+324h] [ebp-18h]
     unsigned int selfId; // [esp+328h] [ebp-14h]
     VariableValue tempValue; // [esp+32Ch] [ebp-10h] BYREF
@@ -5473,27 +5491,16 @@ WAIT:
                 {
                     if (localFs.top->u.floatValue < 0.0)
                         goto negWait;
-                    //waitTime = (int)((float)((float)(inst != SCRIPTINSTANCE_SERVER ? 60 : 20)
-                    //    * *(float *)&localFs.top->u.intValue)
-                    //    + 9.313225746154785e-10);
-                    waitTime = Q_rint(localFs.top->u.floatValue * (inst != SCRIPTINSTANCE_SERVER ? 60.0f : 20.0f));
-                    if (!waitTime)
-                    {
-                        waitTime = isnan(localFs.top->u.floatValue) ? 1 : 0;
-
-                        //v14 = *(float *)&localFs.top->u.intValue < 0.0;
-                        //v18 = 0;
-                        //v15 = *(float *)&localFs.top->u.intValue == 0.0;
-                        //v16 = 0;
-                        //v17 = 0;
-                        //waitTime = __SETP__(v13 & 0x44, 0);
-                        //waitTime = isnan(*(float *)&localFs.top->u.intValue) ? 1 : 0;
-                    }
+                    waitTime = Scr_WaitTicks(localFs.top->u.floatValue,
+                        inst != SCRIPTINSTANCE_SERVER ? 60 : 20);
                 }
                 // wait ( 1 ); -- Convert Integer wait
                 else if (localFs.top->type == VAR_INTEGER)
                 {
-                    waitTime = localFs.top->u.intValue * (inst != SCRIPTINSTANCE_SERVER ? 60 : 20);
+                    waitTime = Scr_WaitTicks(localFs.top->u.intValue,
+                        inst != SCRIPTINSTANCE_SERVER ? 60 : 20);
+                    if (waitTime < 0)
+                        goto negWait;
                 }
                 else
                 {
