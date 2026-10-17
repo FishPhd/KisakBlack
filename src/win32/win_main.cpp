@@ -866,6 +866,23 @@ int __stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, char *
     Sys_InitMainThread();
     PMem_Init();
     track_init();
+    // localization.txt and the rest of the install are opened from the working
+    // directory. Launching build\KisakBlack.exe from the repo root leaves that
+    // directory elsewhere, so the language stays null and zone paths contain
+    // "(null)". A debugger chooses the working directory itself.
+    if (!IsDebuggerPresent())
+    {
+        char modulePath[260];
+        unsigned int len = GetModuleFileNameA(0, modulePath, 260);
+        if (len && len < 260)
+        {
+            while (len && modulePath[len] != '\\' && modulePath[len] != '/')
+                --len;
+            modulePath[len] = 0;
+            if (modulePath[0])
+                SetCurrentDirectoryA(modulePath);
+        }
+    }
     Win_InitLocalization();
     if ( !I_strnicmp(lpCmdLine, "allowdupe", 9) && lpCmdLine[9] <= 32
         || (v5 = strstr(lpCmdLine, "g_connectpaths 3"), v5)
