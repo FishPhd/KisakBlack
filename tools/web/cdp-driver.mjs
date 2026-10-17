@@ -23,8 +23,15 @@ const assets = path.resolve(option("--assets", path.join(repo, "build")));
 const gen = path.resolve(option("--gen", path.join(root, "assets-gen"))), outOption = option("--out", "");
 const headed = flag("--headed"), trace = flag("--trace");
 const keepOpen = flag("--keep-open");
+const hostOnly = flag("--host-only");
 const map = option("--map", "mp_nuked");
 const readCache = option("--read-cache", "on");
+const renderer = option("--renderer", "auto");
+const gpuProfile = flag("--gpu-profile"), gpuValidation = flag("--gpu-validation");
+const gpuCapture = flag('--gpu-capture');
+const assetMode = option('--asset-mode', 'lazy'), blockAssets = flag('--block-assets');
+if (!['lazy','bulk','all'].includes(assetMode)) throw new Error('--asset-mode must be lazy, bulk, or all');
+if (!["auto", "webgpu", "webgl2"].includes(renderer)) throw new Error("--renderer must be auto, webgpu, or webgl2");
 if (!["on", "off"].includes(readCache)) throw new Error("--read-cache must be on or off");
 const [command = "help", ...rest] = args, dir = path.dirname(sessionFile);
 let cdp, sid, session;
@@ -47,10 +54,13 @@ async function snapshotBuild() {
     const imports=WebAssembly.Module.imports(new WebAssembly.Module(fs.readFileSync(path.join(destination,"kisak.wasm"))));
     if (imports.some(i=>i.module === "env") && fs.readFileSync(path.join(destination,"kisak.mjs"),"utf8").includes("{a:wasmImports}")) continue;
     const web=path.join(destination,"web"); fs.mkdirSync(web,{recursive:true});
-    for (const name of ["index.html","kisak.js","transport.js","zombies.html","transport-test.html"])
-      fs.copyFileSync(path.join(repo,"web",name),path.join(web,name));
+    // Snapshot the complete shell, including modules imported by other modules.
+    // A hand-maintained list silently served 404s when mouse-buttons.js was added.
+    fs.cpSync(path.join(repo,"web"), web, {recursive:true});
     const hash=file=>createHash("sha256").update(fs.readFileSync(file)).digest("hex");
-    return {root:destination,web,sourceRoot:root,build:{wasm:hash(path.join(destination,"kisak.wasm")),loader:hash(path.join(destination,"kisak.mjs")),shell:hash(path.join(web,"kisak.js"))}};
+    const shellModules = createHash('sha256');
+    for (const name of fs.readdirSync(web).sort()) if (/\.(js|html)$/.test(name)) shellModules.update(name).update(hash(path.join(web,name)));
+    return {root:destination,web,sourceRoot:root,build:{wasm:hash(path.join(destination,"kisak.wasm")),loader:hash(path.join(destination,"kisak.mjs")),shell:hash(path.join(web,"kisak.js")),gpuCache:hash(path.join(web,"gpu-cache.js")),shellModules:shellModules.digest('hex')}};
   }
   throw new Error("Build outputs are still changing; finish the web build before launch");
 }
@@ -117,8 +127,9 @@ async function recordSession() {
     }
     browser = spawn(s.browser, ["--remote-debugging-address=127.0.0.1", `--remote-debugging-port=${s.debugPort}`,
       `--user-data-dir=${s.profile}`, "--no-first-run", "--no-default-browser-check", "--window-size=1280,720",
+      "--window-position=80,80",
       "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows",
-      ...(s.headed ? [] : ["--headless=new"]), "about:blank"], { windowsHide: true, stdio: ["ignore", browserLog, browserLog] });
+      ...(s.headed ? [] : ["--headless=new"]), "about:blank"], { windowsHide: !s.headed, stdio: ["ignore", browserLog, browserLog] });
     browser.on("error", e => stop(e.message)); browser.on("exit", code => stop(`browser exited ${code}`));
     s.browserPid = browser.pid; writeSession(s);
     const browserBy = Date.now() + 20000;
@@ -191,7 +202,7 @@ async function launch() {
   const httpPort = await freePort(httpPortOption), port = await freePort(debugPort);
   writeSession({ status: "starting", startedAt: new Date().toISOString(), httpPort, debugPort: port,
     ...snapshot, assets, gen, browser, headed, profile: path.resolve(profileOption || path.join(dir, "profile")),
-    url: `http://127.0.0.1:${httpPort}/?assets=/assets/&gen=/gen/&agent=1${readCache === "off" ? "&readcache=0" : ""}` });
+    url: `http://127.0.0.1:${httpPort}/?assets=/assets/&gen=/gen/&agent=1&renderer=${renderer}&mode=${assetMode}${gpuCapture ? '&gpuCapture=1' : ''}${blockAssets ? '&assetNetwork=block' : ''}${readCache === "off" ? "&readcache=0" : ""}${gpuProfile ? "&gpuProfile=1" : ""}${gpuValidation ? "&gpuValidation=1" : ""}` });
   const daemonLog = fs.openSync(path.join(dir, "recorder.log"), "a");
   const recorder = spawn(process.execPath, [fileURLToPath(import.meta.url), "_record", "--session", sessionFile],
     { cwd: repo, detached: true, windowsHide: true, stdio: ["ignore", daemonLog, daemonLog] });
@@ -234,12 +245,15 @@ async function itemPoint(selected) {
   })()`, sid);
 }
 async function clickItem(pattern) {
-  const expression = new RegExp(pattern, "i"); let selected, previous;
+  const expression = new RegExp(pattern, "i"); let selected, previous, stableSince = 0;
   await waitFor(s => {
     const candidates = s.engine?.menus.flatMap(m => m.items.map(i => ({ ...i, menu: m.name }))) || [];
     selected = candidates.find(i => expression.test(`${i.name} ${i.text}`) && i.rect[2] > 0 && i.rect[3] > 0);
     const signature = selected ? JSON.stringify([selected.menu, selected.index, selected.rect]) : null;
-    const stable = signature && signature === previous && s.engineAgeMs < 1000;
+    if (signature !== previous) stableSince = Date.now();
+    // Menu transitions briefly retain the previous layout before animating.
+    // Wait through that interval so a map-picker click cannot hit Start Match.
+    const stable = signature && signature === previous && Date.now() - stableSince >= 700 && s.engineAgeMs < 1000;
     previous = signature;
     return stable;
   }, `menu item ${pattern}`);
@@ -290,11 +304,31 @@ async function smoke() {
   step("menu ready", await waitFor(s => s.menuReady, "host menu", timeout, previous));
   step("play clicked", await clickItem("^.*\\bPLAY\\b.*$"));
   step("create game clicked", await clickItem("CREATE.?GAME|PRIVATE.?MATCH"));
-  await waitFor(s => s.engine?.menus.some(m => /privatelobby/.test(m.name)), "Private Match lobby");
+  const lobby = await waitFor(s => s.engine?.menus.some(m => /privatelobby/.test(m.name)) && s.room && s.party?.open && /[?&]join=/.test(s.party.href || ""), "Private Match lobby");
+  const room = lobby.room;
+  step("party code visible", { room, href: lobby.party.href });
+  let guestSid = "";
+  if (!hostOnly) {
+    await join(room);
+    guestSid = sid;
+    step("guest waiting", await waitFor(s => s.party?.phase === "lobby" && s.party.waiting && (s.party.roster?.length || 0) >= 2 && s.engine?.connection !== 10, "guest lobby"));
+    sid = hostSid;
+    await cdp.send("Page.bringToFront", {}, sid);
+  }
   step("map selected", await selectMap());
+  if (guestSid) {
+    sid = guestSid;
+    step("guest followed map", await waitFor(s => s.party?.map === map && s.party?.phase === "lobby" && s.engine?.connection !== 10, "guest map"));
+    sid = hostSid;
+    await cdp.send("Page.bringToFront", {}, sid);
+  }
   step("start match clicked", await clickItem("START.?MATCH"));
   await waitFor(s => s.engine?.connection === 10 && s.engine.serverTime > 0, "host active match");
   await enterGameplay(step);
+  const hostMetrics = await cdp.evaluate("window.kisak.agent.metrics()", sid);
+  fs.writeFileSync(path.join(dir, "smoke-performance.json"), JSON.stringify(hostMetrics, null, 2));
+  step("performance captured", { file: path.join(dir, "smoke-performance.json"),
+    fastfiles: hostMetrics.fastfiles.length, mapTransitions: hostMetrics.mapTransitions });
   const before = await status();
   let turned=before;
   const controlDeadline=Date.now()+15000;
@@ -316,10 +350,23 @@ async function smoke() {
   if (!after.engine.origin.some((v,i) => Math.abs(v-looked.engine.origin[i]) > 2)) throw new Error("Player did not move");
   step("movement and look verified", { before: before.engine, after: after.engine });
   step("host screenshot", await screenshot(path.join(dir, "smoke-host.png")));
-  await join((await status()).room);
+  if (hostOnly) {
+    result.passed = true; result.hostOnly = true;
+    fs.writeFileSync(path.join(dir, "smoke.json"), JSON.stringify(result, null, 2));
+    if (!keepOpen) await closeSession();
+    output({passed:true,hostOnly:true,artifacts:dir}); return;
+  }
+  sid = guestSid;
+  await cdp.send("Page.bringToFront", {}, sid);
   step("guest joined", await waitFor(s => s.engine?.connection === 10 && s.engine.serverTime > 0, "guest active match"));
   await enterGameplay(step);
   step("guest screenshot", await screenshot(path.join(dir, "smoke-guest.png")));
+  sid = hostSid;
+  await cdp.send("Page.bringToFront", {}, sid);
+  await cdp.evaluate("window.kisak.state.send('disconnect')", sid);
+  step("host returned", await waitFor(s => s.engine?.menus.some(m => /privatelobby/.test(m.name)) && s.party?.phase === "lobby" && s.party.open, "host lobby return"));
+  sid = guestSid;
+  step("guest returned", await waitFor(s => s.party?.phase === "lobby" && s.party.waiting && s.party.room === room && s.engine?.connection !== 10, "guest lobby return"));
   await cdp.send("Target.closeTarget", { targetId: readSession().targets.guest }); sid = hostSid;
   result.passed = true; fs.writeFileSync(path.join(dir, "smoke.json"), JSON.stringify(result, null, 2));
   if (!keepOpen) await closeSession();
@@ -354,6 +401,51 @@ async function bench() {
   const result = { medianMs: median, runs, reads, readCache, build:session?.build, url: url.href, browser: session?.browser, profile: session?.profile };
   fs.writeFileSync(path.resolve(outOption || path.join(dir, "benchmark.json")), JSON.stringify(result, null, 2)); output(result);
 }
+function percentile(values, p) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
+}
+async function perf() {
+  const seconds = Number(rest[0] || 300);
+  if (!Number.isFinite(seconds) || seconds < 5 || seconds > 600) throw new Error("perf duration must be 5..600 seconds");
+  await cdp.send("Page.bringToFront", {}, sid);
+  const started = await status();
+  if (started.engine?.connection !== 10) throw new Error("Enter an active match before perf");
+  const before = await cdp.evaluate("window.kisak.agent.metrics()", sid);
+  await sleep(seconds * 1000);
+  const after = await cdp.evaluate("window.kisak.agent.metrics()", sid);
+  if (after.visibilityChanges !== before.visibilityChanges ||
+      await cdp.evaluate("document.visibilityState", sid) !== "visible")
+    throw new Error("Perf tab was backgrounded during the sample; keep this browser tab in front");
+  if (after.engine?.connection !== 10 || after.engine?.map !== started.engine?.map ||
+      after.mapTransitions.slice(before.mapTransitions.length).some(t => t.connection !== 10))
+    throw new Error("Match ended or changed maps during perf; increase the match time limit and retry");
+  const intervals = after.frameIntervals.slice(before.frameIntervals.length);
+  const paints = after.presentMs.slice(before.presentMs.length);
+  const render = after.renderIntervals.slice(before.renderIntervals.length);
+  const copies = after.copyMs.slice(before.copyMs.length);
+  const result = {
+    at: new Date().toISOString(), seconds, browser: session?.browser, build: session?.build,
+    renderer: after.renderer, rendererBackend: after.rendererBackend, gpu: after.gpu,
+    intervalKind: after.rendererBackend === "webgpu" ? "submission" : "presentation",
+    gpuFrames: (after.gpuFrames || []).slice((before.gpuFrames || []).length),
+    gpuEvents: (after.gpuEvents || []).slice((before.gpuEvents || []).length),
+    resolution: after.resolution, map: after.engine?.map,
+    camera: {origin:started.engine?.origin,angles:started.engine?.angles}, bots: started.engine?.bots,
+    presentedFrames: intervals.length, frameIntervalMs: { median: percentile(intervals, .5), p95: percentile(intervals, .95),
+      p99: percentile(intervals, .99), over16_7: intervals.filter(x => x > 16.7).length,
+      over50: intervals.filter(x => x > 50).length },
+    presentationMs: { median: percentile(paints, .5), p95: percentile(paints, .95), p99: percentile(paints, .99) },
+    renderIntervalMs: { median: percentile(render, .5), p95: percentile(render, .95), p99: percentile(render, .99) },
+    bitmapCopyMs: { median: percentile(copies, .5), p95: percentile(copies, .95), p99: percentile(copies, .99) },
+    renderFps: after.renderFps.slice(before.renderFps.length),
+    fastfiles: after.fastfiles, transfers: after.files, mapTransitions: after.mapTransitions,
+    bootTimings: after.timings, transferred: after.transferred,
+  };
+  const file = path.resolve(outOption || path.join(dir, "frame-performance.json"));
+  fs.writeFileSync(file, JSON.stringify(result, null, 2)); output({ file, ...result });
+}
 function compare() {
   const [beforeFile,afterFile]=rest;
   if (!beforeFile || !afterFile) throw new Error("compare requires baseline and optimized JSON files");
@@ -371,8 +463,10 @@ try {
   if (command === "_record") await recordSession();
   else if (command === "compare") compare();
   else if (command === "help") console.log(`Node 22+ browser driver:
-  launch [--headed] [--browser PATH] [--http-port N] [--port N] [--assets PATH]
-  status | wait [menu|game] | close | join ROOM | smoke | bench [5] [--trace] [--out FILE]
+  launch [--headed] [--browser PATH] [--http-port N] [--port N] [--assets PATH] [--renderer auto|webgpu|webgl2]
+    [--asset-mode lazy|bulk|all] [--block-assets] [--profile PATH]
+  status | wait [menu|game|input] | close | join ROOM | smoke | bench [5] [--trace] [--out FILE]
+  perf [SECONDS] [--out FILE]   sample presented frames in an active match (default 300s)
   compare BASELINE_JSON OPTIMIZED_JSON [--out FILE]   verifies the 30% median target
   click X Y [left|right|middle] [MS] | move X Y | wheel X Y DELTA
   click-item REGEX | key KeyboardEvent.code [MS] | look DX DY | shot [FILE]
@@ -381,13 +475,15 @@ All commands accept --session FILE and --role host|guest or --target ID.
 Use a fixed --http-port and the same --session/profile for comparable warm starts.
 Artifacts, profile, and continuous page/worker logs are beside session.json.
 smoke closes the owned browser and server; --keep-open retains the host for inspection.
-smoke selects Nuketown through the map picker; --map MAP changes the test map.
+--host-only skips guest startup when profiling host rendering.
+smoke shows the join code in the private lobby, lets a guest wait there, follows the host map,
+starts the match, then returns both players to that lobby. --map MAP changes the test map.
 bench supports --read-cache off|on for A/B measurement without changing the build.`);
   else if (command === "launch") await launch();
   else {
     await connect();
     if (command === "status") output(await status());
-    else if (command === "wait") output(await waitFor(s => rest[0] === "game" ? s.engine?.connection === 10 : s.menuReady, rest[0] || "menu"));
+    else if (command === "wait") output(await waitFor(s => rest[0] === "input" ? s.engine?.connection === 10 && s.engine.inputReady && !s.engine.uiActive : rest[0] === "game" ? s.engine?.connection === 10 : s.menuReady, rest[0] || "menu"));
     else if (command === "close") {
       await closeSession(); output({ closed: sessionFile });
     } else if (command === "reload") {
@@ -413,6 +509,7 @@ bench supports --read-cache off|on for A/B measurement without changing the buil
     } else if (command === "join") output({ target: await join(rest[0]) });
     else if (command === "smoke") await smoke();
     else if (command === "bench") await bench();
+    else if (command === "perf") await perf();
     else if (command === "logs") {
       const end = Date.now() + Number(rest[0] || 10)*1000; let cursor = 0;
       const logFile = path.join(dir, "browser.jsonl");
