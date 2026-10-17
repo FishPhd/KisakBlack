@@ -2149,6 +2149,10 @@ void __cdecl create_xmodel_gjk_geom(
                     }
                     else
                     {
+                        // Each rotated box needs its own bounds. Stack contents
+                        // (or a previous geometry's bounds) can otherwise make
+                        // its broad-phase query cover the entire map.
+                        ClearBounds(mins, maxs);
                         for ( i = 0; i < 8; ++i )
                         {
                             for ( j = 0; j < 3; ++j )

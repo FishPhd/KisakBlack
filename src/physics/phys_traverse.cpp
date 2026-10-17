@@ -158,10 +158,9 @@ void colgeom_visitor_t::intersect_box(float *mn, float *mx, int mask)
     this->m_threadInfo = &threadInfo;
     CM_GetTraceThreadInfo(this->m_threadInfo);
 
-    if (!this->m_threadInfo->checkcount.partitions && cm.partitionCount)
-    {
-        return;
-    }
+    // CM_Trace still walks brushes when the partition stamp array is missing.
+    // Returning here dropped every static hit, so dynamic bodies fell through the map.
+    const int *partitionStamps = this->m_threadInfo->checkcount.partitions;
 
     for (int i = 0; i < ll.count; ++i)
     {
@@ -170,7 +169,7 @@ void colgeom_visitor_t::intersect_box(float *mn, float *mx, int mask)
         if ((this->m_mask & leaf->brushContents) != 0)
             colgeom_visitor_t::intersect_box_brushes(leaf);
 
-        if ((this->m_mask & leaf->terrainContents) != 0)
+        if (partitionStamps && (this->m_mask & leaf->terrainContents) != 0)
             colgeom_visitor_t::intersect_box_partitions(leaf);
     }
 }
@@ -292,9 +291,10 @@ void colgeom_visitor_t::intersect_box_partitions_r(CollisionAabbTree *aabbTree)
         {
             partitionIndex = aabbTree->u.firstChildIndex;
             checkStamp = this->m_threadInfo->checkcount.global;
-            if (this->m_threadInfo->checkcount.partitions[partitionIndex] != checkStamp)
+            int *partitionStamps = this->m_threadInfo->checkcount.partitions;
+            if (partitionStamps && partitionStamps[partitionIndex] != checkStamp)
             {
-                this->m_threadInfo->checkcount.partitions[partitionIndex] = checkStamp;
+                partitionStamps[partitionIndex] = checkStamp;
                 this->visit(aabbTree);
             }
         }

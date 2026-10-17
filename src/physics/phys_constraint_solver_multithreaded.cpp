@@ -1898,6 +1898,14 @@ void __thiscall pulse_sum_constraint_solver::add_urb(
 int __cdecl phys_jq_constraint_solver_batch_function(jqBatch *pBatch)
 {
     constraint_solver_task_input *Input = (constraint_solver_task_input *)pBatch->Input;
+#ifdef KISAK_WEB
+    // This must be the aligned counter assigned by constraint_solver_process.
+    // Report a stale/corrupted task before its atomic increment traps, so the
+    // lifetime fault can be distinguished from an alignment declaration bug.
+    if (Input->m_list_island_cur != &g_list_island_cur)
+        Com_Printf(0, "WEB_PHYS_BAD_TASK batch=%p input=%p counter=%p expected=%p count=%d\n",
+            pBatch, Input, Input->m_list_island_cur, &g_list_island_cur, Input->m_list_island_count);
+#endif
 
     pulse_sum_constraint_solver solver;
     solver.m_outside_delta_t = Input->m_outside_delta_t;

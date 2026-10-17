@@ -499,6 +499,10 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk(
         m_upper_dist_sq = m_support_dir.x * m_support_dir.x
             + m_support_dir.y * m_support_dir.y
             + m_support_dir.z * m_support_dir.z;
+        // A non-finite bound fails every separation test and burns the
+        // iteration cap (upper=-nan). Treat that query as separated.
+        if (!std::isfinite(m_upper_dist_sq))
+            return GJK_SEPARATED;
 
         // After the first iteration, if |v|^2 has dropped below the
         // penetration threshold, the simplex effectively wraps the origin.
@@ -550,7 +554,8 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk(
             (m_a_verts[new_index].y - m_b_verts[new_index].y) - m_gjk_origin.y,
             (m_a_verts[new_index].z - m_b_verts[new_index].z) - m_gjk_origin.z
         };
-
+        if (!std::isfinite(w.x) || !std::isfinite(w.y) || !std::isfinite(w.z))
+            return GJK_SEPARATED;
 
         // -------- 6. Separation / lower-bound update -------------------------
         // v . w is the signed support along the current search direction.
@@ -701,6 +706,10 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
         {
             // Compute ||support_dir||^2
             this->m_upper_dist_sq = AbsSquared(this->m_support_dir);
+            // A non-finite bound fails every separation test and burns the
+            // iteration cap (upper=-nan). Treat that query as separated.
+            if (!std::isfinite(this->m_upper_dist_sq))
+                return GJK_SEPARATED;
 
             if (this->m_gjk_iter != 0)
             {
@@ -780,6 +789,8 @@ phys_gjk_info::gjk_retval_e phys_gjk_info::gjk_ray_cast(
                 (m_a_verts[new_index].y - m_b_verts[new_index].y) - m_gjk_origin.y,
                 (m_a_verts[new_index].z - m_b_verts[new_index].z) - m_gjk_origin.z
             };
+            if (!std::isfinite(w.x) || !std::isfinite(w.y) || !std::isfinite(w.z))
+                return GJK_SEPARATED;
 
             // v_dot_w = dot(support_dir, w)
             gjk_real support_dot_w = this->m_support_dir.x * w.x
