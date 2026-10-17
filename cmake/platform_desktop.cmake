@@ -15,6 +15,16 @@ if(KISAK_NO_BINK)
     "${SRC_DIR}/binklib/binktextures.cpp" "${SRC_DIR}/binklib/dx9rad3d.cpp"
     PROPERTIES HEADER_FILE_ONLY TRUE)
   target_sources(KisakBlack PRIVATE "${SRC_DIR}/binklib/bink_stub.cpp")
+else()
+  # binkw32.dll stays in src/binklib. The delay-load hook opens that path.
+  file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib/binkw32.dll"
+       _kisak_bink_dll)
+  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")
+  file(
+    WRITE "${CMAKE_BINARY_DIR}/generated/kisak_bink_dll.h"
+    "#pragma once\n#define KISAK_BINKW32_DLL \"${_kisak_bink_dll}\"\n")
+  target_sources(KisakBlack PRIVATE "${SRC_DIR}/binklib/bink_delay_load.cpp")
+  target_include_directories(KisakBlack PRIVATE "${CMAKE_BINARY_DIR}/generated")
 endif()
 
 if(KISAK_NO_D3DX)
@@ -86,7 +96,8 @@ function(kisak_platform_finalize)
 
   # ----- Links -----
   if(NOT KISAK_NO_BINK)
-    target_link_libraries(KisakBlack PUBLIC binkw32.lib)
+    target_link_libraries(KisakBlack PUBLIC binkw32.lib delayimp.lib)
+    target_link_options(KisakBlack PRIVATE "/DELAYLOAD:binkw32.dll")
   endif()
   target_link_libraries(
     KisakBlack

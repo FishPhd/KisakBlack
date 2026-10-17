@@ -21,6 +21,14 @@ test('weapon firing visuals preserve an explicit saved choice', () => {
   assert.doesNotMatch(args, /web_disableWeaponFiringEffects /);
 });
 
+test('shader warming defaults on and a saved choice is kept', () => {
+  const fresh = graphicsBootSettings(new Map(), '1280x720', false).join(' ');
+  assert.match(fresh, /r_shaderWarming 1/);
+  const saved = savedSettings('seta r_shaderWarming "0"');
+  const args = graphicsBootSettings(saved, '1280x720', false).join(' ');
+  assert.doesNotMatch(args, /r_shaderWarming /);
+});
+
 test('saved graphics choices survive reload instead of being replaced by boot defaults', () => {
   const saved = savedSettings('// generated\nseta r_picmip "0"\nseta r_texFilterAnisoMin "8"\nseta web_disableDistortion "0"\nseta web_warmShaders "0"\nseta r_picmip "3"');
   assert.equal(saved.get('r_picmip'), '3');

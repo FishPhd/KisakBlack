@@ -236,9 +236,10 @@ try {
       await wait(s=>s.engine.menus.some(m=>m.name===classMenuName),'reopened class menu');
       await select('^SMG$');
       await wait(s=>s.engine?.inputReady && !s.engine.uiActive,'same class selected');
-      const expectedWarm=preparation==='off'?'0':'1';
-      await send(`set web_warmShaders ${expectedWarm==='1'?0:1}`);
-      await wait(s=>s.engine?.graphics?.settings?.web_warmShaders===expectedWarm,'managed preparation overrides legacy toggle');
+      await send('set r_shaderWarming 0');
+      await wait(s=>s.engine?.graphics?.settings?.r_shaderWarming==='0','shader warming toggle stays off');
+      await send('set r_shaderWarming 1');
+      await wait(s=>s.engine?.graphics?.settings?.r_shaderWarming==='1','shader warming toggle stays on');
       await sleep(3000);
       const afterClass=await evaluate(`window.kisak.agent.metrics(${classFrame})`);
       assert(!afterClass.historyTruncated,'Class selection history expired');

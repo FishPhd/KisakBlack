@@ -16,6 +16,7 @@ export const graphicsDefaults = Object.freeze({
   // that increasing the slider can actually improve the rendered filtering.
   r_texFilterAnisoMax: 16,
   r_texFilterAnisoMin: 4,
+  r_shaderWarming: 1,
 });
 
 export function savedSettings(text = '') {

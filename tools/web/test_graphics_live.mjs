@@ -81,9 +81,12 @@ try {
   await openGraphics();
   const menu = graphicsMenu(await snapshot());
   assert.equal(menu.items.find(i => i.dvar === 'ui_r_aasamples').text, 'OFF (UNAVAILABLE IN BROWSER)');
-  assert.ok(!menu.items.some(i => /^(web_warmShaders|r_shaderWarming)$/i.test(i.dvar || '')), 'Preparation is managed by the loading flow');
+  const warming = menu.items.find(i => i.dvar === 'r_shaderWarming');
+  assert.ok(warming, 'Shader Warming toggle is missing');
+  assert.equal(warming.value, '1', 'Shader Warming defaults on');
+  assert.ok(!menu.items.some(i => i.dvar === 'web_warmShaders'), 'Internal warming alias is on the graphics menu');
   assert.ok(menu.items.some(i => i.name === 'kisak_browser_graphics_link'));
-  report.checks.push('MSAA availability and hidden legacy warming controls');
+  report.checks.push('MSAA availability and Shader Warming defaulting on');
 
   // Select a different mode using the stock control; it remains staged until Apply.
   const before = (await snapshot()).engine.graphics;

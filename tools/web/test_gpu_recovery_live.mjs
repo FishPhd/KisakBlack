@@ -37,15 +37,16 @@ async function managedUi(backend){
   const count=await evaluate('window.kisak.state.perf.warmupEvents?.length || 0');
   await evaluate("window.kisak.state.send('con_restricted_access 0; openmenu options_graphics')");
   await wait(s=>s.status?.engine?.menus.some(m=>m.name==='options_graphics' && m.items.some(i=>i.dvar==='ui_r_mode')),'graphics menu');
-  await evaluate("window.kisak.state.send('openmenu kisak_browser_graphics; set web_warmShaders 0')");
+  await evaluate("window.kisak.state.send('set r_shaderWarming 0; openmenu kisak_browser_graphics')");
   const s=await wait(s=>s.status?.engine?.menus.some(m=>m.name==='kisak_browser_graphics') &&
-    s.status.engine.graphics.settings.web_warmShaders==='1','managed warming controls');
-  for(const menu of s.status.engine.menus.filter(m=>['options_graphics','kisak_browser_graphics'].includes(m.name)))
-    assert(!menu.items.some(i=>/^(r_shaderWarming|web_warmShaders)$/i.test(i.dvar || '')),'Legacy warming option is visible');
+    s.status.engine.graphics.settings.r_shaderWarming==='0','shader warming toggle');
+  const graphics=s.status.engine.menus.find(m=>m.name==='options_graphics');
+  assert(graphics?.items.some(i=>i.dvar==='r_shaderWarming'),'Shader Warming toggle is missing');
+  assert(!s.status.engine.menus.some(m=>m.items?.some(i=>i.dvar==='web_warmShaders')),'Internal warming alias is visible');
   await sleep(1200);
   assert.equal(await evaluate('window.kisak.state.perf.warmupEvents?.length || 0'),count,'Frontend update restarted preparation');
   await evaluate("window.kisak.state.send('closemenu kisak_browser_graphics; closemenu options_graphics')");
-  report.checks.push(`${backend}: hidden warming toggles, authoritative full preparation, no repeated frontend gate`);
+  report.checks.push(`${backend}: Shader Warming toggle stays off without restarting the frontend gate`);
 }
 try {
   const url=new URL(session.url);

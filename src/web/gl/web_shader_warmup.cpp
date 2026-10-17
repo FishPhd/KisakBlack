@@ -16,7 +16,6 @@
 #include <deque>
 #include <algorithm>
 #include <client_mp/cl_scrn_mp.h>
-#include <web/web_preparation_policy.h>
 
 namespace
 {
@@ -72,8 +71,7 @@ void CollectTechniques(XAssetHeader header, void *data)
 
 void Web_PrepareLegacyMap(const char *map, int localClientNum)
 {
-    if (localClientNum >= 0 && Web_SkipMapLoadPreparation(2, false)) return;
-    if (webgpu::Requested() || !web_warmShaders || !web_warmShaders->current.enabled) return;
+    if (webgpu::Requested() || !Web_ShaderWarmingEnabled()) return;
     DB_SyncXAssets();
     unsigned generation;
     {
@@ -134,7 +132,7 @@ void Device::tickShaderWarmup()
         warmWorld = rgp.world;
         warmStarted = false;
     }
-    if (!web_warmShaders || !web_warmShaders->current.enabled || cancelWarmup.load())
+    if (!Web_ShaderWarmingEnabled() || cancelWarmup.load())
     {
         ReportWarmup(warmDone, int(warmTasks.size()), 0, activeMap.c_str(), stalledWarmup ? 1 : 0,
             stalledWarmup ? "incomplete" : "skipped");

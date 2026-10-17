@@ -23,7 +23,8 @@ if(NOT KISAK_PLATFORM STREQUAL "Desktop" AND NOT KISAK_PLATFORM STREQUAL "Web")
 endif()
 
 # DLL-free: stub Bink so cinematics finish immediately. No binkw32.dll. Turn OFF
-# to link the real Bink path. Desktop only.
+# to link the real Bink path, which loads src/binklib/binkw32.dll in place.
+# Desktop only.
 option(KISAK_NO_BINK
        "Build without binkw32 (stub Bink API, cinematics disabled)" ON)
 

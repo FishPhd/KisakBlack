@@ -89,7 +89,7 @@ void InitMenu()
         multis[i].dvarValue[1] = 1;
         focuses[i + 1].focusTypeData.multi = &multis[i];
     }
-    texts[optionCount + 1].text = "Shaders are prepared automatically during loading.";
+    texts[optionCount + 1].text = "Shader Warming in Graphics caches shaders before play.";
     texts[optionCount + 1].textscale = 0.18f;
     texts[optionCount + 2].text = "BACK";
     rows[optionCount + 2].type = rows[optionCount + 2].dataType = 3;
@@ -107,8 +107,8 @@ void Web_EnsureGraphicsMenu(UiContext *dc, menuDef_t *menu)
     for (int i = 0; i < menu->itemCount; ++i)
     {
         itemDef_s *item = menu->items[i];
-        if (item->dvar && (!I_stricmp(item->dvar, "r_shaderWarming") || !I_stricmp(item->dvar, "web_warmShaders"))) {
-            // Remove the stock toggle from layout and keyboard navigation.
+        if (item->dvar && !I_stricmp(item->dvar, "web_warmShaders")) {
+            // r_shaderWarming on this menu is the user control for shader caching.
             for (int j = i; j + 1 < menu->itemCount; ++j) menu->items[j] = menu->items[j + 1];
             --menu->itemCount; --i; continue;
         }

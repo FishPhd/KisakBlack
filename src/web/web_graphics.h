@@ -5,6 +5,9 @@ extern const dvar_s *web_disableDistortion;
 extern const dvar_s *web_disableMotionBlur;
 extern const dvar_s *web_reduceDynamicLights;
 extern const dvar_s *web_warmShaders;
+extern const dvar_s *r_shaderWarming;
+// The graphics-menu toggle. Launcher preparation=off still skips caching.
+bool Web_ShaderWarmingEnabled();
 void Web_SetPreparationMode(int mode);
 void Web_PrepareLegacyMap(const char *map, int localClientNum);
 extern const dvar_s *web_disableWeaponFiringEffects;

@@ -10,17 +10,20 @@ const dvar_s *web_disableDistortion;
 const dvar_s *web_disableMotionBlur;
 const dvar_s *web_reduceDynamicLights;
 const dvar_s *web_warmShaders;
+const dvar_s *r_shaderWarming;
 const dvar_s *web_disableWeaponFiringEffects;
 static const dvar_s *web_prepareStaticImages;
 static std::atomic<int> managedPreparation{2};
 void Web_SetPreparationMode(int mode) { managedPreparation.store(mode); }
-static bool ManagedWarmShaders() { return Web_ShaderWarmPolicy(managedPreparation.load(), webgpu::Requested()); }
+bool Web_ShaderWarmingEnabled()
+{
+    // preparation=off is an explicit launch skip. Any other mode follows the menu toggle.
+    if (managedPreparation.load() == 0) return false;
+    return r_shaderWarming && r_shaderWarming->current.enabled;
+}
 
 void Web_UpdateGraphicsSettings()
 {
-    // Archived legacy config files must not override launcher preparation.
-    if (web_warmShaders && web_warmShaders->current.enabled != ManagedWarmShaders())
-        Dvar_SetBool((dvar_s *)web_warmShaders, ManagedWarmShaders());
     // The UI owns AnisoMin. Upgrade a legacy hidden 1x ceiling when the user
     // moves that slider, and reflect hardware clamps back into its value.
     // Adapter caps are queried before the GL context exists. Use the actual
@@ -55,6 +58,7 @@ void Web_RegisterGraphicsDvars()
     web_disableDistortion = _Dvar_RegisterBool("web_disableDistortion", false, 1, "Disable distortion effects in the browser");
     web_disableMotionBlur = _Dvar_RegisterBool("web_disableMotionBlur", false, 1, "Skip motion blur passes in the browser");
     web_reduceDynamicLights = _Dvar_RegisterBool("web_reduceDynamicLights", false, 1, "Limit dynamic lights to one in the browser");
-    web_warmShaders = _Dvar_RegisterBool("web_warmShaders", ManagedWarmShaders(), 0, "Managed shader preparation policy");
+    r_shaderWarming = _Dvar_RegisterBool("r_shaderWarming", true, 1, "Cache shaders before they are first needed");
+    web_warmShaders = _Dvar_RegisterBool("web_warmShaders", true, 0, "Legacy alias; r_shaderWarming controls shader caching");
     web_prepareStaticImages = _Dvar_RegisterBool("web_prepareStaticImages", false, 0, "Keep selected static image mips resident during full WebGPU preparation");
 }
