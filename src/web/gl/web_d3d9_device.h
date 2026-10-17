@@ -13,6 +13,7 @@ struct Program
     GLuint id = 0;
     bool ok = false;
     bool pending = false; // linking asynchronously (KHR_parallel_shader_compile); not drawn until ready
+    double compileBegan = 0;
     GLuint vsh = 0, fsh = 0;
     KVShader *vs = nullptr;
     KPShader *ps = nullptr;
@@ -223,6 +224,7 @@ public:
     // ---- internals shared with the resource code
     std::atomic<int> rc{1};
     bool gl = false;               // a WebGL2 context exists
+    bool gpu = false;              // a Dawn executor owns the visible canvas
     pthread_t glThread{};
     bool created = false;
     IDirect3D9 *owner = nullptr;
@@ -322,6 +324,7 @@ public:
     GLuint boundFbo = 0xFFFFFFFFu;
     GLuint curProgram = 0;
     GLuint constantBuffers[2] = {};
+    GLuint boundUniformBuffer = 0;
     uint32_t constantFloatSeq[2] = {}, constantIntSeq[2] = {}, constantBoolSeq[2] = {};
     Program *drawProg = nullptr; // filled by prepareDraw; draw calls must not take progMu again
     GLuint curArrayBuf = 0, curElemBuf = 0;

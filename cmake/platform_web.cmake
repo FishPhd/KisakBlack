@@ -65,6 +65,61 @@ target_compile_definitions(
 # hand-written subset headers instead of the DirectX SDK.
 target_include_directories(KisakBlack BEFORE PUBLIC "${SRC_DIR}/web/compat")
 
+# Dawn's official Emscripten port provides the same C++ API as native Dawn.
+# The SDK pin also pins the port release. WebGL-only builds do not fetch it.
+option(KISAK_WEB_WEBGPU "Build the optional Dawn/Emdawnwebgpu renderer" ON)
+if(KISAK_WEB_WEBGPU)
+  target_compile_definitions(KisakBlack PRIVATE KISAK_WEB_WEBGPU)
+  # Cache WGSL and recipes only across identical renderer/translator builds.
+  set(_gpu_cache_sources src/web/gpu/web_gpu.cpp src/web/gpu/web_gpu_policy.h src/web/gpu/web_gpu_sources.h src/web/gpu/web_gpu_shader_interface.h src/web/gpu/web_gpu_settings.h
+      src/web/gpu/web_gpu_cache_codec.h src/web/gl/web_sm3.cpp
+      src/web/gl/web_sm3.h src/web/gl/web_sm3_wgsl.inc)
+  set(_gpu_cache_identity "")
+  foreach(_gpu_source IN LISTS _gpu_cache_sources)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/${_gpu_source}")
+    if(_gpu_source STREQUAL "src/web/gpu/web_gpu.cpp")
+      # Upload-only entry points and agent fault injection do not construct
+      # recipes. Their shared renderer helpers remain fingerprinted normally.
+      file(READ "${CMAKE_SOURCE_DIR}/${_gpu_source}" _gpu_renderer_text)
+      set(_gpu_test_begin "// KISAK_GPU_AUXILIARY_BEGIN\n")
+      set(_gpu_test_end "// KISAK_GPU_AUXILIARY_END\n")
+      string(FIND "${_gpu_renderer_text}" "${_gpu_test_begin}" _gpu_test_start)
+      string(FIND "${_gpu_renderer_text}" "${_gpu_test_end}" _gpu_test_finish)
+      if(_gpu_test_start GREATER_EQUAL 0 AND _gpu_test_finish GREATER _gpu_test_start)
+        string(LENGTH "${_gpu_test_end}" _gpu_test_end_size)
+        math(EXPR _gpu_test_suffix "${_gpu_test_finish} + ${_gpu_test_end_size}")
+        string(SUBSTRING "${_gpu_renderer_text}" 0 ${_gpu_test_start} _gpu_renderer_prefix)
+        string(SUBSTRING "${_gpu_renderer_text}" ${_gpu_test_suffix} -1 _gpu_renderer_suffix)
+        set(_gpu_renderer_text "${_gpu_renderer_prefix}${_gpu_renderer_suffix}")
+      elseif(NOT _gpu_test_start EQUAL -1 OR NOT _gpu_test_finish EQUAL -1)
+        message(FATAL_ERROR "Unbalanced agent GPU test fingerprint markers")
+      endif()
+      # file(READ) normalizes CRLF. Preserve the pre-existing byte fingerprint
+      # on either uniform line ending; mixed files conservatively hash in full.
+      file(READ "${CMAKE_SOURCE_DIR}/${_gpu_source}" _gpu_renderer_hex HEX)
+      string(FIND "${_gpu_renderer_hex}" "0d0a" _gpu_has_crlf)
+      string(REPLACE "0d0a" "" _gpu_without_crlf "${_gpu_renderer_hex}")
+      string(FIND "${_gpu_without_crlf}" "0a" _gpu_has_bare_lf)
+      if(_gpu_has_crlf GREATER_EQUAL 0 AND _gpu_has_bare_lf GREATER_EQUAL 0)
+        file(SHA256 "${CMAKE_SOURCE_DIR}/${_gpu_source}" _gpu_source_hash)
+      else()
+        if(_gpu_has_crlf GREATER_EQUAL 0)
+          string(REPLACE "\n" "\r\n" _gpu_renderer_text "${_gpu_renderer_text}")
+        endif()
+        string(SHA256 _gpu_source_hash "${_gpu_renderer_text}")
+      endif()
+    else()
+      file(SHA256 "${CMAKE_SOURCE_DIR}/${_gpu_source}" _gpu_source_hash)
+    endif()
+    string(APPEND _gpu_cache_identity "${_gpu_source_hash}")
+  endforeach()
+  string(SHA256 _gpu_cache_version "${_gpu_cache_identity}")
+  set_property(SOURCE src/web/gpu/web_gpu.cpp APPEND PROPERTY COMPILE_DEFINITIONS
+      "KISAK_GPU_CACHE_VERSION=\"${_gpu_cache_version}\"")
+  target_compile_options(KisakBlack PRIVATE --use-port=emdawnwebgpu)
+  target_link_options(KisakBlack PRIVATE --use-port=emdawnwebgpu)
+endif()
+
 # ----- Compile flags -----
 # -fms-extensions -fms-compatibility -fdeclspec: decompiler / MSVC syntax
 #   (__declspec, __int64, anonymous structs, __forceinline, ...). These do not
@@ -210,7 +265,10 @@ set(KISAK_WEB_LINK_FLAGS
     # PROXY_TO_PTHREAD call transferControlToOffscreen on Module.canvas. A placeholder
     # OffscreenCanvas has no such method, so startup dies with
     # "cannot transfer control of canvas kisak-placeholder".
-    -sOFFSCREENCANVAS_SUPPORT=0
+    # No automatic transfer to proxy main. Only the yielding GPU executor
+    # requests #game; the WebGL renderer keeps its bitmap presentation path.
+    -sOFFSCREENCANVAS_SUPPORT=1
+    "-sOFFSCREENCANVASES_TO_PTHREAD=''"
     -sMAX_WEBGL_VERSION=2
     -sMIN_WEBGL_VERSION=2
     -sGL_TRACK_ERRORS=0

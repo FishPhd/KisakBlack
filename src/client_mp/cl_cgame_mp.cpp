@@ -1,4 +1,8 @@
 #include "cl_cgame_mp.h"
+#ifdef KISAK_WEB
+#include <web/gpu/web_gpu.h>
+#include <web/web_graphics.h>
+#endif
 #include <universal/assertive.h>
 #include "cl_main_mp.h"
 #include <qcommon/common.h>
@@ -1125,7 +1129,17 @@ void __cdecl CL_InitCGame(int localClientNum)
     CL_LocalClient_SetCUIFlag(localClientNum, 16);
     cl_serverLoadingMap = 0;
     clc = CL_GetLocalClientConnection(localClientNum);
+#ifdef KISAK_WEB
+    webgpu::BeginMapPreparation();
+#endif
     CG_Init(localClientNum, clc->serverMessageSequence, clc->lastExecutedServerCommand, clc->clientNum);
+#ifdef KISAK_WEB
+#ifdef KISAK_WEB_WEBGPU
+    webgpu::WarmBuiltinResources();
+#endif
+    webgpu::WarmMap(mapname, localClientNum);
+    Web_PrepareLegacyMap(mapname, localClientNum);
+#endif
     CL_LocalClient_SetCUIFlag(localClientNum, 32);
     R_BeginRemoteScreenUpdate();
     CL_SetLocalClientConnectionState(localClientNum, CA_PRIMED);

@@ -41,7 +41,7 @@ TexCore *TexCoreOf(IDirect3DBaseTexture9 *t);
 // ------------------------------------------------------------------------------------------------
 bool GlInit(int w, int h);       // creates the OffscreenCanvas + WebGL2 context on the calling thread
 void GlResize(int w, int h);
-void GlPresent();                // hands the canvas contents to the page
+void GlPresent(unsigned draws);  // hands the canvas contents to the page
 bool GlHasExt(const char *name);
 int GlMaxTextureSize();
 void GlLog(const char *text);    // console.log without going through the engine
@@ -117,6 +117,7 @@ struct Level
 
 struct TexCore
 {
+    uint64_t gpuId = 0;
     Device *dev = nullptr;
     int type = 0; // 0 = 2D, 1 = cube, 2 = volume
     D3DFORMAT fmt = D3DFMT_UNKNOWN;
@@ -180,6 +181,7 @@ enum SurfKind : uint8_t
 
 struct KSurface : Unk<IDirect3DSurface9>
 {
+    uint64_t gpuId = 0;
     Device *dev = nullptr;
     SurfKind kind = SK_PLAIN;
     D3DFORMAT fmt = D3DFMT_UNKNOWN;
@@ -227,6 +229,8 @@ struct KSurface : Unk<IDirect3DSurface9>
 // ------------------------------------------------------------------------------------------------
 struct BufferCore
 {
+    uint64_t gpuId = 0;
+    uint64_t gpuGeneration = 0;
     Device *dev = nullptr;
     UINT size = 0;
     DWORD usage = 0;
@@ -299,6 +303,7 @@ struct KDecl : Unk<IDirect3DVertexDeclaration9>
 struct KVShader : Unk<IDirect3DVertexShader9>
 {
     Device *dev = nullptr;
+    uint64_t gpuHash = 0;
     std::vector<uint32_t> code;
     sm3::Result tr;
     HRESULT GetDevice(IDirect3DDevice9 **pp) override;
@@ -309,6 +314,7 @@ struct KVShader : Unk<IDirect3DVertexShader9>
 struct KPShader : Unk<IDirect3DPixelShader9>
 {
     Device *dev = nullptr;
+    uint64_t gpuHash = 0;
     std::vector<uint32_t> code;
     sm3::Result tr;
     HRESULT GetDevice(IDirect3DDevice9 **pp) override;

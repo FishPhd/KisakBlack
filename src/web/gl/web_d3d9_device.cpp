@@ -1,5 +1,7 @@
 // The Direct3D 9 device and adapter over WebGL2. See web_d3d9_priv.h for the design.
 #include "web_d3d9_device.h"
+#include <web/gpu/web_gpu.h>
+#include <web/web_assets.h>
 
 #include <algorithm>
 #include <cmath>
@@ -199,7 +201,7 @@ struct ModeEntry
 {
     UINT w, h;
 };
-const ModeEntry kModes[] = {{800, 600},   {1024, 768},  {1152, 864},  {1280, 720},  {1280, 800},
+const ModeEntry kModes[] = {{800, 600},   {960, 540},   {1024, 768},  {1152, 864},  {1280, 720},  {1280, 800},
                             {1280, 960},  {1280, 1024}, {1366, 768},  {1440, 900},  {1600, 900},
                             {1600, 1200}, {1680, 1050}, {1920, 1080}, {2560, 1440}, {3840, 2160}};
 constexpr UINT kModeCount = (UINT)(sizeof(kModes) / sizeof(kModes[0]));
@@ -393,7 +395,8 @@ bool Device::create(IDirect3D9 *own, const D3DPRESENT_PARAMETERS &p)
     if (!created)
     {
         glThread = pthread_self();
-        gl = GlInit((int)p.BackBufferWidth, (int)p.BackBufferHeight);
+        gpu = webgpu::Requested() && webgpu::Start(p.BackBufferWidth, p.BackBufferHeight);
+        gl = !gpu && GlInit((int)p.BackBufferWidth, (int)p.BackBufferHeight);
         if (gl)
             KLOG("WebGL2 context created (%ux%u)", p.BackBufferWidth, p.BackBufferHeight);
         else
@@ -472,6 +475,7 @@ void Device::createBackbuffer()
 HRESULT Device::Reset(D3DPRESENT_PARAMETERS *p)
 {
     pp = *p;
+    if (gpu) webgpu::Resize(p->BackBufferWidth, p->BackBufferHeight);
     if (gl && onGl())
         GlResize((int)p->BackBufferWidth, (int)p->BackBufferHeight);
     createBackbuffer();
@@ -526,7 +530,7 @@ HRESULT Device::GetDeviceCaps(D3DCAPS9 *c)
     c->MaxVolumeExtent = 2048;
     c->MaxTextureRepeat = 8192;
     c->MaxTextureAspectRatio = 8192;
-    c->MaxAnisotropy = (DWORD)(aniso > 1 ? aniso : 16);
+    c->MaxAnisotropy = (DWORD)((gpu || !created) ? 16 : aniso);
     c->MaxVertexW = 1e10f;
     c->GuardBandLeft = c->GuardBandTop = -8192.0f;
     c->GuardBandRight = c->GuardBandBottom = 8192.0f;
@@ -1393,6 +1397,10 @@ bool Device::finishProgram(Program *pr, bool wait)
     const GLuint prog = pr->id;
     GLint ok = 0;
     glGetProgramiv(prog, GL_LINK_STATUS, &ok);
+    if (pr->compileBegan) {
+        Web_ReportAssetWork("webgl-program-compile", "", pr->compileBegan);
+        pr->compileBegan = 0;
+    }
     if (!ok)
     {
         if (failures++ < 16)
@@ -1480,6 +1488,7 @@ Program *Device::getProgram(KVShader *v, KPShader *p, uint32_t shadowMask)
         return cached;
     }
     auto *pr = new Program();
+    pr->compileBegan = emscripten_get_now();
     memset(pr->samp, 0xFF, sizeof(pr->samp));
     pr->vs = v;
     pr->ps = p;
@@ -1533,23 +1542,30 @@ void Device::uploadConstants(Program *p)
         {
             glGenBuffers(1, &constantBuffers[stage]);
             glBindBuffer(GL_UNIFORM_BUFFER, constantBuffers[stage]);
+            boundUniformBuffer = constantBuffers[stage];
             glBufferData(GL_UNIFORM_BUFFER, 4608, nullptr, GL_DYNAMIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, stage, constantBuffers[stage]);
         }
-        glBindBufferBase(GL_UNIFORM_BUFFER, stage, constantBuffers[stage]);
-        glBindBuffer(GL_UNIFORM_BUFFER, constantBuffers[stage]);
         const float *vals = stage ? psF : vsF;
         const uint32_t *seqs = stage ? psFseq : vsFseq;
         int hi = fresh ? 255 : -1;
         if (!fresh && constantFloatSeq[stage] != fseq)
             for (int i = 0; i < 256; ++i)
                 if (seqs[i] > constantFloatSeq[stage]) hi = i;
+        const bool intChanged = fresh || constantIntSeq[stage] != iseq;
+        const bool boolChanged = fresh || constantBoolSeq[stage] != bseq;
+        if ((hi >= 0 || intChanged || boolChanged) && boundUniformBuffer != constantBuffers[stage])
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, constantBuffers[stage]);
+            boundUniformBuffer = constantBuffers[stage];
+        }
         if (hi >= 0)
             glBufferSubData(GL_UNIFORM_BUFFER, 0, (hi + 1) * 16, vals);
         constantFloatSeq[stage] = fseq;
-        if (fresh || constantIntSeq[stage] != iseq)
+        if (intChanged)
             glBufferSubData(GL_UNIFORM_BUFFER, 4096, 256, stage ? psI : vsI);
         constantIntSeq[stage] = iseq;
-        if (fresh || constantBoolSeq[stage] != bseq)
+        if (boolChanged)
         {
             int packed[16 * 4] = {};
             const BOOL *valsB = stage ? psB : vsB;
@@ -1916,6 +1932,7 @@ bool Device::prepareDraw(bool)
 // ================================================================================================
 HRESULT Device::DrawPrimitive(D3DPRIMITIVETYPE t, UINT start, UINT count)
 {
+    if (gpu) { webgpu::Draw(*this, t, PrimCount(t, count), 0, start); return D3D_OK; }
     if (!prepareDraw(false))
         return D3D_OK;
     Program *p = drawProg;
@@ -1925,8 +1942,9 @@ HRESULT Device::DrawPrimitive(D3DPRIMITIVETYPE t, UINT start, UINT count)
     return D3D_OK;
 }
 
-HRESULT Device::DrawIndexedPrimitive(D3DPRIMITIVETYPE t, INT base, UINT, UINT, UINT startIndex, UINT count)
+HRESULT Device::DrawIndexedPrimitive(D3DPRIMITIVETYPE t, INT base, UINT minVertex, UINT vertexCount, UINT startIndex, UINT count)
 {
+    if (gpu) { webgpu::Draw(*this, t, PrimCount(t, count), base, startIndex, nullptr, 0, 0, nullptr, D3DFMT_INDEX16, minVertex, vertexCount); return D3D_OK; }
     if (!ib || !prepareDraw(true))
         return D3D_OK;
     Program *p = drawProg;
@@ -1948,6 +1966,7 @@ HRESULT Device::DrawIndexedPrimitive(D3DPRIMITIVETYPE t, INT base, UINT, UINT, U
 
 HRESULT Device::DrawPrimitiveUP(D3DPRIMITIVETYPE t, UINT count, const void *data, UINT stride)
 {
+    if (gpu) { webgpu::Draw(*this, t, PrimCount(t, count), 0, 0, data, PrimCount(t, count) * stride, stride); return D3D_OK; }
     if (!prepareDraw(false))
         return D3D_OK;
     Program *p = drawProg;
@@ -1988,6 +2007,7 @@ HRESULT Device::DrawPrimitiveUP(D3DPRIMITIVETYPE t, UINT count, const void *data
 HRESULT Device::DrawIndexedPrimitiveUP(D3DPRIMITIVETYPE t, UINT, UINT numVerts, UINT count, const void *idx, D3DFORMAT ifmt,
                                        const void *data, UINT stride)
 {
+    if (gpu) { webgpu::Draw(*this, t, PrimCount(t, count), 0, 0, data, numVerts * stride, stride, idx, ifmt); return D3D_OK; }
     if (!prepareDraw(true))
         return D3D_OK;
     Program *p = drawProg;
@@ -2029,6 +2049,7 @@ HRESULT Device::DrawIndexedPrimitiveUP(D3DPRIMITIVETYPE t, UINT, UINT numVerts, 
 
 HRESULT Device::Clear(DWORD count, const D3DRECT *rects, DWORD flags, D3DCOLOR color, float z, DWORD stencil)
 {
+    if (gpu) { webgpu::Clear(*this, count, rects, flags, color, z, stencil); return D3D_OK; }
     GLPHASE("clear");
     if (!gl || !onGl())
         return D3D_OK;
@@ -2145,6 +2166,7 @@ void Device::blit(KSurface *src, const RECT *sr, KSurface *dst, const RECT *dr, 
 
 HRESULT Device::StretchRect(IDirect3DSurface9 *src_, const RECT *sr, IDirect3DSurface9 *dst_, const RECT *dr, D3DTEXTUREFILTERTYPE filter)
 {
+    if (gpu) { webgpu::Copy(static_cast<KSurface *>(src_), sr, static_cast<KSurface *>(dst_), dr, filter); return D3D_OK; }
     GLPHASE("stretchrect");
     if (!gl || !onGl())
         return D3D_OK;
@@ -2174,6 +2196,7 @@ HRESULT Device::ColorFill(IDirect3DSurface9 *s_, const RECT *r, D3DCOLOR color)
                 memcpy(&s->sys[(size_t)y * pitch + (size_t)x * 4], &color, 4);
         return D3D_OK;
     }
+    if (gpu && !(s->fi && s->fi->depth)) { webgpu::Fill(s, r, color); return D3D_OK; }
     if (!gl || !onGl() || (s->fi && s->fi->depth))
         return D3D_OK;
     glDisable(GL_SCISSOR_TEST);
@@ -2287,6 +2310,7 @@ HRESULT Device::UpdateTexture(IDirect3DBaseTexture9 *src_, IDirect3DBaseTexture9
 HRESULT Device::Present(const RECT *, const RECT *, HWND, const void *)
 {
     ++frame;
+    if (gpu) { webgpu::Present(*this); return D3D_OK; }
     if (!gl || !onGl())
         return D3D_OK;
     GLPHASE("present");
@@ -2313,7 +2337,7 @@ void Device::presentBackbuffer()
     boundFbo = 0xFFFFFFFFu;
     const GLint w = (GLint)backBuffer->w, h = (GLint)backBuffer->h;
     glBlitFramebuffer(0, 0, w, h, 0, h, w, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    GlPresent();
+    GlPresent((unsigned)drawCalls);
     groupDirty.set(RG_SCISSOR);
     groupDirty.set(RG_MASK);
     targetDirty = true;
@@ -2324,6 +2348,11 @@ void Device::presentBackbuffer()
 // ================================================================================================
 // Entry point used by the engine
 // ================================================================================================
+int Web_MaxAnisotropy()
+{
+    return kd::g_device.gpu ? 16 : kd::g_device.aniso;
+}
+
 IDirect3D9 *Direct3DCreate9(UINT)
 {
     return new kd::D3D9Impl();

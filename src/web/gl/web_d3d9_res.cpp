@@ -1,6 +1,7 @@
 // Direct3D 9 resources over WebGL2: formats, textures, surfaces, buffers, shaders (CPU half + lazy GL
 // realization). See web_d3d9_priv.h.
 #include "web_d3d9_device.h"
+#include <web/gpu/web_gpu.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -680,6 +681,7 @@ int TexCore::commitSrgb(bool want)
 
 void TexCore::release()
 {
+    if (gpuId) { webgpu::Release(gpuId); gpuId = 0; }
     if (tex && dev)
     {
         dev->queueDelete(GLK_TEXTURE, tex);
@@ -930,6 +932,7 @@ void KSurface::OnZero()
 
 void KSurface::releaseGl()
 {
+    if (gpuId) { webgpu::Release(gpuId); gpuId = 0; }
     if (rb && dev)
     {
         dev->queueDelete(GLK_RENDERBUFFER, rb);
@@ -1095,6 +1098,12 @@ bool BufferCore::init(Device *d, UINT sz, DWORD use, D3DPOOL p, GLenum tgt)
 HRESULT BufferCore::lock(UINT off, UINT sz, void **pp, DWORD flags)
 {
     std::lock_guard<std::mutex> g(mu);
+    if ((flags & D3DLOCK_DISCARD) && (usage & D3DUSAGE_DYNAMIC)) {
+        if (gpuId) webgpu::Release(gpuId);
+        gpuId = 0;
+        ++gpuGeneration;
+        dirtyLo = 0xFFFFFFFFu; dirtyHi = 0;
+    }
     external = nullptr;
     externalBytes = 0;
     if (off > size)
@@ -1188,6 +1197,7 @@ GLuint BufferCore::realize()
 
 void BufferCore::release()
 {
+    if (gpuId) { webgpu::Release(gpuId); gpuId = 0; }
     if (bo && dev)
     {
         if (dev->curArrayBuf == bo)
@@ -1366,7 +1376,7 @@ HRESULT Device::CreateVertexShader(const DWORD *fn, IDirect3DVertexShader9 **pp)
     auto *s = new KVShader();
     s->dev = this;
     s->code.assign(reinterpret_cast<const uint32_t *>(fn),
-                   reinterpret_cast<const uint32_t *>(fn) + ShaderTokenCount(reinterpret_cast<const uint32_t *>(fn)));
+        reinterpret_cast<const uint32_t *>(fn) + ShaderTokenCount(reinterpret_cast<const uint32_t *>(fn)));
     if (!sm3::Translate(s->code.data(), s->tr))
         KLOG("vertex shader translation failed: %s", s->tr.error.c_str());
     *pp = s;
@@ -1378,7 +1388,7 @@ HRESULT Device::CreatePixelShader(const DWORD *fn, IDirect3DPixelShader9 **pp)
     auto *s = new KPShader();
     s->dev = this;
     s->code.assign(reinterpret_cast<const uint32_t *>(fn),
-                   reinterpret_cast<const uint32_t *>(fn) + ShaderTokenCount(reinterpret_cast<const uint32_t *>(fn)));
+        reinterpret_cast<const uint32_t *>(fn) + ShaderTokenCount(reinterpret_cast<const uint32_t *>(fn)));
     if (!sm3::Translate(s->code.data(), s->tr))
         KLOG("pixel shader translation failed: %s", s->tr.error.c_str());
     *pp = s;
