@@ -2,6 +2,7 @@
 #include <universal/assertive.h>
 #include "db_auth.h"
 #include "db_registry.h"
+#include "db_assetnames.h"
 
 #include <Windows.h>
 #include <win32/win_shared.h>
@@ -12,6 +13,10 @@
 #include "db_stream_load.h"
 #include "db_load.h"
 #include <tl/tl_system.h>
+#ifdef KISAK_WEB
+#include <emscripten.h>
+static double g_webInflateMs;
+#endif
 
 volatile int g_totalSize;
 volatile unsigned int g_loadedSize;
@@ -227,7 +232,13 @@ RESTART:
             {
                 if ( g_load.stream.avail_in )
                 {
+#ifdef KISAK_WEB
+                    const double inflateAt = emscripten_get_now();
+#endif
                     err = DB_AuthLoad_Inflate(&g_load.stream, 2);
+#ifdef KISAK_WEB
+                    g_webInflateMs += emscripten_get_now() - inflateAt;
+#endif
                     //if ( err >= 2 )
                     if (err != Z_OK && err != Z_STREAM_END)
                     {
@@ -373,6 +384,9 @@ void __cdecl DB_LoadXFileInternal()
     char magic[8]; // [esp+40h] [ebp-Ch] BYREF
 
     g_totalWait = 0;
+#ifdef KISAK_WEB
+    g_webInflateMs = 0;
+#endif
     if ( !g_load.f
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\database\\db_file_load.cpp", 1739, 0, "%s", "g_load.f") )
     {
@@ -473,6 +487,9 @@ void __cdecl DB_LoadXFileInternal()
     tlPrintf("TLPrint: Loading fastfile '%s'\n", g_load.filename);
     DB_AllocXBlocks(file.blockSize, g_load.filename, g_load.blocks, g_load.allocType, g_load.flags);
     DB_InitStreams(g_load.blocks);
+#ifdef KISAK_WEB
+    const double assetAt = emscripten_get_now();
+#endif
     Load_XAssetListCustom();
     DB_PushStreamPos(4u);
     if ( varXAssetList->assets )
@@ -482,10 +499,18 @@ void __cdecl DB_LoadXFileInternal()
         Load_XAssetArrayCustom(varXAssetList->assetCount);
     }
     DB_PopStreamPos();
+#ifdef KISAK_WEB
+    const double assetMs = emscripten_get_now() - assetAt;
+    const double delayedAt = emscripten_get_now();
+#endif
     Load_DelayStream();
     --g_loadingAssets;
     DB_MarkAssetTypeUsageDirty();
     DB_LoadDelayedImages();
+#ifdef KISAK_WEB
+    Com_Printf(10, "web: fastfile phases '%s' inflate=%.1fms assets=%.1fms delayed=%.1fms\n",
+        g_load.filename, g_webInflateMs, assetMs, emscripten_get_now() - delayedAt);
+#endif
     if ( !g_load.compressBufferStart
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\database\\db_file_load.cpp",
@@ -517,6 +542,10 @@ void __cdecl Load_XAssetArrayCustom(int count)
 {
     XAsset *var; // [esp+0h] [ebp-8h]
     int i; // [esp+4h] [ebp-4h]
+#ifdef KISAK_WEB
+    double byTypeMs[ASSET_TYPE_COUNT] = {};
+    unsigned byTypeCount[ASSET_TYPE_COUNT] = {};
+#endif
 
     Load_Stream(1, (unsigned __int8 *)varXAsset, 8 * count);
     var = varXAsset;
@@ -524,11 +553,28 @@ void __cdecl Load_XAssetArrayCustom(int count)
     {
         skipShaderCreationHack = i == skipLoadingMaterialsHack;
         varXAsset = var;
+#ifdef KISAK_WEB
+        const int assetType = var->type;
+        const double assetAt = emscripten_get_now();
+#endif
         Load_XAsset(0);
+#ifdef KISAK_WEB
+        if (assetType >= 0 && assetType < ASSET_TYPE_COUNT)
+        {
+            byTypeMs[assetType] += emscripten_get_now() - assetAt;
+            ++byTypeCount[assetType];
+        }
+#endif
         ++var;
         if ( g_load.abort )
             break;
     }
+#ifdef KISAK_WEB
+    for (int type = 0; type < ASSET_TYPE_COUNT; ++type)
+        if (byTypeMs[type] >= 100)
+            Com_Printf(10, "web: asset type '%s' count=%u time=%.1fms\n",
+                DB_GetXAssetTypeName(type), byTypeCount[type], byTypeMs[type]);
+#endif
 }
 
 char __cdecl DB_LoadXFile(
