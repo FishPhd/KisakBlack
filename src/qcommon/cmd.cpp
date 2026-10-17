@@ -1337,6 +1337,17 @@ void __cdecl Cmd_Exec_f()
     }
 }
 
+#ifdef KISAK_WEB
+static bool Cmd_ConfigResetsControls(const char *filename)
+{
+    const char *name = filename ? Com_GetFilenameSubString(filename) : "";
+    return !I_stricmp(name, "default_mp.cfg")
+        || !I_stricmp(name, "default.cfg")
+        || !I_stricmp(name, "dvar_defaults.cfg")
+        || !I_stricmp(name, "reset_bindings.cfg");
+}
+#endif
+
 char __cdecl Cmd_ExecFromDisk(int localClientNum, int controllerIndex, const char *filename)
 {
     char *text; // [esp+0h] [ebp-4h] BYREF
@@ -1347,6 +1358,10 @@ char __cdecl Cmd_ExecFromDisk(int localClientNum, int controllerIndex, const cha
         Com_Printf(16, "execing %s from disk\n", filename);
         Con_Restricted_ExecuteBuf(localClientNum, controllerIndex, text);
         FS_FreeFile(text);
+#ifdef KISAK_WEB
+        if ( Cmd_ConfigResetsControls(filename) )
+            Key_ApplyWebAdsDefaults(localClientNum, false);
+#endif
         return 1;
     }
     else
@@ -1410,6 +1425,8 @@ char __cdecl Cmd_ExecFromFastFile(int localClientNum, int controllerIndex, char 
         for (unsigned i = 0; i < ARRAY_COUNT(controlNames); ++i)
             Dvar_SetFromStringByName(controlNames[i], controlValues[i]);
     }
+    if ( !keepControls && Cmd_ConfigResetsControls(filename) )
+        Key_ApplyWebAdsDefaults(localClientNum, false);
     fprintf(stderr, "kisak-exec done %s\n", filename);
 #endif
     return 1;

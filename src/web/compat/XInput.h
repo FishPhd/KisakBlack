@@ -1,5 +1,4 @@
-// XInput types for the web build. There is no gamepad back end yet (HTML5 Gamepad API is a
-// later milestone), so only the structures win_gamepad.h embeds are provided.
+// XInput-compatible browser samples for the original PC gamepad backend.
 #pragma once
 #include <windows.h>
 
@@ -55,6 +54,6 @@ typedef struct _XINPUT_CAPABILITIES {
     XINPUT_VIBRATION Vibration;
 } XINPUT_CAPABILITIES, *PXINPUT_CAPABILITIES;
 
-inline DWORD XInputGetState(DWORD, XINPUT_STATE *) { return ERROR_DEVICE_NOT_CONNECTED; }
+DWORD XInputGetState(DWORD, XINPUT_STATE *);
 inline DWORD XInputSetState(DWORD, XINPUT_VIBRATION *) { return ERROR_DEVICE_NOT_CONNECTED; }
-inline DWORD XInputGetCapabilities(DWORD, DWORD, XINPUT_CAPABILITIES *) { return ERROR_DEVICE_NOT_CONNECTED; }
+DWORD XInputGetCapabilities(DWORD, DWORD, XINPUT_CAPABILITIES *);

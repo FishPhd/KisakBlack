@@ -91,6 +91,9 @@ void __cdecl Key_Bind_f();
 void __cdecl Key_Bind2_f();
 void __cdecl Key_WriteBindingsToTempBuf(int localClientNum);
 void __cdecl Key_RestoreBindingsFromTempBuf(int localClientNum);
+#ifdef KISAK_WEB
+void __cdecl Key_ApplyWebAdsDefaults(int localClientNum, bool migrateProfile);
+#endif
 void __cdecl Key_WriteBindings(int localClientNum, int f);
 int __cdecl Key_WriteBindingsToBuffer(int localClientNum, char *buffer, int bufferSize);
 void __cdecl Key_Bindlist_f();

@@ -13,6 +13,7 @@
 #include <client_mp/cl_main_mp.h>
 #include <qcommon/common.h>
 #include <universal/dvar.h>
+#include "web_graphics.h"
 
 #include <emscripten.h>
 
@@ -27,12 +28,15 @@ enum WebInType : int
     WIN_CHAR,      // a = character
     WIN_MOUSE_DXY, // a = dx, b = dy (pointer-locked deltas)
     WIN_MOUSE_POS, // a = x, b = y in back-buffer pixels
-    WIN_FOCUS      // a = focused
+    WIN_FOCUS,     // a = focused
+    WIN_FULLSCREEN, // a = actual browser fullscreen state
+    WIN_GAMEPAD     // a = connected, gamepad = standard-layout XInput sample
 };
 
 struct WebInEvent
 {
     int type, a, b;
+    XINPUT_GAMEPAD gamepad{};
 };
 
 constexpr uint32_t kRing = 2048; // power of two
@@ -46,15 +50,19 @@ std::atomic<int> s_cursorVisible{1};
 int s_mouseX, s_mouseY;
 int s_hasWindow;
 bool s_positionEvent;
+XINPUT_STATE s_gamepad{}; // Only accessed by the game thread after draining the ring.
+bool s_gamepadConnected;
 
-void Push(int type, int a, int b)
+void Push(const WebInEvent &event)
 {
     const uint32_t h = s_head.load(std::memory_order_relaxed);
     if (h - s_tail.load(std::memory_order_acquire) >= kRing)
         return; // full: drop (only happens when the game thread is stalled)
-    s_ring[h & (kRing - 1)] = {type, a, b};
+    s_ring[h & (kRing - 1)] = event;
     s_head.store(h + 1, std::memory_order_release);
 }
+
+void Push(int type, int a, int b) { Push({type, a, b}); }
 
 void Activate(bool active)
 {
@@ -74,8 +82,36 @@ EMSCRIPTEN_KEEPALIVE void Kisak_Char(int ch) { Push(WIN_CHAR, ch, 0); }
 EMSCRIPTEN_KEEPALIVE void Kisak_MouseMove(int dx, int dy) { Push(WIN_MOUSE_DXY, dx, dy); }
 EMSCRIPTEN_KEEPALIVE void Kisak_MousePos(int x, int y) { Push(WIN_MOUSE_POS, x, y); }
 EMSCRIPTEN_KEEPALIVE void Kisak_Focus(int focused) { Push(WIN_FOCUS, focused, 0); }
+EMSCRIPTEN_KEEPALIVE void Kisak_FullscreenChanged(int enabled) { Push(WIN_FULLSCREEN, enabled, 0); }
 EMSCRIPTEN_KEEPALIVE int Kisak_WantsMouseCapture() { return s_wantsCapture.load(std::memory_order_relaxed); }
 EMSCRIPTEN_KEEPALIVE int Kisak_CursorVisible() { return s_cursorVisible.load(std::memory_order_relaxed); }
+EMSCRIPTEN_KEEPALIVE void Kisak_Gamepad(int connected, int buttons, int lt, int rt, int lx, int ly, int rx, int ry)
+{
+    WebInEvent event{WIN_GAMEPAD, connected, 0};
+    event.gamepad = {static_cast<WORD>(buttons), static_cast<BYTE>(lt), static_cast<BYTE>(rt),
+        static_cast<SHORT>(lx), static_cast<SHORT>(ly), static_cast<SHORT>(rx), static_cast<SHORT>(ry)};
+    Push(event);
+}
+}
+
+DWORD XInputGetState(DWORD port, XINPUT_STATE *state)
+{
+    if (port || !s_gamepadConnected)
+        return ERROR_DEVICE_NOT_CONNECTED;
+    *state = s_gamepad;
+    if (!IN_IsForegroundWindow())
+        state->Gamepad = {}; // Background tabs must never retain movement or firing.
+    return ERROR_SUCCESS;
+}
+
+DWORD XInputGetCapabilities(DWORD port, DWORD, XINPUT_CAPABILITIES *caps)
+{
+    if (port || !s_gamepadConnected)
+        return ERROR_DEVICE_NOT_CONNECTED;
+    *caps = {};
+    caps->Type = XINPUT_DEVTYPE_GAMEPAD;
+    caps->SubType = 1; // XINPUT_DEVSUBTYPE_GAMEPAD
+    return ERROR_SUCCESS;
 }
 
 void Web_SetMainWindow(HWND hwnd)
@@ -148,9 +184,25 @@ void __cdecl IN_Frame()
             s_positionEvent = true;
             break;
         case WIN_FOCUS:
-            if (e.a) s_positionEvent = true;
             if (s_hasWindow)
-                Activate(e.a != 0);
+            {
+                // The page re-asserts focus on mouse motion. Clearing keys on a
+                // repeat drops held movement until the key is pressed again.
+                const bool active = e.a != 0;
+                if ((g_wv.activeApp != 0) == active)
+                    break;
+                if (active)
+                    s_positionEvent = true;
+                Activate(active);
+            }
+            break;
+        case WIN_FULLSCREEN:
+            Web_BrowserFullscreenChanged(e.a != 0);
+            break;
+        case WIN_GAMEPAD:
+            s_gamepadConnected = e.a != 0;
+            s_gamepad.Gamepad = s_gamepadConnected ? e.gamepad : XINPUT_GAMEPAD{};
+            ++s_gamepad.dwPacketNumber;
             break;
         }
     }
@@ -158,6 +210,7 @@ void __cdecl IN_Frame()
 
     if (!s_hasWindow)
         return;
+    IN_GamepadsMove();
     if (in_mouse && !in_mouse->current.enabled)
         return;
     if (IN_IsForegroundWindow())

@@ -156,7 +156,8 @@ char __cdecl CG_GamepadSpectatorInput(int localClientNum, int button, const char
         case 6:
             v5 = va("+specNext %i\n-specNext %i\n", 6, 6);
             Cbuf_AddText(localClientNum, v5);
-            UI_AnimateItem(localClientNum, &cgDC[localClientNum], "hud_spectator", "CycleNext", "Flash", 1);
+            if ( Menu_FindItemByName(Menus_FindByName(&cgDC[localClientNum], "hud_spectator"), "CycleNext") )
+                UI_AnimateItem(localClientNum, &cgDC[localClientNum], "hud_spectator", "CycleNext", "Flash", 1);
             UI_AnimateItem(localClientNum, &cgDC[localClientNum], "hud_spectator", "SpectatorName", "Flash", 1);
             UI_AnimateItem(
                 localClientNum,

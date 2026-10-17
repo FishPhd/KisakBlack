@@ -2,6 +2,9 @@
 
 #include "win_gamepad.h"
 #include <universal/assertive.h>
+#include "win_input.h"
+#include "win_shared.h"
+#include <qcommon/common.h>
 #include <cmath>
 #include <universal/com_math.h>
 
@@ -197,10 +200,11 @@ void __cdecl GPad_Check(int portIndex)
     else
         gPad->enabled = 1;
     gPad->keyboardEnabled = 0;
-    if ( s_removedCB && wasEnabled && !gPad->enabled )
+    if ( wasEnabled && !gPad->enabled )
     {
         GPad_ResetState(portIndex);
-        s_removedCB(portIndex);
+        if (s_removedCB)
+            s_removedCB(portIndex);
     }
     else if ( s_insertedCB && !wasEnabled && gPad->enabled )
     {
@@ -570,7 +574,7 @@ double __cdecl GPad_GetStick(int portIndex, GamePadStick stick)
     {
         __debugbreak();
     }
-    return s_gamePads[portIndex].sticks[stick];
+    return s_gamePads[portIndex].sticks[stick & 0xBFFFFFFF];
 }
 
 bool __cdecl GPad_IsStickPressed(int portIndex, GamePadStick stick, GamePadStickDir stickDir)
@@ -639,3 +643,96 @@ bool __cdecl GPad_IsStickReleased(int portIndex, GamePadStick stick, GamePadStic
     return GPad_GetStickChangedToPressedState(portIndex, stick, stickDir, 0);
 }
 
+
+// Shared PC input dispatch; the web build supplies an XInput-compatible sample.
+GamePadButton buttonList[32] =
+{
+  (GamePadButton)GPAD_X,
+  (GamePadButton)3,
+  (GamePadButton)GPAD_A,
+  (GamePadButton)1,
+  (GamePadButton)GPAD_B,
+  (GamePadButton)2,
+  (GamePadButton)GPAD_Y,
+  (GamePadButton)4,
+  (GamePadButton)GPAD_L_TRIG,
+  (GamePadButton)18,
+  (GamePadButton)GPAD_R_TRIG,
+  (GamePadButton)19,
+  (GamePadButton)GPAD_L_SHLDR,
+  (GamePadButton)5,
+  (GamePadButton)GPAD_R_SHLDR,
+  (GamePadButton)6,
+  (GamePadButton)GPAD_START,
+  (GamePadButton)14,
+  (GamePadButton)GPAD_BACK,
+  (GamePadButton)15,
+  (GamePadButton)GPAD_L3,
+  (GamePadButton)16,
+  (GamePadButton)GPAD_R3,
+  (GamePadButton)17,
+  (GamePadButton)GPAD_UP,
+  (GamePadButton)20,
+  (GamePadButton)GPAD_DOWN,
+  (GamePadButton)21,
+  (GamePadButton)GPAD_LEFT,
+  (GamePadButton)22,
+  (GamePadButton)GPAD_RIGHT,
+  (GamePadButton)23
+};
+
+void IN_GamepadsMove()
+{
+    int ry; // [esp+0h] [ebp-2Ch]
+    unsigned int butIndex; // [esp+4h] [ebp-28h]
+    int controllerIndex; // [esp+8h] [ebp-24h]
+    int rightTrig; // [esp+Ch] [ebp-20h]
+    int lx; // [esp+14h] [ebp-18h]
+    char gpadPresent; // [esp+1Bh] [ebp-11h]
+    DWORD time; // [esp+1Ch] [ebp-10h]
+    int rx; // [esp+20h] [ebp-Ch]
+    int leftTrig; // [esp+24h] [ebp-8h]
+    int ly; // [esp+28h] [ebp-4h]
+
+    const bool wasActive = GPad_IsActive(0);
+    gpadPresent = 0;
+    GPad_UpdateAll();
+    time = Sys_Milliseconds();
+    for (controllerIndex = 0; controllerIndex < 1; ++controllerIndex)
+    {
+        const bool active = GPad_IsActive(controllerIndex);
+        gpadPresent = active;
+        if (active || wasActive)
+        {
+            lx = (int)(GPad_GetStick(controllerIndex, GPAD_LX) * 65535.0);
+            ly = (int)(GPad_GetStick(controllerIndex, GPAD_LY) * 65535.0);
+            rx = (int)(GPad_GetStick(controllerIndex, GPAD_RX) * 65535.0);
+            ry = (int)(GPad_GetStick(controllerIndex, GPAD_RY) * 65535.0);
+            leftTrig = (int)(GPad_GetButton(controllerIndex, GPAD_L_TRIG) * 65535.0);
+            rightTrig = (int)(GPad_GetButton(controllerIndex, GPAD_R_TRIG) * 65535.0);
+            CL_GamepadEvent(controllerIndex, 0, rx);
+            CL_GamepadEvent(controllerIndex, 1u, ry);
+            CL_GamepadEvent(controllerIndex, 2u, lx);
+            CL_GamepadEvent(controllerIndex, 3u, ly);
+            CL_GamepadEvent(controllerIndex, 5u, leftTrig);
+            CL_GamepadEvent(controllerIndex, 4u, rightTrig);
+            for (butIndex = 0; butIndex < 0x10; ++butIndex)
+            {
+                if (GPad_IsButtonPressed(controllerIndex, buttonList[2 * butIndex]))
+                {
+                    CL_GamepadButtonEventForPort(controllerIndex, buttonList[2 * butIndex + 1], 1, time, buttonList[2 * butIndex]);
+                }
+                else if (GPad_ButtonRequiresUpdates(controllerIndex, buttonList[2 * butIndex]))
+                {
+                    CL_GamepadButtonEventForPort(controllerIndex, buttonList[2 * butIndex + 1], 2, time, buttonList[2 * butIndex]);
+                }
+                else if (GPad_IsButtonReleased(controllerIndex, buttonList[2 * butIndex]))
+                {
+                    CL_GamepadButtonEventForPort(controllerIndex, buttonList[2 * butIndex + 1], 0, time, buttonList[2 * butIndex]);
+                }
+            }
+        }
+    }
+    if (gpad_present && gpad_present->current.color[0] != gpadPresent)
+        Dvar_SetBool((dvar_s*)gpad_present, gpadPresent);
+}

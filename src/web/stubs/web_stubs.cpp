@@ -1,5 +1,5 @@
 // Inert implementations of the platform services the web (headless dedicated server) build does
-// not have: gamepads, voice chat, Steam, the XAudio2 driver, NVIDIA stereo and the developer
+// not have: voice chat, Steam, the XAudio2 driver, NVIDIA stereo and the developer
 // "monkey" harness. Each one matches the behaviour of the desktop code when the feature is absent.
 
 #include <win32/win_gamepad.h>
@@ -17,57 +17,6 @@
 #include <win32/win_wndproc.h>
 #include <vpx/vpx.h>
 #include <ddraw.h>
-
-// ---- Gamepad ----------------------------------------------------------------------------------
-
-const dvar_t *gpad_debug;
-const dvar_t *gpad_button_lstick_deflect_max;
-const dvar_t *gpad_button_rstick_deflect_max;
-const dvar_t *gpad_button_deadzone;
-const dvar_t *gpad_stick_deadzone_min;
-const dvar_t *gpad_stick_deadzone_max;
-const dvar_t *gpad_stick_pressed;
-const dvar_t *gpad_stick_pressed_hysteresis;
-const dvar_t *gpad_rumble;
-const dvar_t *gpad_menu_scroll_delay_first;
-const dvar_t *gpad_menu_scroll_delay_rest;
-const dvar_t *gpad_buttonsConfig;
-const dvar_t *gpad_sticksConfig;
-const dvar_t *gpad_enabled;
-const dvar_t *gpad_present;
-
-// The profile code reads and writes these dvars, so they must exist (same names/defaults as win_gamepad.cpp).
-void GPad_InitAll()
-{
-    gpad_debug = _Dvar_RegisterInt("gpad_debug", 0, 0x80000000, 0x7FFFFFFF, 0, "coder use only");
-    gpad_button_lstick_deflect_max = _Dvar_RegisterFloat("gpad_button_lstick_deflect_max", 1.0f, 0.0f, 1.0f, 0, "Game pad maximum pad stick pressed value");
-    gpad_button_rstick_deflect_max = _Dvar_RegisterFloat("gpad_button_rstick_deflect_max", 1.0f, 0.0f, 1.0f, 0, "Game pad maximum pad stick pressed value");
-    gpad_button_deadzone = _Dvar_RegisterFloat("gpad_button_deadzone", 0.13f, 0.0f, 1.0f, 0x80u, "Game pad button deadzone threshhold");
-    gpad_stick_deadzone_min = _Dvar_RegisterFloat("gpad_stick_deadzone_min", 0.2f, 0.0f, 1.0f, 0x80u, "Game pad minimum stick deadzone");
-    gpad_stick_deadzone_max = _Dvar_RegisterFloat("gpad_stick_deadzone_max", 0.01f, 0.0f, 1.0f, 0x80u, "Game pad maximum stick deadzone");
-    gpad_stick_pressed = _Dvar_RegisterFloat("gpad_stick_pressed", 0.4f, 0.0f, 1.0f, 0x80u, "Game pad stick pressed threshhold");
-    gpad_stick_pressed_hysteresis = _Dvar_RegisterFloat("gpad_stick_pressed_hysteresis", 0.1f, 0.0f, 1.0f, 0x80u, "Game pad stick pressed no-change-zone around gpad_stick_pressed to prevent bouncing");
-    gpad_rumble = _Dvar_RegisterBool("gpad_rumble", 1, 1u, "Enable game pad rumble");
-    gpad_menu_scroll_delay_first = _Dvar_RegisterInt("gpad_menu_scroll_delay_first", 420, 0, 1000, 1u, "Menu scroll key-repeat delay, for the first repeat, in milliseconds");
-    gpad_menu_scroll_delay_rest = _Dvar_RegisterInt("gpad_menu_scroll_delay_rest", 210, 0, 1000, 1u, "Menu scroll key-repeat delay, for repeats after the first, in milliseconds");
-    gpad_buttonsConfig = _Dvar_RegisterString("gpad_buttonsConfig", "buttons_default", 1u, "Game pad button configuration");
-    gpad_sticksConfig = _Dvar_RegisterString("gpad_sticksConfig", "thumbstick_default", 1u, "Game pad stick configuration");
-    gpad_enabled = _Dvar_RegisterBool("gpad_enabled", 0, 1u, "Game pad enabled");
-    gpad_present = _Dvar_RegisterBool("gpad_present", 0, 0x40u, "Game pad present");
-}
-void __cdecl GPad_UpdateAll() {}
-int GPad_RefreshAll() { return 0; }
-void __cdecl GPad_Check(int) {}
-void __cdecl GPad_ResetState(int) {}
-bool __cdecl GPad_IsActive(int) { return false; }
-double __cdecl GPad_GetButton(int, GamePadButton) { return 0.0; }
-bool __cdecl GPad_ButtonRequiresUpdates(int, GamePadButton) { return false; }
-bool __cdecl GPad_IsButtonPressed(int, GamePadButton) { return false; }
-bool __cdecl GPad_IsButtonReleased(int, GamePadButton) { return false; }
-double __cdecl GPad_GetStick(int, GamePadStick) { return 0.0; }
-bool __cdecl GPad_IsStickPressed(int, GamePadStick, GamePadStickDir) { return false; }
-bool __cdecl GPad_GetStickChangedToPressedState(int, GamePadStick, GamePadStickDir, bool) { return false; }
-bool __cdecl GPad_IsStickReleased(int, GamePadStick, GamePadStickDir) { return false; }
 
 // ---- Voice ------------------------------------------------------------------------------------
 

@@ -2270,6 +2270,10 @@ void __cdecl Com_StartupConfigs(int localClientNum)
         Com_ExecStartupConfigs(localClientNum, "config_mp.cfg");
     else
         Com_ExecStartupConfigs(localClientNum, 0);
+#ifdef KISAK_WEB
+    // Saved bindings and the migration version must both be loaded first.
+    Key_ApplyWebAdsDefaults(localClientNum, true);
+#endif
 }
 
 int g_loadedPreXAssets = 0;

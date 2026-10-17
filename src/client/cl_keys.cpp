@@ -1642,7 +1642,43 @@ void __cdecl Key_Bind2_f()
     }
 }
 
-char myTempBuff[4096];
+enum { KEY_TEMP_BIND_SIZE = 16384 };
+char myTempBuff[KEY_TEMP_BIND_SIZE];
+
+#ifdef KISAK_WEB
+static const dvar_s *web_adsBindingVersion;
+
+static bool Key_IsToggleAdsCommand(const char *binding)
+{
+    if ( !binding || !binding[0] )
+        return false;
+    return !I_stricmp(binding, "toggleads")
+        || !I_stricmp(binding, "+toggleads_throw");
+}
+
+void __cdecl Key_ApplyWebAdsDefaults(int localClientNum, bool migrateProfile)
+{
+    if (migrateProfile && web_adsBindingVersion && web_adsBindingVersion->current.integer >= 1)
+        return;
+    // Keyboard and mouse only. Controller button assignments are independent.
+    const int mouse2 = 201;
+    Sys_EnterCriticalSection(CRITSECT_KEY_BINDINGS);
+    for (int key = 0; key < 256; ++key)
+    {
+        if (key < 32 && key != 9 && key != 13 && key != 27)
+            continue;
+        for (int slot = 0; slot < 2; ++slot)
+            if (Key_IsToggleAdsCommand(Key_GetBinding(localClientNum, key, slot)))
+                Key_SetBinding(localClientNum, key, "", slot);
+    }
+    Key_SetBinding(localClientNum, mouse2, "", 1);
+    Key_SetBinding(localClientNum, mouse2, "+speed_throw", 0);
+    Sys_LeaveCriticalSection(CRITSECT_KEY_BINDINGS);
+    if (web_adsBindingVersion && (migrateProfile || com_fullyInitialized))
+        Dvar_SetInt((dvar_s *)web_adsBindingVersion, 1);
+    Com_Printf(16, "Applied browser hold-ADS defaults%s\n", migrateProfile ? " (profile migration)" : "");
+}
+#endif
 void __cdecl Key_WriteBindingsToTempBuf(int localClientNum)
 {
     const char *v1; // eax
@@ -1671,11 +1707,11 @@ void __cdecl Key_WriteBindingsToTempBuf(int localClientNum)
             if (keys[keyIndex].binding && *keys[keyIndex].binding)
             {
                 v1 = Key_KeynumToString(keyIndex, 0);
-                len = Com_sprintf(&myTempBuff[bytesUsed], 4092 - bytesUsed, "bind %s \"", v1);
+                len = Com_sprintf(&myTempBuff[bytesUsed], KEY_TEMP_BIND_SIZE - 4 - bytesUsed, "bind %s \"", v1);
                 if (len < 0)
                     break;
                 bytesUseda = len + bytesUsed;
-                for (bind = keys[keyIndex].binding; *bind && bytesUseda < 4092; ++bind)
+                for (bind = keys[keyIndex].binding; *bind && bytesUseda < KEY_TEMP_BIND_SIZE - 4; ++bind)
                 {
                     if (*bind == 34)
                         myTempBuff[bytesUseda++] = 92;
@@ -1688,11 +1724,11 @@ void __cdecl Key_WriteBindingsToTempBuf(int localClientNum)
             if (keys[keyIndex].binding2 && *keys[keyIndex].binding2)
             {
                 v2 = Key_KeynumToString(keyIndex, 0);
-                lena = Com_sprintf(&myTempBuff[bytesUsed], 4092 - bytesUsed, "bind2 %s \"", v2);
+                lena = Com_sprintf(&myTempBuff[bytesUsed], KEY_TEMP_BIND_SIZE - 4 - bytesUsed, "bind2 %s \"", v2);
                 if (lena < 0)
                     break;
                 bytesUsedb = lena + bytesUsed;
-                for (binda = keys[keyIndex].binding2; *binda && bytesUsedb < 4092; ++binda)
+                for (binda = keys[keyIndex].binding2; *binda && bytesUsedb < KEY_TEMP_BIND_SIZE - 4; ++binda)
                 {
                     if (*binda == 34)
                         myTempBuff[bytesUsedb++] = 92;
@@ -1716,7 +1752,7 @@ void __cdecl Key_WriteBindingsToTempBuf(int localClientNum)
         if (dvar)
         {
             v3 = Dvar_DisplayableValue(dvar);
-            lenb = Com_sprintf(&myTempBuff[bytesUsed], 4092 - bytesUsed, "set %s \"%s\"\n", dvar->name, v3);
+            lenb = Com_sprintf(&myTempBuff[bytesUsed], KEY_TEMP_BIND_SIZE - 4 - bytesUsed, "set %s \"%s\"\n", dvar->name, v3);
             if (lenb < 0)
                 break;
             bytesUsed += lenb;
@@ -1727,8 +1763,12 @@ void __cdecl Key_WriteBindingsToTempBuf(int localClientNum)
 
 void __cdecl Key_RestoreBindingsFromTempBuf(int localClientNum)
 {
-    Cbuf_AddText(localClientNum, myTempBuff);
-    Cbuf_AddText(localClientNum, "\n");
+    // Apply immediately. Queuing this inside dvar_defaults.cfg drops the snapshot when the
+    // command buffer is already full, so the lobby's reset_bindings.cfg becomes the save.
+    int controllerIndex = 0;
+    if (localClientNum >= 0)
+        controllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
+    Cbuf_ExecuteBuffer(localClientNum, controllerIndex, myTempBuff);
 }
 
 void __cdecl Key_WriteBindings(int localClientNum, int f)
@@ -1831,6 +1871,10 @@ cmd_function_s Key_Bindlist_f_VAR;
 
 void __cdecl CL_InitKeyCommands()
 {
+#ifdef KISAK_WEB
+    web_adsBindingVersion = _Dvar_RegisterInt("web_adsBindingVersion", 0, 0, 1, 1,
+        "Version of the browser keyboard/mouse ADS defaults applied to this profile");
+#endif
     Cmd_AddCommandInternal("bind", Key_Bind_f, &Key_Bind_f_VAR);
     Cmd_AddCommandInternal("bind2", Key_Bind2_f, &Key_Bind2_f_VAR);
     Cmd_AddCommandInternal("unbind", Key_Unbind_f, &Key_Unbind_f_VAR);
@@ -2241,7 +2285,8 @@ void __cdecl CL_HandleKeySpectatorInput(int localClientNum, int key)
         case 200:
             v2 = va("+specNext %i\n-specNext %i\n", 200, 200);
             Cbuf_AddText(localClientNum, v2);
-            UI_AnimateItem(localClientNum, &cgDC[localClientNum], "hud_spectator", "CycleNext", "Flash", 1);
+            if ( Menu_FindItemByName(Menus_FindByName(&cgDC[localClientNum], "hud_spectator"), "CycleNext") )
+                UI_AnimateItem(localClientNum, &cgDC[localClientNum], "hud_spectator", "CycleNext", "Flash", 1);
             UI_AnimateItem(localClientNum, &cgDC[localClientNum], "hud_spectator", "SpectatorName", "Flash", 1);
             UI_AnimateItem(
                 localClientNum,

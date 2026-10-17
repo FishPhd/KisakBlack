@@ -33,7 +33,7 @@ set(KISAK_WEB_EXCLUDE_REGEX
     # OS-bound Win32 layer, replaced by src/web/*. The portable src/win32 files
     # (common, content, gamerprofile, localize, stream, tasks, workercmds, ...)
     # are kept.
-    "/src/win32/win_(main|net|syscon|wndproc|input|gamepad|voice|mini_dumper|splash|shared|configure|steam)\\.cpp$"
+    "/src/win32/win_(main|net|syscon|wndproc|input|voice|mini_dumper|splash|shared|configure|steam)\\.cpp$"
     # Real Bink helpers (binkw32 + D3DX shader compile); bink_stub.cpp is used
     "/src/binklib/(binktextures|dx9rad3d)\\.cpp$")
 
