@@ -16,6 +16,7 @@
 # Editor and agent scratch (machine-specific paths, plans, transcripts)
 /.cursor/
 /.vscode/
+/.agents/
 
 # User-specific files
 *.rsuser
