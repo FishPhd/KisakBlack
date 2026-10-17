@@ -841,7 +841,7 @@ bool __cdecl jqPoll(jqBatchGroup *GroupID)
     {
         __debugbreak();
     }
-    return p_group->BatchCount != 0;
+    return jqReadBatchCount(p_group) != 0;
 }
 
 bool __cdecl jqAreJobsQueued(jqBatchGroup *GroupID)
@@ -1917,7 +1917,7 @@ void __cdecl jqFlush(jqBatchGroup *GroupID, unsigned __int64 batchCount)
     while (1)
     {
         // Stop if nothing queued/executing
-        if ((p_group->QueuedBatchCount + p_group->ExecutingBatchCount) == 0)
+        if (jqReadBatchCount(p_group) == 0)
             break;
 
         // Stop if a max `batchCount` was specified and we've hit that limit

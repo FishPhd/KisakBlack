@@ -151,6 +151,17 @@ struct alignas(8) jqBatchGroup // sizeof=0x8
 };
 static_assert(alignof(jqBatchGroup) == 8, "jqBatchGroup must be 8-byte aligned for atomic 64-bit reads");
 
+inline unsigned __int64 jqReadBatchCount(const jqBatchGroup *group) {
+#ifdef KISAK_WEB
+    // Observe queued/executing counters together. Separate loads can combine
+    // values from opposite sides of a queue/execution transition and report
+    // completion while a job still owns its input memory.
+    return __atomic_load_n(&group->BatchCount, __ATOMIC_ACQUIRE);
+#else
+    return group->BatchCount;
+#endif
+}
+
 struct jqModule // sizeof=0x18
 {                                       // XREF: .data:jqModule bp_env_jq_module1Module/r
                                         // .data:jqModule bp_env_jq_module2Module/r ...
