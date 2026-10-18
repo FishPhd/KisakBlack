@@ -5,6 +5,11 @@ An open source fully-buildable reimplementation of Call of Duty Black ops's Mult
 
 Aimed towards mod developers and BLOPS enthusiasts.
 
+For function-by-function comparison with the original multiplayer executable, see
+the [original-binary verification workflow](tools/re/README.md). It includes local
+setup, binary/source mappings, native and emulated reference execution, C++/Wasm
+comparisons, and instructions for future agent changes.
+
 ### Development Blog
 Learn about the Development of KisakBlack here: [https://lwss.github.io/Kisak-Black/](https://lwss.github.io/Kisak-Black/)
 

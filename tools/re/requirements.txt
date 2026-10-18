@@ -1,0 +1,4 @@
+unicorn==2.1.4
+capstone==5.0.6
+pefile==2024.8.26
+frida==17.24.1

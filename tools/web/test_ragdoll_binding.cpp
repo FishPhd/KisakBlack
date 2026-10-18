@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdio>
 int main() {
+    assert(RAGDOLL_BONE_UNRESOLVED == 254);
     assert(Ragdoll_ValidAnimBone(0,111));
     assert(Ragdoll_ValidAnimBone(110,111));
     assert(!Ragdoll_ValidAnimBone(111,111));

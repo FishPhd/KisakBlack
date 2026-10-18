@@ -2,6 +2,7 @@
 #include "com_math.h"
 
 #include <cfloat>
+#include <bit>
 #include "q_shared.h"
 
 PackedUnitVec __cdecl Vec3PackUnitVec(const float *unitVec)
@@ -125,16 +126,19 @@ int __cdecl FloatPack9S(float unitFloat)
 {
     float v1; // xmm0_4
 
-    v1 = (unitFloat - -49344.75294117647) / 16448.25098039216;
-    return LOWORD(v1) & 0x1FF;
+    // BlackOpsMP 0x637ae4: SUBSD/MULSD, then round to float. Dividing
+    // by the decompiler's decimal denominator changes packing at boundaries.
+    v1 = static_cast<float>((static_cast<double>(unitFloat) + 0x1.8181818181818p+15) * 0x1.fe00000000000p-15);
+    return std::bit_cast<unsigned int>(v1) & 0x1FF;
 }
 
 int __cdecl FloatPack10S(float unitFloat)
 {
     float v1; // xmm0_4
 
-    v1 = (unitFloat - -24624.0939334638) / 8208.031311154598;
-    return LOWORD(v1) & 0x3FF;
+    // Exact doubles from original VA 0xa77150 and 0xab9cd8; see tools/re.
+    v1 = static_cast<float>((static_cast<double>(unitFloat) + 0x1.80c06030180c0p+14) * 0x1.ff00000000000p-14);
+    return std::bit_cast<unsigned int>(v1) & 0x3FF;
 }
 
 PackedTexCoords __cdecl Vec2PackTexCoords(const float *in)

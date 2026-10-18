@@ -44,6 +44,7 @@
 #include <cgame/cg_hudelem.h>
 #include <cgame_mp/cg_servercmds_mp.h>
 #include <cgame_mp/cg_newDraw_mp.h>
+#include <cgame_mp/cg_ents_mp.h>
 #include <universal/com_memory.h>
 #include <universal/physicalmemory.h>
 #include <universal/q_parse.h>
@@ -1015,6 +1016,13 @@ static void Web_ObserveTick()
                 << ",\"origin\":[" << ent.r.currentOrigin[0] << ',' << ent.r.currentOrigin[1] << ',' << ent.r.currentOrigin[2]
                 << "],\"physics\":" << (ent.physObjId && ent.physObjId != -1 ? "true" : "false");
             if (ent.client) out << ",\"team\":" << ent.client->sess.cs.team;
+            if (ent.s.eType == ET_PLAYER_CORPSE) {
+                const auto *cent = CG_GetEntity(0, i);
+                out << ",\"clientOrigin\":[" << cent->pose.origin[0] << ',' << cent->pose.origin[1] << ',' << cent->pose.origin[2]
+                    << "],\"trajectory\":{\"type\":" << int(ent.s.lerp.pos.trType) << ",\"time\":" << ent.s.lerp.pos.trTime
+                    << ",\"base\":[" << ent.s.lerp.pos.trBase[0] << ',' << ent.s.lerp.pos.trBase[1] << ',' << ent.s.lerp.pos.trBase[2]
+                    << "],\"velocity\":[" << ent.s.lerp.pos.trDelta[0] << ',' << ent.s.lerp.pos.trDelta[1] << ',' << ent.s.lerp.pos.trDelta[2] << "]}";
+            }
             if (ent.scr_vehicle)
             {
                 const auto &veh = *ent.scr_vehicle;
@@ -1029,7 +1037,17 @@ static void Web_ObserveTick()
         {
             if (!first) out << ',';
             first = false;
-            out << "{\"entity\":" << body->dobj << ",\"state\":" << body->state << ",\"bones\":" << body->numBones << '}';
+            const cpose_t *pose = Ragdoll_BodyPose(body);
+            const BoneOrientation *bones = body->boneOrientations[body->curOrientationBuffer];
+            out << "{\"entity\":" << body->dobj << ",\"state\":" << body->state << ",\"bones\":" << body->numBones
+                << ",\"pose\":[" << pose->origin[0] << ',' << pose->origin[1] << ',' << pose->origin[2]
+                << "],\"root\":[" << bones[0].origin[0] << ',' << bones[0].origin[1] << ',' << bones[0].origin[2]
+                << "],\"boneOrigins\":[";
+            for (int i = 0; i < body->numBones; ++i) {
+                if (i) out << ',';
+                out << '[' << bones[i].origin[0] << ',' << bones[i].origin[1] << ',' << bones[i].origin[2] << ']';
+            }
+            out << "]}";
         }
         out << "],\"hitmarkers\":[";
         hudelem_s *elems[1025];

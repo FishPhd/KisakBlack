@@ -5486,10 +5486,12 @@ void __cdecl RB_InitCodeImages()
     RB_InitSingleCodeImage(TEXTURE_SRC_CODE_DLIGHT_ATTENUATION,       0,                                                        0,                                   "dlightAttenuationSampler");
     RB_InitSingleCodeImage(TEXTURE_SRC_CODE_OUTDOOR,                  0,                                                        98,                                  "TEXTURE_SRC_CODE_OUTDOOR");
     RB_InitSingleCodeImage(TEXTURE_SRC_CODE_FLOATZ,                   gfxRenderTargets[R_RENDERTARGET_FLOAT_Z].image,           97,                                  "floatz");
-    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_Y,              0,                                                        98,                                  "cinematicY");
-    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_CR,             0,                                                        98,                                  "cinematicCr");
-    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_CB,             0,                                                        98,                                  "cinematicCb");
-    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_A,              0,                                                        98,                                  "cinematicA");
+    // World surfaces can use cinematic materials before a movie starts, including
+    // builds without Bink. Keep valid black YCbCr planes and transparent alpha.
+    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_Y,              rgp.blackImage,                                           98,                                  "cinematicY");
+    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_CR,             rgp.grayImage,                                            98,                                  "cinematicCr");
+    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_CB,             rgp.grayImage,                                            98,                                  "cinematicCb");
+    RB_InitSingleCodeImage(TEXTURE_SRC_CODE_CINEMATIC_A,              rgp.blackImage,                                           98,                                  "cinematicA");
     RB_InitSingleCodeImage(TEXTURE_SRC_CODE_TERRAIN_SCORCH_TEXTURE_0, 0,                                                        10,                                  "terrainScorchTexture0");
     RB_InitSingleCodeImage(TEXTURE_SRC_CODE_TERRAIN_SCORCH_TEXTURE_1, 0,                                                        10,                                  "terrainScorchTexture1");
     RB_InitSingleCodeImage(TEXTURE_SRC_CODE_TERRAIN_SCORCH_TEXTURE_2, 0,                                                        10,                                  "terrainScorchTexture2");

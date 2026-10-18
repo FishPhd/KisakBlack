@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Original native PM_Accelerate independently replayed with Unicorn 2.1.4",
+  "cases": [
+    {
+      "function": "PM_Accelerate",
+      "input_u32": [8, 1137180672, 3248488448, 1084227584, 0, 0, 0, 1128136704, 1091567616, 1015222895, 1120403456, 8, 0, 0, 0, 0],
+      "expected_u32": [1127573760, 3239125194, 1074864330, 8],
+      "observed_cpp_u32": [1127573758, 3239125194, 1074864330, 8],
+      "status": "known_mismatch",
+      "note": "Synthetic eight-step stateful fixture. No live gameplay coverage is implied."
+    }
+  ]
+}

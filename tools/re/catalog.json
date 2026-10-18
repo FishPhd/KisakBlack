@@ -1,0 +1,211 @@
+{
+  "schema": 1,
+  "reference": {
+    "filename": "BlackOpsMP.exe",
+    "sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+    "machine": "x86",
+    "image_base": 4194304
+  },
+  "functions": [
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x237ae4",
+      "name": "FloatPack9S",
+      "entry_rva": 2325220,
+      "stop_rva": 2325253,
+      "mapping_status": "verified",
+      "kind": "inline_region",
+      "code": [
+        {
+          "rva": 2325220,
+          "size": 33,
+          "sha256": "acef9a577e151ec5f54f026f7225da346685617e49917d183ea624ce4e3f8c01"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6711568,
+          "size": 8,
+          "sha256": "93359072df9f54196d000bbe90e0c3352faacca44ded51ab912e741dee9b31b3"
+        },
+        {
+          "rva": 6954672,
+          "size": 8,
+          "sha256": "03ff9a37f649e0e62cf215b9a9fa4eb3482d87705ab5fd31ea29f49640025d57"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/universal/com_pack.cpp",
+          "symbol": "FloatPack9S"
+        }
+      ],
+      "abi": "XMM1.low32 input; XMM1.low32 & 0x1ff output; scratch stack 0x40 bytes",
+      "output_words": 1,
+      "comparison": "bitwise",
+      "coverage": "One original inline arithmetic occurrence; does not qualify all Vec4PackQuat paths.",
+      "evidence": "In Vec4PackQuat at VA 0x6379a0. CVTPS2PD/SUBSD/MULSD/CVTPD2PS computes FloatPack9S; original AND ECX,0x1ff at 0x637b4f confirms projection. The interleaved MULSS XMM2,XMM4 affects an unobserved register.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x237b15",
+      "name": "FloatPack10S",
+      "entry_rva": 2325269,
+      "stop_rva": 2325301,
+      "mapping_status": "verified",
+      "kind": "inline_region",
+      "code": [
+        {
+          "rva": 2325269,
+          "size": 32,
+          "sha256": "9a2d5c3b9aafe5eded2b38100a75342466effc433d1fd18928dba292d77fa04a"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6779216,
+          "size": 8,
+          "sha256": "844a9f63d689260a33cc5c9a244787497a6fcba8847988911148ad1fe4031c91"
+        },
+        {
+          "rva": 7052504,
+          "size": 8,
+          "sha256": "939d8eebf09e492047f1fb489d0f0f9c44a024c5ddd0608067c56d7eff358a1a"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/universal/com_pack.cpp",
+          "symbol": "FloatPack10S"
+        }
+      ],
+      "abi": "XMM2.low32 input; XMM1.low64 original constant from VA 0xa77150; XMM4.low32 & 0x3ff output",
+      "output_words": 1,
+      "comparison": "bitwise",
+      "coverage": "One original inline arithmetic occurrence; the other inline occurrence is not separately qualified.",
+      "evidence": "In Vec4PackQuat. CVTPS2PD XMM4,XMM2; original constant load into XMM2; SUBSD/MULSD/CVTPD2PS; original AND EDX,0x3ff at 0x637b55 confirms projection. Interleaved XMM0 work is unobserved.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1baf80",
+      "name": "Vec2UnpackTexCoords",
+      "entry_rva": 1814400,
+      "stop_rva": null,
+      "mapping_status": "verified",
+      "kind": "function",
+      "code": [
+        {
+          "rva": 1814400,
+          "size": 152,
+          "sha256": "7ebdc353d53e126884e672e90bf111e6bc2856d1b283c6f9ff50813b02ba5414"
+        }
+      ],
+      "constants": [],
+      "sources": [
+        {
+          "path": "src/universal/com_pack.cpp",
+          "symbol": "Vec2UnpackTexCoords"
+        }
+      ],
+      "abi": "cdecl(uint32 packed, float out[2]); output pointer on stack",
+      "output_words": 2,
+      "comparison": "bitwise",
+      "coverage": "Full original function for the supplied corpus.",
+      "evidence": "Both 16-bit halves tested for zero; sign/exponent/mantissa shifts and masks match Vec2UnpackTexCoords. Original XOR 0x80000001 differs in a bit discarded by SHR 1. Full entry through RET mapped.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3d2e10",
+      "name": "Byte4UnpackRgba",
+      "entry_rva": 4009488,
+      "stop_rva": 4009562,
+      "mapping_status": "verified",
+      "kind": "inline_region",
+      "code": [
+        {
+          "rva": 4009488,
+          "size": 74,
+          "sha256": "beb4d4a2f2d0ce23544ea5e7fa2cf692258fee01499f42bf022113df8e8c3945"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6594276,
+          "size": 4,
+          "sha256": "52c37b242f7ae8185a2b223b5b9d0b8772d97180a46b1d6a4d6c8b018c803d64"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/universal/com_pack.cpp",
+          "symbol": "Byte4UnpackRgba"
+        }
+      ],
+      "abi": "ECX -> four input bytes; EAX -> four float outputs",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Inline RGBA conversion prefix only; enclosing renderer color-scaling behavior is excluded.",
+      "evidence": "Four MOVZX/CVTSI2SS/MULSS/MOVSS groups match RGBA unpacking. Stop before a renderer-specific global read and optional color scaling at VA 0x7d2e5a.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3b0e30",
+      "name": "PM_Accelerate",
+      "entry_rva": 3870256,
+      "stop_rva": null,
+      "mapping_status": "verified",
+      "kind": "function",
+      "code": [
+        {
+          "rva": 3870256,
+          "size": 378,
+          "sha256": "675e0b005bfd1b1489ffb18fefcdfe4b3667cd44e1b3878165fbe504a4638a79"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        },
+        {
+          "rva": 6419008,
+          "size": 16,
+          "sha256": "df141773470ba96aff5d6e9264a0bd638c9c6f3bb7ad30881cf4db943b5dd021"
+        },
+        {
+          "rva": 7975352,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "globals": [
+        {
+          "rva": 8714332,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_pmove.cpp",
+          "symbol": "PM_Accelerate"
+        },
+        {
+          "path": "src/universal/com_math.cpp",
+          "symbol": "Vec3Normalize"
+        }
+      ],
+      "abi": "ECX=wishdir; EDX=pml; stack=(ps,wishspeed,accel). ps flags+0xc, velocity+0x30; pml frametime+0x24; global stopspeed VA 0xc4f85c, current.value+0x18.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Full original function with synthetic player-state fixtures and repeated steps. Live gameplay capture is tracked separately.",
+      "evidence": "Entry tests pm_flags bit 8; both branches update only velocity. ECX direction and EDX pml confirmed from accesses and caller at VA 0x7b103f. Normalization is inlined. All arithmetic, globals and branch destinations inspected with Capstone; layouts are compile-time asserted against production headers.",
+      "depends_on": [],
+      "exceptions": []
+    }
+  ]
+}

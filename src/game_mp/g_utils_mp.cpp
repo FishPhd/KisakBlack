@@ -1809,7 +1809,6 @@ void __cdecl G_FreeEntity(gentity_s *ed)
     XAnimTree_s *tree; // [esp+0h] [ebp-8h]
     int useCount; // [esp+4h] [ebp-4h]
 
-    G_ClearScriptedAnimation(ed);
     G_EntUnlink(ed);
     while ( ed->tagChildren )
         G_EntUnlink(ed->tagChildren);

@@ -2263,7 +2263,7 @@ void CheckPreparation() {
     if (PreparationProfile() != preparedProfile) {
         if (rgp.world && !preparedMap.empty() && preparedMap != "@frontend")
             WarmMap(preparedMap.c_str(), 0);
-        } else WarmFrontend();
+        else WarmFrontend();
         return;
     }
     if (preparationMode != 2 || !DB_FinishedLoadingAssets()) return;

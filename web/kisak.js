@@ -3,6 +3,7 @@ import { GameTransport } from "./transport.js";
 import { startGpuRecipeCache } from "./gpu-cache.js";
 import {preparationMode, residentStaticImages, pipelineNostall, preparationReadiness, preparationMessage} from './gpu-preparation.js';
 import { mouseButtonChanges, nextMouseMask } from "./mouse-buttons.js";
+import { MouseMotion } from "./mouse-motion.js";
 import { gamepadPoller } from "./gamepad.js";
 import { fitResolution, savedSettings, graphicsBootSettings, fullscreenSync } from "./graphics-settings.js";
 import {installationEntries, verifyStream, digest, receiptMatches, verificationReceipt, assetNetworkGuard} from './asset-install.js';
@@ -1265,6 +1266,9 @@ function enterPlay() {
   // Plain lock stays inside the click. unadjustedMovement rejects on these Chrome
   // windows, and the old fallback ran after the gesture, so the pointer never locked
   // and every gameplay click was discarded.
+  const motion = new MouseMotion();
+  window.addEventListener('resize', () => motion.reset());
+  document.addEventListener('fullscreenchange', () => motion.reset());
   const requestGameLock = () => {
     try {
       const pending = canvas.requestPointerLock();
@@ -1323,9 +1327,10 @@ function enterPlay() {
     if (!wantsCapture() && locked()) document.exitPointerLock();
     syncCursor();
     if (locked() || wantsCapture()) {
-      const dx = Math.round(e.movementX), dy = Math.round(e.movementY);
+      const [dx, dy] = motion.sample(e, locked(), true);
       if (dx || dy) call("_Kisak_MouseMove", dx, dy);
     } else {
+      motion.sample(e, false, false);
       const [x, y] = toCanvas(e);
       call("_Kisak_MousePos", x, y);
     }
@@ -1362,12 +1367,14 @@ function enterPlay() {
   // A right-click can also drop the lock. That is not Esc; synthesizing it opens the
   // pause menu and the latched click never reaches the game.
   document.addEventListener("pointerlockchange", () => {
+    motion.reset();
     if (!locked() && performance.now() - lastEscape > 150 && performance.now() - rightButtonAt > 400) {
       const wants = state.mod?._Kisak_WantsMouseCapture ? state.mod._Kisak_WantsMouseCapture() : 0;
       if (wants) { call("_Kisak_Key", 27, 1); call("_Kisak_Key", 27, 0); }
     }
   });
   window.addEventListener("blur", () => {
+    motion.reset();
     clearAgentLook();
     // A blur that does not unfocus the document (a right-click does this) must
     // not drop held buttons. Forgetting them made the real mouseup a no-op, and
@@ -1381,6 +1388,7 @@ function enterPlay() {
   });
   window.addEventListener("focus", () => engage());
   document.addEventListener("visibilitychange", () => {
+    motion.reset();
     if (document.hidden) {
       clearAgentLook();
       mouseMask = 0;

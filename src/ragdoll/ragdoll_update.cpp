@@ -74,7 +74,7 @@ char __cdecl Ragdoll_RebindBody(int ragdollHandle)
     {
         bone->parentBone = boneDef->parentBone;
         bone->animBones[1] = 0;
-        bone->animBones[0] = 255;
+        bone->animBones[0] = RAGDOLL_BONE_UNRESOLVED;
         if ( DObjGetBoneIndex(obj, boneDef->animBoneNames[0], bone->animBones, -1) && bone->animBones[0] != 255 )
         {
             if ( !boneDef->animBoneNames[1] )
@@ -946,7 +946,7 @@ char __cdecl Ragdoll_CreatePhysObj(RagdollBody *body, BoneDef *boneDef, Bone *bo
     iassert(def->bound);
     iassert(boneDef->animBoneNames[0]);
 
-    bone->animBones[0] = 255;
+    bone->animBones[0] = RAGDOLL_BONE_UNRESOLVED;
     bone->animBones[1] = 0;
 
     if ( !DObjGetBoneIndex(obj, boneDef->animBoneNames[0], bone->animBones, -1) || bone->animBones[0] == 255 )
@@ -1599,7 +1599,7 @@ bool __cdecl Ragdoll_ExitDObjWait(RagdollBody *body, RagdollBodyState prevState,
     {
         bone->parentBone = boneDef->parentBone;
         bone->animBones[1] = 0;
-        bone->animBones[0] = 255;
+        bone->animBones[0] = RAGDOLL_BONE_UNRESOLVED;
         if ( DObjGetBoneIndex(obj, boneDef->animBoneNames[0], bone->animBones, -1) && bone->animBones[0] != 255 )
         {
             if ( !boneDef->animBoneNames[1] )

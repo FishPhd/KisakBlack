@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Original native instruction regions independently replayed with Unicorn 2.1.4",
+  "cases": [
+    {"function": "FloatPack9S", "input_u32": [1056964608, 0, 0, 0], "expected_u32": [128, 0, 0, 0], "previous_cpp_u32": [127, 0, 0, 0]},
+    {"function": "FloatPack10S", "input_u32": [3204448256, 0, 0, 0], "expected_u32": [768, 0, 0, 0], "previous_cpp_u32": [769, 0, 0, 0]}
+  ]
+}

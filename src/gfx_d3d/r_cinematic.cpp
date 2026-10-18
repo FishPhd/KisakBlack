@@ -1579,8 +1579,8 @@ void __cdecl R_Cinematic_UpdateFrame(bool force_wait)
 void R_Cinematic_UpdateRendererImages()
 {
 #ifdef KISAK_NO_BINK
-    // No movie frames exist. Binding the black cinematic code images paints a black screen over
-    // the loading UI until something else replaces them.
+    // RB_InitCodeImages supplies valid black/transparent planes. No decoded
+    // frames exist to replace them in this build.
     return;
 #endif
     if ( cinematicGlob.activeImageFrame == -1 )

@@ -143,15 +143,20 @@ char __cdecl SD_Init()
             slot.pan[3].gain.value = p3 / 1000;
             if (slot.gain) slot.gain.gain.value = gain / 1000;
         }
-        // World bus is snd_master comp*; voice bus is limit*. DynamicsCompressorNode
-        // is unity below its threshold, so the below-threshold dynamo gain M is the
-        // post gain together with compMG / limitMG. M is SND_DspLog/SND_DspExp of
+        // World bus is snd_master comp*; voice bus is limit*. Cancel Web Audio's
+        // automatic makeup before applying the engine's own makeup. M is SND_DspLog/SND_DspExp of
         // log(TH)*(1/R-1), the truncated series SND_DspDynamo actually runs. The closed
         // form TH^(1/R-1) is several times larger for a low threshold and would put
         // full-scale peaks back to unity. The node itself still uses a real log ratio
         // (clamped to 1..20) and is stereo-linked; attack/release are clamped to 0..1s.
-        // A mix limiter (threshold -1 dB, ratio 20, attack 0) keeps makeup and stacked
-        // voices from hard-clipping the destination. Reverb is not applied.
+        // The mix compressor also needs output headroom: ratio 20 is not a brick
+        // wall, and both its finite ratio and attack allow peaks above threshold.
+        // Reverb is not applied.
+        function kisakMakeupInverse(threshold, ratio) {
+            // Zero-knee full-scale makeup used by Blink and WebKit:
+            // https://chromium.googlesource.com/chromium/blink/+/HEAD/Source/platform/audio/DynamicsCompressorKernel.cpp
+            return Math.pow(10, threshold * (1 - 1 / ratio) * 0.6 / 20);
+        }
         function kisakDspLog(m) {
             const x = (m - 1) / (m + 1);
             return x + (x * x * x) / 3;
@@ -193,7 +198,7 @@ char __cdecl SD_Init()
             if (!(release >= 0) || !isFinite(release)) release = 0.05;
             if (release > 1) release = 1;
             curve.pre = pre;
-            curve.post = post;
+            curve.post = post * kisakMakeupInverse(thDb, rNode);
             curve.threshold = thDb;
             curve.ratio = rNode;
             curve.attack = attack;
@@ -248,6 +253,7 @@ char __cdecl SD_Init()
             Module.kisakBuses = null;
             if (!buses) return;
             try { if (buses.limit) buses.limit.disconnect(); } catch (e) {}
+            try { if (buses.output) buses.output.disconnect(); } catch (e) {}
             try { if (buses.mix) buses.mix.disconnect(); } catch (e) {}
             try { if (buses.world && buses.world.post) buses.world.post.disconnect(); } catch (e) {}
             try { if (buses.world && buses.world.comp) buses.world.comp.disconnect(); } catch (e) {}
@@ -270,16 +276,21 @@ char __cdecl SD_Init()
             limit.ratio.value = 20;
             limit.attack.value = 0;
             limit.release.value = 0.05;
+            const output = ctx.createGain();
+            // Six dB of headroom for stacked transients beyond the 20:1 curve.
+            output.gain.value = 0.5 * kisakMakeupInverse(-1, 20);
             world.post.connect(mix);
             voice.post.connect(mix);
             mix.connect(limit);
-            limit.connect(ctx.destination);
+            limit.connect(output);
+            output.connect(ctx.destination);
             const buses = {};
             buses.ctx = ctx;
             buses.world = world;
             buses.voice = voice;
             buses.mix = mix;
             buses.limit = limit;
+            buses.output = output;
             Module.kisakBuses = buses;
             if (Module.kisakBusParams) kisakApplyBusParams(Module.kisakBusParams);
             return buses;
