@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1f170",
+  "capture_id": "0beeb7662de36f034c32cce046b494eea92b0495f7bc87587a9e041e8bfd9164",
+  "provenance": {
+    "reference": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+    "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1f170",
+    "mapping": "c451cc21a170ea89b261df4bbc2861bf1107b1be2b3314944f285dbc0839ce69",
+    "source": "7a2bc2223e1fb20ddc0553a8ca8097ef106deb9412b98de8aa6940946b375a37",
+    "tools": {
+      "unicorn": "2.1.4",
+      "capstone": "5.0.6",
+      "pefile": "2024.8.26",
+      "frida": "17.24.1"
+    }
+  },
+  "index": 3,
+  "input_u32": [
+    1092616192,
+    0,
+    0,
+    0,
+    1090519040,
+    1073741824,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "expected_u32": [
+    3225419776,
+    1084227584,
+    0,
+    0
+  ],
+  "actual_u32": [
+    0,
+    1073741824,
+    0,
+    0
+  ],
+  "first_word": 0
+}

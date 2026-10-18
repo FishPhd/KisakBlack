@@ -85,8 +85,31 @@ def first_difference(cases, expected, actual):
     return None
 
 
+def agreement(expected, actual):
+    """Exact whole-output agreement; never partial credit for matching words."""
+    if len(expected) != len(actual) or not expected:
+        raise Blocked("Empty corpus or result count mismatch")
+    matched = sum(list(want) == list(got) for want, got in zip(expected, actual))
+    return {"matched_cases": matched, "mismatched_cases": len(expected) - matched,
+            "agreement_percent": 100 * matched / len(expected)}
+
+
+def accuracy_summary(rows):
+    measured = [r for r in rows if r.get("status") in ("pass", "mismatch")
+                and r.get("emulator_qualified") is True and "agreement_percent" in r]
+    cases = sum(r["cases"] for r in measured)
+    matched = sum(r["matched_cases"] for r in measured)
+    return {"measured_units": len(measured), "reported_units": len(rows),
+            "matched_cases": matched, "tested_cases": cases,
+            "equal_unit_agreement_percent": sum(r["agreement_percent"] for r in measured) / len(measured) if measured else None,
+            "pooled_case_agreement_percent": 100 * matched / cases if cases else None,
+            "whole_game_accuracy_percent": None,
+            "meaning": "Equal-unit mean over measured functions/inline regions only. Pooled score weights every fixture equally. Neither estimates whole-game accuracy; unknown and blocked units are excluded, never passed."}
+
+
 def verify_one(f, binary=None, wasm=False):
-    row = {"name": f["name"], "function": f["id"], "status": "unverified", "coverage": f["coverage"]}
+    row = {"name": f["name"], "function": f["id"], "status": "unverified", "coverage": f["coverage"],
+           "kind": f["kind"], "sources": f["sources"]}
     if f.get("mapping_status") != "verified":
         row["reason"] = f.get("blocked_reason", "Unverified binary mapping")
         return row
@@ -105,6 +128,7 @@ def verify_one(f, binary=None, wasm=False):
             return row
         actual = native.execute(f, cases, wasm=wasm)
         mismatch = first_difference(cases, expected, actual)
+        row.update(agreement(expected, actual))
         row["status"] = "mismatch" if mismatch else "pass"
         if mismatch:
             row.update(classification="cpp_or_abi", mismatch=mismatch)
@@ -122,7 +146,8 @@ def report(rows, path=None):
     default = path is None
     path = Path(path or WORK / "reports" / f"run-{time.time_ns()}.json")
     value = {"schema": SCHEMA, "created_unix": int(time.time()), "results": rows,
-             "meaning": "Pass applies only to the stated corpus and coverage, not universal equivalence."}
+             "meaning": "Pass applies only to the stated corpus and coverage, not universal equivalence.",
+             "accuracy": accuracy_summary(rows)}
     write_json(path, value)
     if default:
         # The stable latest snapshot is a convenience. Every caller also gets
@@ -131,6 +156,7 @@ def report(rows, path=None):
     sections = ["<!doctype html><meta charset=utf-8><title>Kisak binary verification</title>",
                 "<style>body{font:16px system-ui;max-width:1000px;margin:40px auto;padding:0 20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eee;padding:16px}article{border-top:1px solid #ccc;margin-top:24px}</style>",
                 f"<h1>Kisak binary verification</h1><p>Historical observation generated at Unix time {value['created_unix']}. Rerun verification after changes. Pass applies to the recorded inputs and stated coverage. Unverified and blocked results are never passes.</p>"]
+    sections += ["<h2>Measured behavioral agreement</h2><pre>" + html.escape(json.dumps(value["accuracy"], indent=2)) + "</pre>"]
     for row in rows:
         sections += [f"<article><h2>{html.escape(row['name'])}: {html.escape(row['status'])}</h2>",
                      f"<p>{html.escape(row.get('coverage', ''))}</p>",
@@ -152,6 +178,9 @@ def current_results(rows):
                 row.update(previous_status=row["status"], status="blocked", reason="Historical result is stale; rerun verification")
         except (Blocked, KeyError):
             row.update(previous_status=row["status"], status="blocked", reason="Mapping is no longer available")
+        if row["status"] == "blocked":
+            for key in ("agreement_percent", "matched_cases", "mismatched_cases"):
+                row.pop(key, None)
     return result
 
 

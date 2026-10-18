@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "status": "inferred_candidates_not_original_build_settings",
+  "evidence": "Pinned BlackOpsMP PE reports linker version 9.0 and contains scalar SSE/SSE2 code. No compiler patch version, PDB, object files or original build flags are available.",
+  "profiles": {
+    "vc9-sse2-fast": ["/nologo", "/c", "/O2", "/Oi", "/Oy", "/GS-", "/Gy", "/arch:SSE2", "/fp:fast"],
+    "vc9-sse2-precise": ["/nologo", "/c", "/O2", "/Oi", "/Oy", "/GS-", "/Gy", "/arch:SSE2", "/fp:precise"]
+  }
+}

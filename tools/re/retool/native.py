@@ -7,7 +7,8 @@ import shutil
 from .core import ROOT, WORK, Blocked, canonical_hash, digest, run, write_json, read_json, reference, check_mapping, source_identity, functions
 from .cases import encode, decode_results
 
-KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4UnpackRgba": 3, "PM_Accelerate": 4}
+KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4UnpackRgba": 3, "PM_Accelerate": 4,
+         "FX_SetupVisualState": 5, "ExpandBoundsToWidth": 6, "FX_GetVelocityAtTime": 7}
 
 
 def relocations(f, pe):
@@ -24,7 +25,7 @@ def relocations(f, pe):
             if (ins.group(1) or ins.group(2)) and not any(o.type == CS_OP_IMM for o in ins.operands):
                 raise Blocked(f"Unsupported native indirect control flow at {ins.address:#x}")
             for operand in ins.operands:
-                if operand.type == CS_OP_MEM and not operand.mem.base and not operand.mem.index:
+                if operand.type == CS_OP_MEM and not operand.mem.base:
                     rva = operand.mem.disp - base
                     if ins.disp_size != 4 or not any(r["rva"] <= rva and rva + operand.size <= r["rva"] + r["size"] for r in f.get("constants", []) + f.get("globals", [])):
                         raise Blocked(f"Unsupported native absolute reference at {ins.address:#x}")

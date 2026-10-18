@@ -1909,24 +1909,17 @@ void __cdecl ExtendBounds(float *mins, float *maxs, const float *offset)
 
 void __cdecl ExpandBoundsToWidth(float *mins, float *maxs)
 {
-    float v2; // [esp+0h] [ebp-18h]
-    float diff; // [esp+4h] [ebp-14h]
-    float size_8; // [esp+14h] [ebp-4h]
-
-    // Cleared bounds are mins > maxs. Expanding them asserted and could grow
-    // an empty box. Leave them unchanged.
-    if ( *maxs < *mins || maxs[1] < mins[1] || maxs[2] < mins[2] )
-        return;
-    size_8 = maxs[2] - mins[2];
-    if ( (float)((float)(*maxs - *mins) - (float)(maxs[1] - mins[1])) < 0.0 )
-        v2 = maxs[1] - mins[1];
-    else
-        v2 = *maxs - *mins;
-    if ( v2 > size_8 )
+    // BlackOpsMP 0x41f170: no cleared-bounds guard. The SUBSS/COMISS/JAE
+    // selection also chooses Y when the width difference is unordered.
+    const float widthX = maxs[0] - mins[0];
+    const float widthY = maxs[1] - mins[1];
+    const float height = maxs[2] - mins[2];
+    const float width = widthX - widthY >= 0.0f ? widthX : widthY;
+    if (width > height)
     {
-        diff = (float)(v2 - size_8) * 0.5;
+        const float diff = (width - height) * 0.5f;
         mins[2] = mins[2] - diff;
-        maxs[2] = maxs[2] + diff;
+        maxs[2] = diff + maxs[2];
     }
 }
 

@@ -1,5 +1,11 @@
 # Original-binary verification
 
+For a full-application structural scan and interactive function drill-down, see
+[Whole-application binary comparison](BINARY-DIFF.md). Run
+`tools/re/re.ps1 binary-diff --candidate build-release/KisakBlack.exe` after its
+one-time setup. That score measures compiled-code similarity; the workflow below
+measures behavioral agreement for explicitly mapped functions.
+
 This local Windows workflow compares selected original x86 instructions, Unicorn
 execution, production MSVC x86 C++, and Emscripten Wasm. The reference is the exact
 `BlackOpsMP.exe` SHA-256 recorded in `catalog.json`. A different game version needs
@@ -119,6 +125,15 @@ agreement over that corpus and stated coverage, not universal equivalence.
 Each verification returns its own report path so concurrent agent runs retain
 their results. `latest.json` is an atomically published convenience snapshot;
 agents should retain the specific path returned by their invocation.
+
+Reports include exact whole-output matching and mismatching case counts and
+`agreement_percent` for each unit after its emulator is qualified against the
+native capture. The `accuracy` summary reports both an equal-unit mean and a
+pooled case percentage. The latter can be dominated by large packing corpora.
+These percentages describe the tested functions/inline regions and inputs only;
+whole-game accuracy remains unknown. Blocked, unverified, and stale results do
+not contribute to either percentage. Instruction/structural similarity is not
+measured by these behavioral scores.
 
 The movement pilot uses original structure offsets checked against production
 headers, both flag branches, speed caps, zero direction, varying frame times,

@@ -54,10 +54,23 @@ class Emulator:
         allowed = [(SP - 0x1000, SP + 0x100)]
         if write:
             allowed.append((DATA + 0x100, DATA + 0x100 + self.f["output_words"] * 4))
+            if self.f["name"] == "FX_SetupVisualState":
+                allowed.append((DATA + 0x100, DATA + 0x11c))
+            if self.f["name"] == "ExpandBoundsToWidth":
+                allowed += [(DATA + 0x108, DATA + 0x10c), (DATA + 0x114, DATA + 0x118)]
+            if self.f["name"] == "FX_GetVelocityAtTime":
+                allowed.append((DATA + 0x100, DATA + 0x10c))
             if self.f["name"] == "PM_Accelerate":
                 allowed.append((DATA + 0x1030, DATA + 0x103C))
         else:
             allowed += self.constants + [(DATA, DATA + 16), (DATA + 0x100, DATA + 0x110)]
+            if self.f["name"] == "FX_SetupVisualState":
+                allowed.append((DATA + 0x1000, DATA + 0x1124))
+            if self.f["name"] == "ExpandBoundsToWidth":
+                allowed.append((DATA + 0x100, DATA + 0x118))
+            if self.f["name"] == "FX_GetVelocityAtTime":
+                allowed += [(DATA + 0x1000, DATA + 0x1124), (DATA + 0x1200, DATA + 0x1230),
+                            (DATA + 0x1300, DATA + 0x130c), (DATA + 0x2000, DATA + 0x8060)]
             if self.f["name"] == "PM_Accelerate":
                 allowed += [(DATA + 0x1000, DATA + 0x1000 + 0x26A4),
                             (DATA + 0x200, DATA + 0x200 + 0x8C), (DATA + 0x300, DATA + 0x320)]
@@ -90,6 +103,37 @@ class Emulator:
                 m.mem_write(DATA + 0x100, struct.pack("<I", case[0]))
             m.reg_write(x.UC_X86_REG_ECX, DATA + 0x100 if case[1] else DATA)
             m.reg_write(x.UC_X86_REG_EAX, DATA + 0x100)
+        elif name == "FX_GetVelocityAtTime":
+            life, elapsed = struct.unpack("<2f", struct.pack("<2I", *case[2:4]))
+            if not (1 <= case[0] <= 255 and case[4] <= 255 and case[9] <= 1 and
+                    not case[1] & ~0x3000000 and 0 < life <= 100000 and 0 <= elapsed <= life):
+                raise Blocked("FX velocity input outside declared adapter domain")
+            samples = [(((i * 13 + j * 7 + case[5]) & 0xffffffff) % 255 - 127) * .0625
+                       for i in range(257) for j in range(24)]
+            m.mem_write(DATA + 0x2000, struct.pack("<6168f", *samples))
+            definition = bytearray(0x124)
+            struct.pack_into("<I", definition, 0, case[1])
+            definition[0xba] = case[0]
+            struct.pack_into("<I", definition, 0xbc, DATA + 0x2000)
+            m.mem_write(DATA + 0x1000, bytes(definition))
+            axis = [.6, .8, 0., -.8, .6, 0., 0., 0., 1.] if case[9] else [1., 0., 0., 0., 1., 0., 0., 0., 1.]
+            m.mem_write(DATA + 0x1200, struct.pack("<12f", 0., 0., 0., *axis))
+            m.mem_write(DATA + 0x1300, struct.pack("<3I", *case[6:9]))
+            m.mem_write(SP + 4, struct.pack("<7I", DATA + 0x1000, case[4], case[2], case[3],
+                                         DATA + 0x1200, DATA + 0x1300, DATA + 0x100))
+        elif name == "ExpandBoundsToWidth":
+            m.mem_write(DATA + 0x100, struct.pack("<6I", *case[:6]))
+            m.mem_write(SP + 4, struct.pack("<2I", DATA + 0x100, DATA + 0x10c))
+        elif name == "FX_SetupVisualState":
+            time_value = struct.unpack("<f", struct.pack("<I", case[1]))[0]
+            if case[0] > 255 or not 0 <= time_value <= 1.125:
+                raise Blocked("FX setup adapter requires byte interval count and finite time in [0, 1.125]")
+            m.mem_write(DATA + 0x100, bytes(0x1c))
+            m.mem_write(DATA + 0x1000, bytes(0x124))
+            m.mem_write(DATA + 0x10bb, bytes([case[0]]))
+            m.mem_write(DATA + 0x10c0, struct.pack("<I", DATA + 0x2000))
+            m.mem_write(SP + 4, struct.pack("<5I", DATA + 0x1000, DATA + 0x1800,
+                                         case[2], case[1], DATA + 0x100))
         elif name == "PM_Accelerate":
             m.mem_write(DATA + 0x1000, bytes(0x26A4))
             m.mem_write(DATA + 0x100C, struct.pack("<I", case[0]))
@@ -129,4 +173,17 @@ class Emulator:
             return [m.reg_read(reg) & mask, 0, 0, 0]
         if name == "PM_Accelerate":
             return list(struct.unpack("<3I", m.mem_read(DATA + 0x1030, 12))) + [case[0]]
+        if name == "ExpandBoundsToWidth":
+            words = struct.unpack("<6I", m.mem_read(DATA + 0x100, 24))
+            if words[:2] != tuple(case[:2]) or words[3:5] != tuple(case[3:5]):
+                raise Blocked("Bounds expansion modified XY")
+            return [words[2], words[5], 0, 0]
+        if name == "FX_SetupVisualState":
+            lerp, inv, elem, effect, sample, seed, fade = struct.unpack("<7I", m.mem_read(DATA + 0x100, 0x1c))
+            if (elem, effect, seed) != (DATA + 0x1000, DATA + 0x1800, case[2]):
+                raise Blocked("FX setup pointer or seed output mismatch")
+            offset = sample - (DATA + 0x2000)
+            if offset < 0 or offset % 0x30 or offset >= 512 * 0x30:
+                raise Blocked("FX setup sample pointer outside adapter allocation")
+            return [lerp, inv, offset // 0x30, fade]
         return list(struct.unpack("<4I", m.mem_read(DATA + 0x100, 16)))

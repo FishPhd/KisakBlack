@@ -10,6 +10,49 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "FX_GetVelocityAtTime":
+        def bits(v):
+            return struct.unpack("<I", struct.pack("<f", v))[0]
+        values = []
+        for count in (1, 2, 3, 7, 31, 127, 255):
+            for flags in (0, 0x1000000, 0x2000000, 0x3000000):
+                for time in (0., .25, .5, .99999994, 1.):
+                    values.append((count, flags, bits(1.), bits(time), rng.randrange(256), rng.getrandbits(32),
+                                   bits(10.), bits(-20.), bits(30.), rng.randrange(2)))
+        values += [(rng.randrange(1, 256), rng.randrange(4) << 24, bits(1.), bits(rng.random()),
+                    rng.randrange(256), rng.getrandbits(32), *[bits(rng.uniform(-50, 50)) for _ in range(3)],
+                    rng.randrange(2)) for _ in range(random_count)]
+        return values
+    if name == "ExpandBoundsToWidth":
+        def bits(v):
+            return struct.unpack("<I", struct.pack("<f", v))[0]
+        values = [tuple(map(bits, v)) for v in (
+            (0, 0, 0, 10, 5, 2), (0, 0, 0, 2, 5, 10),
+            (131072, 131072, 131072, -131072, -131072, -131072),
+            (10, 0, 0, 0, 8, 2), (0, 10, 0, 8, 0, 2), (0, 0, 10, 8, 5, 0))]
+        for field in range(6):
+            for edge in EDGE_FLOATS:
+                v = [bits(x) for x in (0, 0, 0, 10, 5, 2)]
+                v[field] = edge
+                values.append(tuple(v))
+        values += [tuple(bits(rng.uniform(-1000, 1000)) for _ in range(6)) for _ in range(random_count)]
+        return values
+    if name == "FX_SetupVisualState":
+        def bits(v):
+            return struct.unpack("<I", struct.pack("<f", v))[0]
+        values = []
+        for count in range(256):
+            times = [0, 0x80000000, 1, bits(.5), bits(1.) - 1, bits(1.), bits(1.) + 1, bits(1.125)]
+            if count:
+                for index in (1, count // 2, count):
+                    if not index:
+                        continue
+                    boundary = bits(index / count)
+                    times += [boundary - 1, boundary, boundary + 1]
+            values += [(count, t, rng.getrandbits(32), 0) for t in dict.fromkeys(times)]
+        values += [(rng.randrange(256), bits(rng.uniform(0, 1.125)), rng.getrandbits(32), 0)
+                   for _ in range(random_count)]
+        return values
     if name in ("FloatPack9S", "FloatPack10S"):
         values = EDGE_FLOATS + [rng.getrandbits(32) for _ in range(random_count)]
         # Nearby representable inputs around integer fractions expose rounding.

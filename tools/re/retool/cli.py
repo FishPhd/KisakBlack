@@ -49,6 +49,11 @@ def parser():
     p.add_argument("--binary", help="Override original BlackOpsMP.exe path; SHA-256 must still match")
     commands = p.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor")
+    d = commands.add_parser("binary-diff", help="Compare two whole x86 EXEs with Ghidra/BinDiff")
+    d.add_argument("--candidate", required=True, help="Full rebuilt native executable")
+    d.add_argument("--ghidra"); d.add_argument("--bindiff")
+    d.add_argument("--min-confidence", type=float, default=.7)
+    d.add_argument("--refresh", action="store_true", help="Reanalyze instead of reusing hash-checked exports")
     b = commands.add_parser("build"); b.add_argument("--wasm", action="store_true")
     i = commands.add_parser("index"); i.add_argument("--ghidra"); i.add_argument("--decompile-rva", type=lambda v: int(v, 0))
     w = commands.add_parser("worklist"); w.add_argument("--file")
@@ -62,13 +67,20 @@ def parser():
     v = commands.add_parser("live-verify"); v.add_argument("--manifest", required=True); v.add_argument("--wasm", action="store_true")
     q = commands.add_parser("search"); q.add_argument("--text"); q.add_argument("--rva", type=lambda v: int(v, 0)); q.add_argument("--caller-of", type=lambda v: int(v, 0)); q.add_argument("--limit", type=int, default=20)
     r = commands.add_parser("reproduce"); r.add_argument("--fixture", required=True); r.add_argument("--wasm", action="store_true")
+    r = commands.add_parser("reconstruct"); r.add_argument("--function", required=True); r.add_argument("--compiler")
+    r.add_argument("--profile", default="vc9-sse2-fast")
+    r = commands.add_parser("audit-diff"); r.add_argument("--base")
     return p
 
 
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        if args.command == "doctor":
+        if args.command == "binary-diff":
+            from .binary_diff import compare
+            result = compare(args.candidate, args.binary, args.ghidra, args.bindiff, args.min_confidence, args.refresh)
+            code = 0
+        elif args.command == "doctor":
             result = doctor(args.binary)
             code = 2 if any(r["status"] != "pass" for r in result) else 0
         elif args.command == "build":
@@ -144,6 +156,13 @@ def main(argv=None):
         elif args.command == "search":
             from .inventory import search
             result, code = search(args.text, args.rva, args.caller_of, args.limit), 0
+        elif args.command == "audit-diff":
+            from .audit import audit_diff
+            result, code = audit_diff(args.base), 0
+        elif args.command == "reconstruct":
+            from .codegen import reconstruct
+            result = reconstruct(functions(args.function)[0], args.compiler, args.profile, args.binary)
+            code = 0 if result["status"] == "pass" else 1
         elif args.command == "reproduce":
             from .verification import reproduce
             result = reproduce(args.fixture, args.binary, args.wasm)

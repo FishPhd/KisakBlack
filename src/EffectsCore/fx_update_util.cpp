@@ -1,5 +1,4 @@
 #include "fx_update_util.h"
-#include "fx_sampling.h"
 
 #include <gfx_d3d/fxprimitives.h>
 #include "fx_random.h"
@@ -167,16 +166,7 @@ void __cdecl FX_SpatialFrameToOrientation(const FxSpatialFrame *frame, orientati
 
 void __cdecl FX_OrientationDirToWorldDir(const orientation_t *orient, const float *dir, float *out)
 {
-    if ( dir == out
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp",
-                    174,
-                    0,
-                    "%s",
-                    "dir != out") )
-    {
-        __debugbreak();
-    }
+    iassert(dir != out);
     *out = (float)((float)(*dir * orient->axis[0][0]) + (float)(dir[1] * orient->axis[1][0]))
              + (float)(dir[2] * orient->axis[2][0]);
     out[1] = (float)((float)(*dir * orient->axis[0][1]) + (float)(dir[1] * orient->axis[1][1]))
@@ -379,89 +369,28 @@ void FX_GetVelocityAtTime(
     const float *baseVel,
     float *velocity)
 {
-    char *v8; // eax
-    int v9; // eax
-    char *v10; // eax
-    double v11; // [esp+18h] [ebp-58h]
-    float v12; // [esp+20h] [ebp-50h]
-    float v13; // [esp+24h] [ebp-4Ch]
     float velocityWorld[3]; // [esp+28h] [ebp-48h] BYREF
-    float sampleTime; // [esp+34h] [ebp-3Ch]
-    float samplePoint; // [esp+38h] [ebp-38h]
     float velocityScale; // [esp+3Ch] [ebp-34h]
-    int sampleIndex; // [esp+40h] [ebp-30h]
     const FxElemVelStateSample *samples; // [esp+44h] [ebp-2Ch]
-    int intervalCount; // [esp+48h] [ebp-28h]
     float velocityLocal[3]; // [esp+4Ch] [ebp-24h] BYREF
     float weight[2]; // [esp+58h] [ebp-18h] BYREF
     float rangeLerp[3]; // [esp+60h] [ebp-10h] BYREF
-    float sampleLerp; // [esp+6Ch] [ebp-4h]
-
-    if (!elemDef
-        && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp", 310, 0, "%s", "elemDef"))
-    {
-        __debugbreak();
-    }
-    if (!elemDef->velSamples
-        && !Assert_MyHandler(
-            "C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp",
-            311,
-            0,
-            "%s",
-            "elemDef->velSamples"))
-    {
-        __debugbreak();
-    }
-    if (!elemDef->velIntervalCount
-        && !Assert_MyHandler(
-            "C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp",
-            312,
-            0,
-            "%s\n\t(elemDef->velIntervalCount) = %i",
-            "(elemDef->velIntervalCount >= 1)",
-            elemDef->velIntervalCount))
-    {
-        __debugbreak();
-    }
-    sampleTime = msecElapsed / msecLifeSpan;
-    if ((float)(msecElapsed / msecLifeSpan) < 0.0 || sampleTime > 1.0)
-    {
-        v8 = va("%g: %g, %g", sampleTime, msecElapsed, msecLifeSpan);
-        if (!Assert_MyHandler(
-            "C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp",
-            315,
-            0,
-            "%s\n\t%s",
-            "0.0f <= sampleTime && sampleTime < 1.0f",
-            v8))
-            __debugbreak();
-    }
-    v13 = fx_randomTable[randomSeed];
-    rangeLerp[0] = v13;
-    v12 = fx_randomTable[randomSeed + 1];
-    rangeLerp[1] = v12;
-    *((float *)&v11 + 1) = fx_randomTable[randomSeed + 2];
-    rangeLerp[2] = *((float *)&v11 + 1);
-    intervalCount = elemDef->velIntervalCount;
-    const FxSampleInterval sample = FX_SampleInterval(intervalCount, sampleTime);
-    v9 = sample.index;
-    sampleIndex = v9;
-    sampleLerp = sample.lerp;
-    if (v9 < 0 || sampleIndex >= intervalCount)
-    {
-        v10 = va("%i for %g on %i intervals", sampleIndex, sampleTime, intervalCount);
-        if (!Assert_MyHandler(
-            "C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp",
-            325,
-            1,
-            "%s\n\t(va( \"%i for %g on %i intervals\", sampleIndex, sampleTime, intervalCount )) = %i",
-            "(sampleIndex >= 0 && sampleIndex < intervalCount)",
-            v10,
-            v11,
-            v12,
-            v13))
-            __debugbreak();
-    }
+    iassert(elemDef);
+    iassert(elemDef->velSamples);
+    iassert(elemDef->velIntervalCount >= 1);
+    const float sampleTime = msecElapsed / msecLifeSpan;
+    vassert(sampleTime >= 0.0f && sampleTime < 1.0f, "%g: %g, %g", sampleTime, msecElapsed, msecLifeSpan);
+    rangeLerp[0] = fx_randomTable[randomSeed];
+    rangeLerp[1] = fx_randomTable[randomSeed + 1];
+    rangeLerp[2] = fx_randomTable[randomSeed + 2];
+    // BlackOpsMP 0x4a6b30: DIVSS, MULSS, floor, then subtract the index.
+    // Release code has no endpoint clamp; diagnostic checks belong to Debug.
+    const int intervalCount = elemDef->velIntervalCount;
+    const float samplePoint = static_cast<float>(intervalCount) * sampleTime;
+    const float sampleFloor = static_cast<float>(floor(samplePoint));
+    const int sampleIndex = static_cast<int>(sampleFloor);
+    const float sampleLerp = samplePoint - static_cast<float>(sampleIndex);
+    vassert(sampleIndex >= 0 && sampleIndex < intervalCount, "%i for %g on %i intervals", sampleIndex, sampleTime, intervalCount);
     weight[1] = (float)intervalCount * sampleLerp;
     weight[0] = (float)intervalCount - weight[1];
     samples = &elemDef->velSamples[sampleIndex];

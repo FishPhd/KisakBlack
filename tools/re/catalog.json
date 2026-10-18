@@ -206,6 +206,158 @@
       "evidence": "Entry tests pm_flags bit 8; both branches update only velocity. ECX direction and EDX pml confirmed from accesses and caller at VA 0x7b103f. Normalization is inlined. All arithmetic, globals and branch destinations inspected with Capstone; layouts are compile-time asserted against production headers.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x12d580",
+      "name": "FX_SetupVisualState",
+      "entry_rva": 1234304,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 1234304,
+          "size": 152,
+          "sha256": "09f23ffc12284112f79c5275d7a3011f1f943b12f2e85382c51ae5881120c6dc"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6615568,
+          "size": 4,
+          "sha256": "6d58692645c9d1cfaf13541cbd258f86193ef63c2f1d38f6bbca9617372d7bd6"
+        },
+        {
+          "rva": 7067096,
+          "size": 4,
+          "sha256": "90a21fd1ef7b2ead7bf8b13df631f94dd0b1c0ab174a64fb9ea5d37fdad4b150"
+        },
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/EffectsCore/fx_draw.cpp",
+          "symbol": "FX_SetupVisualState"
+        }
+      ],
+      "abi": "cdecl(elemDef*, effect*, int randomSeed, float normTimeUpdateEnd, preVisState*); FxElemDef count+0xbb and samples+0xc0; output size 0x1c",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete setup function, all byte interval counts and finite times [0,1.125], including endpoints and sample boundaries. Checks lerp bits, inverse bits, sample index, fade, identity pointers, seed and guarded writes. No sample dereferences or downstream FX evaluation.",
+      "evidence": "VA 0x52d580..0x52d617: MOVZX [EDX+0xbb]; MULSS time; SSE floor idiom; CVTTSS2SI ECX; stride 0x30 plus [EDX+0xc0]. Stores all seven preVisState fields, fade=255. cdecl five stack arguments, no calls, no endpoint clamp. Same setup sequence inlined at 0x81c169. Production offsets checked by static_assert in fx_adapter.cpp.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1f170",
+      "name": "ExpandBoundsToWidth",
+      "entry_rva": 127344,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 127344,
+          "size": 96,
+          "sha256": "0e4a5345374f161efa93de9e3071e5c9d559bd140fa9b083593fe758ba9befff"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6649248,
+          "size": 4,
+          "sha256": "d99e58435243d9fef9c88273b8d553b4fba4d0baf8009d29eae74fa99e0d9f57"
+        },
+        {
+          "rva": 7975352,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/universal/com_math.cpp",
+          "symbol": "ExpandBoundsToWidth"
+        }
+      ],
+      "abi": "cdecl(float mins[3], float maxs[3]); disjoint arrays; only index 2 of each array written",
+      "output_words": 2,
+      "comparison": "bitwise",
+      "coverage": "Complete function over deterministic bounds corpus, including cleared/inverted bounds, zeros, infinities, NaNs and finite random inputs; disjoint arrays. Checks Z bits and all unchanged XY/guard bytes. Does not qualify callers or aliased arrays.",
+      "evidence": "VA 0x41f170..0x41f1cf: three dimension differences, SUBSS widthX-widthY and COMISS/JAE selection (unordered selects Y), COMISS/JBE skips expansion, MULSS 0.5 then SUBSS minZ, ADDSS diff+maxZ. No invalid-bounds guard, calls or assertions in release. Cdecl two stack pointers.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0xa6b30",
+      "name": "FX_GetVelocityAtTime",
+      "entry_rva": 682800,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 682800,
+          "size": 709,
+          "sha256": "9276b0e32df315be266a08c76c09af99a29dbc1165b79460f6ea5b52f627ba38"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6615568,
+          "size": 4,
+          "sha256": "6d58692645c9d1cfaf13541cbd258f86193ef63c2f1d38f6bbca9617372d7bd6"
+        },
+        {
+          "rva": 7067096,
+          "size": 4,
+          "sha256": "90a21fd1ef7b2ead7bf8b13df631f94dd0b1c0ab174a64fb9ea5d37fdad4b150"
+        },
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        },
+        {
+          "rva": 6885632,
+          "size": 4,
+          "sha256": "07883481b5c147464597d44401db095d88c2a6b049fbbcd7b278de98a5ceeb71"
+        },
+        {
+          "rva": 7098296,
+          "size": 1032,
+          "sha256": "3c2c4464e8dbe6dba3b93718df525040a9fb7f1ac488bb4327e63c42ecb9d128"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/EffectsCore/fx_update_util.cpp",
+          "symbol": "FX_GetVelocityAtTime"
+        },
+        {
+          "path": "src/EffectsCore/fx_update_util.cpp",
+          "symbol": "FX_GetVelocityAtTimeInFrame"
+        },
+        {
+          "path": "src/EffectsCore/fx_update_util.cpp",
+          "symbol": "FX_OrientationDirToWorldDir"
+        },
+        {
+          "path": "src/EffectsCore/fx_random.cpp",
+          "symbol": "fx_randomTable"
+        }
+      ],
+      "abi": "cdecl(elemDef*, seed, float life, float elapsed, orientation*, baseVel*, velocity*); count+0xba, samples+0xbc stride 0x60; orientation axis+0xc",
+      "output_words": 3,
+      "comparison": "bitwise",
+      "coverage": "Complete original function on finite synthetic curves: world/local/both/neither flags, interval counts 1..255, seeds 0..255, two orientations, finite time [0,life]. Endpoint uses an extra allocated sample and does not qualify actual game asset bounds. All input memory is disjoint from output; debug assertions are outside release coverage.",
+      "evidence": "VA 0x4a6b30..0x4a6df4: seven cdecl stack arguments; random table at 0xac4fb8, byte count+0xba, DIVSS then MULSS and SSE floor, stride 0x60 plus pointer+0xbc; weights count*(point-index) and count-weight. Flags 0x2000000 world and 0x1000000 local. No calls or release assertions; velocity frame evaluation and orientation transform are inlined.",
+      "depends_on": [],
+      "exceptions": [],
+      "codegen_external_data": {
+        "?fx_randomTable@@3QBMB": 7098296
+      }
     }
   ]
 }

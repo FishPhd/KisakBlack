@@ -153,6 +153,7 @@ def source_identity(f):
     # intentional; hashing only the named .cpp would miss dependency changes.
     files = {ROOT / s["path"] for s in f["sources"]}
     files.add(ROOT / "src/qcommon/msg_mp.cpp")
+    files.add(ROOT / "tools/re/codegen-profiles.json")
     files.update(p for root in (ROOT / "src", ROOT / "tl") for p in root.rglob("*")
                  if p.suffix in (".h", ".hpp", ".inl", ".inc"))
     files.update((ROOT / "tools/re").rglob("*.py"))
