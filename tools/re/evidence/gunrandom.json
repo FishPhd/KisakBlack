@@ -1,0 +1,37 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "function": "gunrandom",
+  "source": "src/game/g_weapon.cpp",
+  "abi": "cdecl(float *x, float *y); two G_random calls return in ST(0).",
+  "regions": [
+    {
+      "va": "0x85c8e0",
+      "size": 109,
+      "sha256": "f0a460fff93c3291384353ad9b6693064f584d1d7e3e5925fac285803bf4faac"
+    },
+    {
+      "va": "0x682170",
+      "size": 39,
+      "sha256": "d276e91adece4a360ccdc3966ffc4b08fb4a448e7b13d27f8dea8d5b5ff007b3"
+    },
+    {
+      "va": "0xa41b44",
+      "size": 4,
+      "sha256": "f9a3caf896d870d48527cae33ef20457ed504c174374500772bb36edf4e502a5"
+    },
+    {
+      "va": "0xa86e90",
+      "size": 4,
+      "sha256": "82a72eeef4f720c75f627f5ccf9f2963cceb6210f66318ec6362722e29a564f9"
+    }
+  ],
+  "identity_evidence": "BinDiff candidate independently checked: two calls to RNG at 0x682170 (LCG 0x343fd,0x269ec3; global 0xbf6ac4; SHR 17), first result multiplied by 360, second used as radius; FSINCOS then radius*cos and radius*sin stored through the two stack arguments.",
+  "change": "Use binary32 degrees-to-radians constant 0x3c8efa35, not double decimal 0.017453292. Original FMUL m32 at 0x85c906 followed by FSTP m32 at 0x85c914.",
+  "qualification": "instruction_inspected_not_execution_verified",
+  "limits": [
+    "Original x87 FSINCOS versus C++ library cos/sin remains unqualified.",
+    "No native gunrandom capture or full RNG adapter; not a behavioral pass or catalog work unit.",
+    "This change only corrects the angle constant. Client and server bullet direction functions need independently checked mappings."
+  ],
+  "exceptions": []
+}

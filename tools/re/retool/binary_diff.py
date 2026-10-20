@@ -212,8 +212,11 @@ def compare(candidate, binary=None, ghidra=None, bindiff=None, min_confidence=.7
     output.mkdir(parents=True)
     # Keep exports alongside the database so it can be opened in BinDiff UI.
     import shutil
+    from .binexport_repair import repair_binexport
     for cache, name in ((primary, "original"), (secondary, "candidate")):
-        shutil.copyfile(cache / "program.BinExport", output / f"{name}.BinExport")
+        repaired, changes = repair_binexport((cache / "program.BinExport").read_bytes())
+        (output / f"{name}.BinExport").write_bytes(repaired)
+        print(f"Prepared {name} BinExport for BinDiff: {changes}", file=sys.stderr, flush=True)
     print(f"Matching whole executables with BinDiff; output: {output}", file=sys.stderr, flush=True)
     logged([engine, "--print_config"], output / "engine-config.json", timeout=60)
     logged([engine, f"--primary={output / 'original.BinExport'}", f"--secondary={output / 'candidate.BinExport'}",

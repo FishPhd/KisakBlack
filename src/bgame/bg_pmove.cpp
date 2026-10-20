@@ -2557,8 +2557,15 @@ void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, float *wishdir, 
         pushDir[0] = (float)(wishspeed * *wishdir) - ps->velocity[0];
         pushDir[1] = wishVelocity_4 - ps->velocity[1];
         pushDir[2] = wishVelocity_8 - ps->velocity[2];
-        pushLen = Vec3Normalize(pushDir);
-        canPush = (float)(accel * pml->frametime) * wishspeed;
+        // BlackOpsMP 0x7b0f0e: accumulate Z, Y, X in single precision.
+        // The generic normalizer uses a different sum order.
+        pushLen = sqrtf((pushDir[2] * pushDir[2] + pushDir[1] * pushDir[1])
+            + pushDir[0] * pushDir[0]);
+        const float inverseLength = 1.0f / (-pushLen >= 0.0f ? 1.0f : pushLen);
+        pushDir[0] *= inverseLength;
+        pushDir[1] *= inverseLength;
+        pushDir[2] *= inverseLength;
+        canPush = (pml->frametime * wishspeed) * accel;
         if ( canPush > pushLen )
             canPush = pushLen;
         ps->velocity[0] = (float)(canPush * pushDir[0]) + ps->velocity[0];
@@ -2569,8 +2576,8 @@ void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, float *wishdir, 
     {
         if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_pmove.cpp", 1124, 0, "%s", "ps") )
             __debugbreak();
-        currentspeed = (float)((float)(ps->velocity[0] * *wishdir) + (float)(ps->velocity[1] * wishdir[1]))
-                                 + (float)(ps->velocity[2] * wishdir[2]);
+        currentspeed = (ps->velocity[2] * wishdir[2] + ps->velocity[1] * wishdir[1])
+            + ps->velocity[0] * wishdir[0];
         addspeed = wishspeed - currentspeed;
         if ( (float)(wishspeed - currentspeed) > 0.0 )
         {
@@ -2579,7 +2586,7 @@ void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, float *wishdir, 
             else
                 value = stopspeed->current.value;
             control = value;
-            accelspeed = (float)(accel * pml->frametime) * value;
+            accelspeed = (pml->frametime * value) * accel;
             if ( accelspeed > addspeed )
                 accelspeed = addspeed;
             ps->velocity[0] = (float)(accelspeed * *wishdir) + ps->velocity[0];

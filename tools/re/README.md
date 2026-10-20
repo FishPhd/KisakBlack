@@ -43,10 +43,11 @@ must still match. Tools emit JSON. Exit codes are `0` successful requested work,
 `1` behavioral mismatch, and `2` blocked/unverified work. Inventory/search success
 does not claim behavioral qualification.
 
-The current movement implementation has a demonstrated exact-output mismatch.
-`verify` across all functions is expected to return `1` until that drift is fixed.
-Packing verification is a separate, useful passing path. The movement source has
-not been changed by this workflow implementation.
+The movement implementation preserves the original Z/Y/X accumulation and
+frame-time/speed/acceleration multiplication order. The historical mismatch in
+`regressions/movement.json` remains intact and now replays successfully on MSVC
+x86 and Wasm over the recorded corpus. This establishes tested output agreement,
+not identical compiled instructions or live gameplay coverage.
 
 ## Work units and evidence
 

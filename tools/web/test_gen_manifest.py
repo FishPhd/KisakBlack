@@ -3,6 +3,7 @@ import argparse
 import importlib.util
 import json
 import pathlib
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -42,6 +43,22 @@ class InstallationInventoryTests(unittest.TestCase):
             m['boot'].append({'path':'zone/Common/untraced.ff','size':99})
             with self.assertRaisesRegex(RuntimeError, 'Stale manifest'):
                 manifest.write_installation_inventory(str(game), str(out), m)
+
+
+class TraceFailureTests(unittest.TestCase):
+    def test_continued_engine_lines_are_not_fatal_and_do_not_stop_the_trace(self):
+        continued = [
+            "ERROR: Pathnode (Path) at (-1133 2651 107) is in solid",
+            "ERROR: Pathnode (Path) at (24 113 168) is floating",
+            "ERROR: cannot have patch terrain in collision mapsweapon defaultweapon_mp not found in weapon table",
+            "Could not load xanim \"pb_huey_passenger_b_lt_aim_60down_60left\".",
+        ]
+        for line in continued:
+            self.assertFalse(manifest.trace_failed(line + "\nsvs.time=50\n"))
+            self.assertIsNone(re.search(manifest.SERVER_EXIT_ON, line))
+        self.assertTrue(manifest.trace_failed("Com_Error\n"))
+        self.assertTrue(manifest.trace_failed("wasm trap: unreachable\n"))
+        self.assertIsNotNone(re.search(manifest.SERVER_EXIT_ON, "web: status up=1s svs.time=50 clients=0"))
 
 
 class UpdateManifestTests(unittest.TestCase):

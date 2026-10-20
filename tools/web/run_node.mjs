@@ -24,6 +24,7 @@
 
 import fs from "node:fs";
 import inspector from "node:inspector";
+import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { GameTransport } from "../../web/transport.js";
@@ -140,8 +141,13 @@ const exitOnLine = (s) => {
 const modulePath = path.resolve(opts.build, "kisak.mjs");
 const { default: KisakModule } = await import(pathToFileURL(modulePath).href);
 
+// Profile files (console_mp.log) must not live in the wasm heap. The default
+// /profile mount is an in-memory file, and a noisy map load grows it until abort.
+const profileDir = path.join(os.tmpdir(), "kisak-node-profile");
+fs.mkdirSync(profileDir, { recursive: true });
+
 const mod = await KisakModule({
-  arguments: ["--gamedir", path.resolve(opts.gamedir), ...engineArgs],
+  arguments: ["--gamedir", path.resolve(opts.gamedir), "--profiledir", profileDir, ...engineArgs],
   print: (s) => { console.log(s); exitOnLine(s); },
   printErr: (s) => { console.error(s); exitOnLine(s); },
   locateFile: (f) => path.resolve(opts.build, f),

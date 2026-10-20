@@ -737,7 +737,9 @@ void __cdecl gunrandom(float *x, float *y)
 
     theta = G_random() * 360.0;
     r = G_random();
-    v2 = (float)(theta * 0.017453292);
+    // BlackOpsMP 0x85c906 uses FMUL m32 at 0xa41b44 (bits 0x3c8efa35).
+    // A double decimal literal changes the angle before the float store.
+    v2 = (float)(theta * 0.017453292f);
     cosT = cos(v2);
     sinT = sin(v2);
     *x = r * cosT;

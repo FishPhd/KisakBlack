@@ -1380,8 +1380,8 @@ void PlayerCmd_IsFiring(scr_entref_t entref)
 
 void PlayerCmd_IsInMoveMode(scr_entref_t entref)
 {
-    // True when the player is under normal player movement (pm_type 0 = normal, 1 = normal linked),
-    // false for noclip / ufo / spectator / frozen / dead / intermission movement types.
+    // BlackOpsMP 0x82a360 (script table entry at 0xac5dcc): validate the
+    // receiver, then return false. The original never reads ps.pm_type.
     gentity_s *pSelf;
 
     if (entref.classnum)
@@ -1402,8 +1402,7 @@ void PlayerCmd_IsInMoveMode(scr_entref_t entref)
     iassert(pSelf);
     iassert(pSelf->client);
 
-    const int pmType = pSelf->client->ps.pm_type;
-    Scr_AddInt(pmType == 0 || pmType == 1, SCRIPTINSTANCE_SERVER);
+    Scr_AddBool(0, SCRIPTINSTANCE_SERVER);
 }
 
 void PlayerCmd_IsMeleeing(scr_entref_t entref)

@@ -6,6 +6,7 @@ import unittest
 from contextlib import closing
 
 from retool.binary_diff import load_inventory, summarize, read_matches, render_report
+from retool.binexport_repair import _encode_fields, _first_varint, _parse_fields, repair_binexport
 from retool.core import Blocked
 
 
@@ -87,6 +88,35 @@ class BinaryDiffTests(unittest.TestCase):
             text = p.read_text(encoding="utf-8")
             self.assertNotIn("</script><script>alert", text)
             self.assertIn("\\u003c/script", text)
+
+
+def _proto(fields):
+    return _encode_fields(fields)
+
+
+class BinExportRepairTests(unittest.TestCase):
+    def test_missing_entry_address_and_external_edge_are_repaired(self):
+        instruction = _proto([(1, 0, 0x401000), (5, 2, b"\x90")])
+        omitted = _proto([(5, 2, b"\xc3")])
+        block = _proto([(1, 2, _proto([(1, 0, 1)]))])
+        external_edge = _proto([(1, 0, 0), (2, 0, 9)])
+        graph = _proto([(1, 0, 0), (2, 2, external_edge)])
+        vertex = _proto([(1, 2, _proto([(1, 0, 0x401001)]))])
+        repaired, stats = repair_binexport(_proto([
+            (5, 2, instruction), (5, 2, omitted), (6, 2, block), (7, 2, graph), (8, 2, vertex)]))
+        self.assertEqual(stats["block_addresses_written"], 1)
+        self.assertEqual(stats["edges_removed"], 1)
+        fields = _parse_fields(repaired)
+        second = _parse_fields([value for field, _, value in fields if field == 5][1])
+        self.assertEqual(_first_varint(second, 1), 0x401001)
+        flow = _parse_fields([value for field, _, value in fields if field == 7][0])
+        self.assertEqual(_first_varint(flow, 3), 0)
+        self.assertFalse(any(field == 2 for field, _, _ in flow))
+        again, unchanged = repair_binexport(repaired)
+        self.assertEqual(unchanged["block_addresses_written"], 0)
+        self.assertEqual(unchanged["edges_removed"], 0)
+        self.assertEqual(_first_varint(_parse_fields(
+            [value for field, _, value in _parse_fields(again) if field == 5][1]), 1), 0x401001)
 
 
 if __name__ == "__main__":

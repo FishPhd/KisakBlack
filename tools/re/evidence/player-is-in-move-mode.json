@@ -1,0 +1,40 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "function": "PlayerCmd_IsInMoveMode",
+  "source": "src/game_mp/g_client_script_cmd_mp.cpp",
+  "entry_rva": "0x42a360",
+  "code_size": 78,
+  "code_sha256": "76bbf7e268ebf828922000e0f009a20052b458c21cd7ddbb56f0ffc2f9ceaf40",
+  "identity_evidence": {
+    "script_name_va": "0xa41878",
+    "method_table_entry_va": "0xac5dcc",
+    "method_table_words": [
+      "0xa41878",
+      "0x82a360",
+      "0x0"
+    ]
+  },
+  "abi": "cdecl(scr_entref_t packed in one stack DWORD): low 16 bits entity number, high 16 bits class number. gentity stride 0x2f8, client pointer +0x144.",
+  "instructions": "0x82a360..0x82a39e validate class and client; 0x82a3a1 PUSH 0; 0x82a3a3 PUSH 0; 0x82a3a5 CALL 0x49f830; ADD ESP,8; RET. No pm_type load or conditional result.",
+  "dependencies": [
+    {
+      "va": "0x502ca0",
+      "role": "format invalid-player message"
+    },
+    {
+      "va": "0x67fdd0",
+      "role": "script object error"
+    },
+    {
+      "va": "0x49f830",
+      "role": "Scr_AddBool; writes VM type 6 and boolean value"
+    }
+  ],
+  "change": "Replace inferred pm_type==0||pm_type==1 predicate with Scr_AddBool(0, SCRIPTINSTANCE_SERVER). Preserve receiver validation.",
+  "qualification": "instruction_inspected_not_execution_verified",
+  "limits": [
+    "No native script VM capture or end-to-end script adapter; this is not a catalog work unit or behavioral pass.",
+    "Debug assertions and invalid receiver error paths are not execution-qualified."
+  ],
+  "exceptions": []
+}

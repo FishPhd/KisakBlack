@@ -33,6 +33,11 @@ function_stack_t gFs[2];
 // setjmp/longjmp. Modified non-volatile automatic values are indeterminate after
 // longjmp in C++; keep one persistent frame per nested VM invocation on WASM.
 static function_stack_t webExecutionFrames[2][33];
+// A map script that errors and continues (developer/logfile, abort_on_error off)
+// can tight-loop during load, when the infinite-loop killer only warns. Each
+// pass reprints the stack into the profile log until the wasm heap aborts.
+// Original behavior keeps running that loop. On web, end the thread instead.
+static int webScriptErrorStreak[2];
 #endif
 int gThreadCount[2];
 int gOpcode[2];
@@ -4245,6 +4250,10 @@ int __cdecl Scr_AddLocalVars(scriptInstance_t inst, unsigned int localId)
 // This function is called whenever there is a 'wait', resetting the starttime for the thread, preventing the infinite loop detector from going off.
 void __cdecl Scr_ResetTimeout(scriptInstance_t inst)
 {
+#ifdef KISAK_WEB
+    if ((unsigned)inst < 2)
+        webScriptErrorStreak[inst] = 0;
+#endif
     gScrVmGlob[inst].starttime = Sys_Milliseconds();
 
     iassert(logScriptTimes);
@@ -4681,6 +4690,29 @@ scriptmethodthreadcallpointer:
         default:
             break;
         }
+
+#ifdef KISAK_WEB
+        if ((unsigned)inst < 2 && ++webScriptErrorStreak[inst] >= 8)
+        {
+            webScriptErrorStreak[inst] = 0;
+            Com_PrintError(24, "repeated script error; ending this thread so the server can continue\n");
+            Scr_PrintPrevCodePos(inst, 24, (char *)localFs.pos, 0);
+            parentLocalId = GetSafeParentLocalId(inst, localFs.localId);
+            Scr_KillThread(inst, localFs.localId);
+            gScrVmPub[inst].localVars -= localFs.localVarCount;
+            while (localFs.top->type != VAR_CODEPOS)
+            {
+                RemoveRefToValue(inst, localFs.top->type, localFs.top->u);
+                --localFs.top;
+            }
+            --gScrVmPub[inst].function_count;
+            --gScrVmPub[inst].function_frame;
+            if (!parentLocalId)
+                goto thread_end;
+            localFs.top->type = VAR_UNDEFINED;
+            goto end;
+        }
+#endif
 
         iassert(!gScrVmPub[inst].inparamcount);
         iassert(!gScrVmPub[inst].outparamcount);

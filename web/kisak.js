@@ -1103,8 +1103,12 @@ function enterPlay() {
           preparation:w,renderer:state.rendererBackend}).compiledOnDevice;
         state.installation.compiledScope=state.installation.compiledOnDevice ? (state.catalog?.scope==='*' ? '*' : w.map) : null;
       }
-      const showSettle = w.stage !== 'settle';
-      $("warmup").hidden = !(w.active && showSettle);
+      // Play skips the blocking graphics screen. That includes the catalog gate
+      // before the menu and the map gate; both use this same overlay. Cancelling
+      // matches Skip preparation. Best-case and catalog capture still wait.
+      const keepGate = params.get('bestCase') === '1' || w.stage === 'catalog-capture';
+      if (!keepGate && w.active) call("_Kisak_CancelShaderWarmup");
+      $("warmup").hidden = !(w.active && w.stage !== 'settle' && keepGate);
       $("warmup").classList.remove('incomplete');
       const message=preparationMessage(w,state.catalog);
       $("warmup-title").textContent=message.title;

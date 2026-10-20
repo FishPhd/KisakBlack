@@ -42,6 +42,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RUNNER = os.path.join(HERE, "run_node.mjs")
 TRACE_RE = re.compile(r"^FSTRACE\t(\w+)\t([^\t]*)\t(.*)$")
 LOADED_RE = re.compile(r"^Loaded fastfile '([^']+)'")
+# Stop when the server is actually up, or when it drops / traps. Pathnode floor
+# checks and the fastfile's stored build log print "ERROR:" and then continue;
+# matching those killed the trace before svs.time advanced.
+SERVER_EXIT_ON = r"svs\.time=[1-9]|Com_Error|wasm trap:"
+FRONTEND_EXIT_ON = r"web: status|Com_Error|wasm trap:"
+FATAL_TRACE = re.compile(r"Com_Error|Com_ERROR:|wasm trap:")
+
+
+def trace_failed(text):
+    return FATAL_TRACE.search(text) is not None
 
 
 def resolve_ci(root, rel):
@@ -227,13 +237,13 @@ def update_existing_manifest(args, game, out_dir, zones_by_name, entry):
 def run_trace(args, game, map_name, gametype, client=False, frontend=False):
     if frontend:
         mode = ["+set", "dedicated", "0", "+set", "com_introPlayed", "1"]
-        exit_on = r"web: status|Com_Error|ERROR:"
+        exit_on = FRONTEND_EXIT_ON
     elif client:
         mode = ["+set", "dedicated", "0", "+devmap", map_name]
-        exit_on = r"svs\.time=[1-9]|Com_Error|ERROR:"
+        exit_on = SERVER_EXIT_ON
     else:
         mode = ["+set", "dedicated", "1", "+map", map_name]
-        exit_on = r"svs\.time=[1-9]|Com_Error|ERROR:"
+        exit_on = SERVER_EXIT_ON
     cmd = [
         args.node, RUNNER, "--build", args.build, "--gamedir", game,
         "--seconds", str(args.client_timeout if (client or frontend) else args.timeout),
@@ -267,7 +277,7 @@ def run_trace(args, game, map_name, gametype, client=False, frontend=False):
             entries.append(("zone", m.group(1), ""))
     ready = r"web: status" if frontend else r"svs\.time=[1-9]"
     ok = re.search(ready, text) is not None
-    failed = re.search(r"Com_Error|Com_ERROR:|ERROR:(?! Could not open 'devgui_)|wasm trap:", text) is not None
+    failed = trace_failed(text)
     return {
         "map": map_name, "gametype": gametype, "client": client, "entries": entries,
         "ok": ok and not failed and proc.returncode == 0,
