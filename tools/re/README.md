@@ -193,6 +193,16 @@ RGBA fixtures include input/output aliasing and preserve that relationship in al
 three runners. The movement adapter currently requires direction and frame-time
 inputs disjoint from mutable velocity; live captures violating it are blocked.
 
+The multiplayer units now include the complete no-call `BG_GetQuickScopeSpread`
+routine (custom EAX input/XMM0 return, guarded state and four dvar bindings) and
+the six-byte `G_GetClientSize` constant return. Their coverage and finite replay
+domains are explicit in `catalog.json`. The latter also supports literal-byte
+reconstruction with an explicitly supplied x86 compiler, for example
+`reconstruct --function G_GetClientSize --compiler <cl.exe> --profile msvc143-sse2-precise`
+from a matching x86 developer environment. The compiler/profile is recorded;
+it does not establish the original build settings. A size-only ABI declaration
+is checked against the compiled production type in `weapon_adapter.cpp`.
+
 Intentional differences belong in scoped `exceptions` metadata with rationale,
 original behavior, and review status. The current comparator remains bitwise and
 does not suppress a mismatch because an exception exists. Whole-game emulation,

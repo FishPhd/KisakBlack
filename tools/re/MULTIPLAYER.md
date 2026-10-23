@@ -4,9 +4,9 @@ The current work targets the pinned original multiplayer executable from
 `catalog.json`. [multiplayer-restoration.json](multiplayer-restoration.json)
 records instruction hashes, data-table locations, corrected historical BinDiff
 candidates, dependency notes, and the precise scope of the restorations.
-It is an evidence inventory, not a replacement execution catalog. New routines
-remain unverified and pending mapping review until their original execution
-adapters and comparisons exist. The eight existing pilots retain their narrower
+It is an evidence inventory, not a replacement execution catalog. Routines without
+original execution adapters remain unverified and pending mapping review.
+The ten existing pilots retain their narrower
 contracts in `catalog.json`; their results do not qualify all multiplayer logic.
 
 Restored gaps:
@@ -36,6 +36,38 @@ Restored gaps:
   argument order. Parsing and script restoration now use that per-client state
   instead of a separate global with the renderer's different `GfxFog` layout.
   With these corrections, `sizeof(cg_s)` matches the original `0x71980` allocation.
+- Original 28-slot server snapshot-history capacities, 32 MiB archive storage,
+  and `0x50000000` archive counter wrap. Allocation/reservation, both reader paths,
+  split copies and retention checks now use the same original capacities.
+  Compiled client/cached-client extents and full allocator behavior remain
+  separately unqualified; their remaining exceptions are still recorded.
+
+## Original-execution coverage added (2026-10-23)
+
+`BG_GetQuickScopeSpread` now has a complete original-function adapter, rather
+than instruction inspection alone. All **694 cases** match native original
+execution, independently emulated original instructions, native production C++
+and Wasm bit for bit. The corpus exercises every gate, timer equality, adjacent
+duration-rounding values, finite float extremes and valid dvar ranges. Player
+state and dvar writes are forbidden. NaNs and exhaustive finite combinations
+remain outside this corpus; this is not a universal equivalence proof.
+
+`G_GetClientSize` matches native original execution and both compiled backends.
+Its isolated production function also matches **all six original x86 bytes**
+with the recorded MSVC 14.37 compiler and explicit profile. The size-only codegen
+binding is checked against the real production `gclient_s` declaration.
+
+The current ten units pass **7,372 cases per backend**. Extending the native
+adapter required explicit new original captures; all eight previous input/output
+archives remain present and byte-identical. The comparison's deliberate
+wrong-code mutation is still detected. The separate archive-retention regression
+checks 64 size/wrap boundaries using production code; its expected circular
+distance contract comes from inspected instructions, not original execution.
+
+**All branch fixes are not yet qualified.** Only the contracts in `catalog.json`
+contribute to measured behavioral agreement. Snapshot/archive integration,
+quick-scope state updates, networking and platform exceptions need their own
+original-execution contracts before an all-fixes claim is supported.
 
 Run the small checks without launching a game:
 

@@ -129,8 +129,8 @@ def link_function(coff, name, f, pe):
 
 def reconstruct(f, compiler=None, profile="vc9-sse2-fast", binary=None):
     _, pe = reference(binary); check_mapping(f, pe)
-    if f["name"] not in ("ExpandBoundsToWidth", "FX_SetupVisualState", "FX_GetVelocityAtTime") or len(f["code"]) != 1 or f["kind"] != "full_function":
-        raise Blocked("Isolated source build supports bounds and FX units; other units need ABI/dependency bindings")
+    if f["name"] not in ("ExpandBoundsToWidth", "FX_SetupVisualState", "FX_GetVelocityAtTime", "G_GetClientSize") or len(f["code"]) != 1 or f["kind"] != "full_function":
+        raise Blocked("Isolated source build supports bounds, FX and client-size units; other units need ABI/dependency bindings")
     config = read_json(ROOT / "tools/re/codegen-profiles.json")
     if profile not in config["profiles"]:
         raise Blocked("Unknown code-generation profile")
@@ -141,6 +141,8 @@ def reconstruct(f, compiler=None, profile="vc9-sse2-fast", binary=None):
     directory.mkdir(parents=True)
     source = directory / "candidate.cpp"
     header = '#include "' + (ROOT / 'tools/re/native/codegen_abi.h').as_posix() + '"\n' if f["name"].startswith("FX_") else ''
+    if f["name"] == "G_GetClientSize":
+        header = '#define KISAK_RE_CODEGEN_CLIENT_SIZE\n#include "' + (ROOT / 'tools/re/native/codegen_abi.h').as_posix() + '"\n'
     sources = [s for s in f["sources"] if s["symbol"] != "fx_randomTable"]
     definitions = [(s["path"], definition(ROOT / s["path"], s["symbol"])) for s in sources]
     definitions.sort(key=lambda pair: (pair[0], int(re.match(r"#line (\d+)", pair[1])[1])))

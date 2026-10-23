@@ -1,4 +1,9 @@
-// VC9 declarations for isolated code generation. No implementation lives here.
+// Declarations for isolated code generation. No implementation lives here.
+#ifdef KISAK_RE_CODEGEN_CLIENT_SIZE
+// Only sizeof is observed by G_GetClientSize. The full production layout is
+// independently compiled and asserted in weapon_adapter.cpp.
+struct gclient_s { unsigned char storage[0x2a28]; };
+#else
 // Full production layouts are checked independently by fx_adapter.cpp compiled
 // against the real headers; these bindings expose only fields read by setup.
 struct FxEffect;
@@ -32,4 +37,5 @@ void __cdecl FX_OrientationDirToWorldDir(const orientation_t*, const float*, flo
 #define iassert(...)
 #define vassert(...)
 extern "C" double __cdecl floor(double);
+#endif
 #endif

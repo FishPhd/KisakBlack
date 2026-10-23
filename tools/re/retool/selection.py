@@ -8,7 +8,10 @@ def definition(path, symbol, data=False):
     masked = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'',
                     lambda m: " " * len(m.group()), text, flags=re.S)
     suffix = r"\[[^\]]*\]\s*=\s*\{" if data else r"\([^;{}]*\)\s*\{"
-    matches = list(re.finditer(r"^[^\n;{}]*\b" + re.escape(symbol) + suffix, masked, re.M))
+    # A declaration has a nonempty type/storage prefix. Calls inside if/while
+    # conditions must not be mistaken for a definition ending at that brace.
+    matches = [m for m in re.finditer(r"^(?P<prefix>[^\n;{}()]*)\b" + re.escape(symbol) + suffix, masked, re.M)
+               if m["prefix"].strip()]
     if len(matches) != 1:
         raise Blocked(f"Expected one production definition of {symbol}, found {len(matches)}")
     start, position, depth = matches[0].start(), matches[0].end(), 1
@@ -29,13 +32,16 @@ def generate(directory):
              (ROOT / "src/EffectsCore/fx_draw.cpp", "FX_SetupVisualState"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTime"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTimeInFrame"),
-             (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_OrientationDirToWorldDir")]
-    header = '#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
+             (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_OrientationDirToWorldDir"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetQuickScopeSpread"),
+             (ROOT / "src/game_mp/g_main_mp.cpp", "G_GetClientSize")]
+    header = '#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)
     selected.write_text(header + "\n".join(definition(p, s) for p, s in paths) +
                        "\n".join(definition(fields, symbol, data=True) for symbol in arrays) +
-                       definition(ROOT / "src/EffectsCore/fx_random.cpp", "fx_randomTable", data=True), encoding="utf-8")
+                       definition(ROOT / "src/EffectsCore/fx_random.cpp", "fx_randomTable", data=True) +
+                       '\nfloat re_quickscope_spread(const playerState_s* ps) { return BG_GetQuickScopeSpread(ps); }\n', encoding="utf-8")
     write_json(directory / "selected.json", {"production": {str(p.relative_to(ROOT)): digest(p) for p, _ in paths},
                                           "generated": digest(selected)})

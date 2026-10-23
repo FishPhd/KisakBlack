@@ -11,6 +11,12 @@
 
 #define ALL_STATS_PACKETS_RECEIVED 0x7FFFFFFFF
 
+// Original multiplayer snapshot storage: SV_AllocateClientMemory 0x57a3e0,
+// archive reader 0x878360 and archive writer 0x665c70.
+constexpr int SNAPSHOT_STORAGE_FRAME_COUNT = 28;
+constexpr int ARCHIVED_SNAPSHOT_BUFFER_SIZE = 0x2000000;
+constexpr int ARCHIVED_SNAPSHOT_COUNTER_WRAP = 0x50000000;
+
 struct gentity_s;
 
 enum SignonState // LWSS: not a real enum name!

@@ -4,6 +4,8 @@
 #include <game_mp/g_main_mp.h>
 #include <game_mp/g_combat_mp.h>
 #include <bgame/bg_weapons_def.h>
+#include <server_mp/sv_main_mp.h>
+#include <server/server.h>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -16,6 +18,7 @@ static_assert(offsetof(gentity_s, takedamage) == 0x15f);
 static_assert(offsetof(clientState_s, lastStandStartTime) == 0x70);
 
 level_locals_t level{};
+serverStatic_t svs{};
 gclient_s::gclient_s() { std::memset(this, 0, sizeof(*this)); }
 static gclient_s client;
 static gentity_s target;
@@ -65,6 +68,25 @@ static void damage(unsigned mod, int amount = 101) {
                    mod, 0, HITLOC_HEAD, -25);
 }
 int main() {
+    // Independent circular-distance contract for the production retention
+    // predicate, including the original counter wrap and the 32 MiB boundary.
+    // This is a unit check of inspected behavior, not original execution.
+    const int ringCases[] = {0, 1, ARCHIVED_SNAPSHOT_BUFFER_SIZE - 1,
+        ARCHIVED_SNAPSHOT_BUFFER_SIZE, ARCHIVED_SNAPSHOT_BUFFER_SIZE + 1,
+        ARCHIVED_SNAPSHOT_COUNTER_WRAP - ARCHIVED_SNAPSHOT_BUFFER_SIZE - 1,
+        ARCHIVED_SNAPSHOT_COUNTER_WRAP - ARCHIVED_SNAPSHOT_BUFFER_SIZE,
+        ARCHIVED_SNAPSHOT_COUNTER_WRAP - 1};
+    for (int next : ringCases) {
+        svs.nextArchivedSnapshotBuffer = next;
+        for (int start : ringCases) {
+            const auto distance = (static_cast<unsigned long long>(next)
+                + ARCHIVED_SNAPSHOT_COUNTER_WRAP - start) % ARCHIVED_SNAPSHOT_COUNTER_WRAP;
+            require(SV_FrameIsStillInArchivedSnapshotBuffer(start)
+                == (distance > 0 && distance <= ARCHIVED_SNAPSHOT_BUFFER_SIZE),
+                "archive retention or wrap boundary differs");
+        }
+    }
+    std::puts("PASS: production archive retention at size/wrap boundaries (unit test; original instruction evidence only)");
     std::printf("Reconstructed client layout: size=0x%zx flags=0x%zx lastStand=0x%zx session.cs=0x%zx\n",
                 sizeof(gclient_s), offsetof(gclient_s, flags), offsetof(gclient_s, lastStand),
                 offsetof(gclient_s, sess) + offsetof(clientSession_t, cs));

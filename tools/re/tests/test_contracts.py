@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from retool import core
-from retool.cases import corpus, encode, decode_results
+from retool.cases import corpus, encode, decode_results, validate_quickscope
 from retool.emulator import Emulator, DATA
 from retool.selection import definition
 from retool.verification import first_difference, load_capture
@@ -36,6 +36,38 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_selected_definition_excludes_control_flow_calls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.cpp"
+            path.write_text("void caller() {\n    if (target(1)) { }\n}\n"
+                            "bool target(int value) { return value > 0; }\n")
+            selected = definition(path, "target")
+            self.assertIn("bool target(int value)", selected)
+            self.assertNotIn("if (target", selected)
+
+    def test_quickscope_domain_and_boundary_corpus(self):
+        cases = corpus("BG_GetQuickScopeSpread")
+        for case in cases:
+            validate_quickscope(case)
+        for member, value in ((0, 2), (2, 0x7fc00001), (5, 0x7f800000), (5, 0x42000000)):
+            case = list(cases[0]); case[member] = value
+            with self.assertRaises(ValueError):
+                validate_quickscope(case)
+        self.assertEqual(corpus("G_GetClientSize"), [(0, 0, 0, 0)])
+
+    def test_quickscope_original_writes_are_blocked(self):
+        # A synthetic bad original attempting a player-state write must be
+        # rejected before its returned value could qualify a comparison.
+        code = b"\x89\x90\xec\x04\x00\x00\xc3"
+        f = program(code); f["name"] = "BG_GetQuickScopeSpread"; f["globals"] = []
+        for rva in (0x84f874, 0x84f928, 0x851a8c, 0x8519e0):
+            f["globals"].append(dict(rva=rva, size=4, sha256=hashlib.sha256(bytes(4)).hexdigest()))
+        pe = TinyPE(code)
+        original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(corpus("BG_GetQuickScopeSpread")[0])
+
     def test_wrong_reference_is_rejected_before_loading(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "wrong.exe"; path.write_bytes(b"wrong")

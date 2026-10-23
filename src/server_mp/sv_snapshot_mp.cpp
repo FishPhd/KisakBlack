@@ -1068,7 +1068,7 @@ cachedSnapshot_t *__cdecl SV_GetCachedSnapshotInternal(int archivedFrame, int de
                 archivedFrame,
                 frame->start,
                 svs.nextArchivedSnapshotBuffer,
-                0x1000000);
+                ARCHIVED_SNAPSHOT_BUFFER_SIZE);
         return 0;
     }
     firstCachedSnapshotFrame = svs.nextCachedSnapshotFrames - 512;
@@ -1099,9 +1099,9 @@ cachedSnapshot_t *__cdecl SV_GetCachedSnapshotInternal(int archivedFrame, int de
             break;
         }
     }
-    v4 = frame->start % 0x1000000;
-    partSize = 0x1000000 - v4;
-    if (frame->size > 0x1000000 - v4)
+    v4 = frame->start % ARCHIVED_SNAPSHOT_BUFFER_SIZE;
+    partSize = ARCHIVED_SNAPSHOT_BUFFER_SIZE - v4;
+    if (frame->size > ARCHIVED_SNAPSHOT_BUFFER_SIZE - v4)
         MSG_InitReadOnlySplit(
             &msg,
             &svs.archivedSnapshotBuffer[v4],
@@ -1226,7 +1226,7 @@ cachedSnapshot_t *__cdecl SV_GetCachedSnapshotInternal(int archivedFrame, int de
                     archivedFrame,
                     framea->start,
                     svs.nextArchivedSnapshotBuffer,
-                    0x1000000);
+                    ARCHIVED_SNAPSHOT_BUFFER_SIZE);
             return 0;
         }
         oldCachedFrame = SV_GetCachedSnapshotInternal(oldArchivedFrame, depth + 1, expectedToSucceed);
@@ -1478,9 +1478,9 @@ bool __cdecl SV_FrameIsStillInArchivedSnapshotBuffer(int frameStart)
     {
         __debugbreak();
     }
-    bufferStart = svs.nextArchivedSnapshotBuffer - 0x1000000;
-    if ( svs.nextArchivedSnapshotBuffer - 0x1000000 < 0 )
-        return frameStart < svs.nextArchivedSnapshotBuffer || frameStart >= bufferStart + 0x28000000;
+    bufferStart = svs.nextArchivedSnapshotBuffer - ARCHIVED_SNAPSHOT_BUFFER_SIZE;
+    if ( svs.nextArchivedSnapshotBuffer - ARCHIVED_SNAPSHOT_BUFFER_SIZE < 0 )
+        return frameStart < svs.nextArchivedSnapshotBuffer || frameStart >= bufferStart + ARCHIVED_SNAPSHOT_COUNTER_WRAP;
     return frameStart >= bufferStart && frameStart < svs.nextArchivedSnapshotBuffer;
 }
 
@@ -1601,9 +1601,9 @@ bool __cdecl SV_HasCachedSnapshotInternal(int archivedFrame, int callDepth)
             break;
         }
     }
-    v3 = frame->start % 0x1000000;
-    partSize = 0x1000000 - v3;
-    if (frame->size > 0x1000000 - v3)
+    v3 = frame->start % ARCHIVED_SNAPSHOT_BUFFER_SIZE;
+    partSize = ARCHIVED_SNAPSHOT_BUFFER_SIZE - v3;
+    if (frame->size > ARCHIVED_SNAPSHOT_BUFFER_SIZE - v3)
         MSG_InitReadOnlySplit(
             &msg,
             &svs.archivedSnapshotBuffer[v3],
@@ -3280,11 +3280,11 @@ void __cdecl SV_SendClientMessages()
             frame = &svs.archivedSnapshotFrames[svs.nextArchivedSnapshotFrames % 1200];
             frame->start = svs.nextArchivedSnapshotBuffer;
             frame->size = g_archiveMsg.cursize;
-            v2 = svs.nextArchivedSnapshotBuffer % 0x1000000;
-            startIndex = svs.nextArchivedSnapshotBuffer % 0x1000000;
-            svs.nextArchivedSnapshotBuffer = (g_archiveMsg.cursize + svs.nextArchivedSnapshotBuffer) % 671088640;
-            partSize = 0x1000000 - v2;
-            if (g_archiveMsg.cursize > 0x1000000 - v2)
+            v2 = svs.nextArchivedSnapshotBuffer % ARCHIVED_SNAPSHOT_BUFFER_SIZE;
+            startIndex = svs.nextArchivedSnapshotBuffer % ARCHIVED_SNAPSHOT_BUFFER_SIZE;
+            svs.nextArchivedSnapshotBuffer = (g_archiveMsg.cursize + svs.nextArchivedSnapshotBuffer) % ARCHIVED_SNAPSHOT_COUNTER_WRAP;
+            partSize = ARCHIVED_SNAPSHOT_BUFFER_SIZE - v2;
+            if (g_archiveMsg.cursize > ARCHIVED_SNAPSHOT_BUFFER_SIZE - v2)
             {
                 memcpy(&svs.archivedSnapshotBuffer[startIndex], g_archiveMsg.data, partSize);
                 memcpy(svs.archivedSnapshotBuffer, &g_archiveMsg.data[partSize], g_archiveMsg.cursize - partSize);

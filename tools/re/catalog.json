@@ -358,6 +358,95 @@
       "codegen_external_data": {
         "?fx_randomTable@@3QBMB": 7098296
       }
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bd940",
+      "name": "BG_GetQuickScopeSpread",
+      "entry_rva": 3922240,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3922240,
+          "size": 103,
+          "sha256": "5ab39e503a30abb77f97957e31254ecbe764494968095af0ab3b5f25769e455e"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        },
+        {
+          "rva": 6885632,
+          "size": 4,
+          "sha256": "07883481b5c147464597d44401db095d88c2a6b049fbbcd7b278de98a5ceeb71"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_GetQuickScopeSpread"
+        }
+      ],
+      "abi": "ps pointer in EAX; float result in XMM0.low32; no calls or writes. Four original dvar-pointer globals bound to private fixtures.",
+      "output_words": 1,
+      "comparison": "bitwise",
+      "coverage": "Complete function over finite state values, valid enable bool, time dvar [0,30], max/multiplier dvars [0,255], arbitrary signed timer; checks returned bits and no player/dvar writes. Corpus covers branch boundaries and duration rounding, not every finite float combination or NaNs.",
+      "evidence": "VA 0x7bd940..0x7bd9a6; COMISS/JA spread gate, COMISS/JAE scale gate; MULSS time*1000 before CVTTSS2SI and equality at ps+0x4f0; SUBSS scale-1 then MULSS spread multiplier. This matches the caller in PM_AdjustAimSpreadScale and restored state/dvar offsets; no heuristic name match is used as proof.",
+      "depends_on": [],
+      "exceptions": [],
+      "globals": [
+        {
+          "rva": 8714356,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 8714536,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 8723084,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 8722912,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ]
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x16a1e0",
+      "name": "G_GetClientSize",
+      "entry_rva": 1483232,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 1483232,
+          "size": 6,
+          "sha256": "b19ba003b165723cd38a0eeaeeb922b8c898d1046559ee35c8f535d135901ba4"
+        }
+      ],
+      "constants": [],
+      "sources": [
+        {
+          "path": "src/game_mp/g_main_mp.cpp",
+          "symbol": "G_GetClientSize"
+        }
+      ],
+      "abi": "No arguments; integer result in EAX; no dependencies or writes.",
+      "output_words": 1,
+      "comparison": "bitwise",
+      "coverage": "Complete six-byte constant-return function, one no-input case. Does not qualify any gclient_s member semantics or callers.",
+      "evidence": "MOV EAX,0x2a28; RET. Return value matches the independently checked original client stride and restored gclient_s extent.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }

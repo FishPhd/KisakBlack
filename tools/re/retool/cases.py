@@ -10,6 +10,39 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "G_GetClientSize":
+        return [(0, 0, 0, 0)]
+    if name == "BG_GetQuickScopeSpread":
+        def bits(v):
+            return struct.unpack("<I", struct.pack("<f", v))[0]
+        values = []
+        for enabled in (0, 1):
+            for spread in (bits(0), bits(30) - 1, bits(30), bits(30) + 1, bits(255)):
+                for scale in (bits(0), bits(1) - 1, bits(1), bits(1) + 1, bits(5)):
+                    for timer in (0, 199, 200, 201, 0x80000000, 0xffffffff):
+                        values.append((enabled, spread, scale, timer, bits(30), bits(.2), bits(10)))
+        # Adjacent representable time settings expose multiplication rounding
+        # before CVTTSS2SI; each possible adjacent integer timer is exercised.
+        for time in (0, 1, bits(.001) - 1, bits(.001), bits(.001) + 1,
+                     bits(.2) - 1, bits(.2), bits(.2) + 1, bits(30)):
+            for timer in (0, 1, 199, 200, 201, 30000):
+                values.append((1, bits(0), bits(5), timer, bits(30), time, bits(10)))
+        for _ in range(random_count):
+            time = bits(rng.uniform(0, 30))
+            seconds = struct.unpack("<f", struct.pack("<I", time))[0]
+            duration = int(struct.unpack("<f", struct.pack("<f", seconds * 1000))[0])
+            values.append((rng.randrange(2), bits(rng.uniform(0, 255)), bits(rng.uniform(0, 100)),
+                           (duration + rng.choice((-1, 0, 1))) & 0xffffffff,
+                           bits(rng.uniform(0, 255)), time, bits(rng.uniform(0, 100))))
+        for edge in EDGE_FLOATS:
+            if edge & 0x7f800000 == 0x7f800000:
+                continue
+            for member in (1, 2):
+                for multiplier in (0., 1., 255.):
+                    case = [1, bits(0), bits(5), 200, bits(30), bits(.2), bits(multiplier)]
+                    case[member] = edge
+                    values.append(tuple(case))
+        return values
     if name == "FX_GetVelocityAtTime":
         def bits(v):
             return struct.unpack("<I", struct.pack("<f", v))[0]
@@ -86,6 +119,16 @@ def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
                            bits(rng.choice((0., 100., 300.))), rng.choice((1, 8)), 0, 0, 0, 0))
         return values
     raise ValueError(f"No corpus adapter: {name}")
+
+
+def validate_quickscope(case):
+    if len(case) < 7 or case[0] not in (0, 1):
+        raise ValueError("Quick-scope adapter requires a boolean enable and seven input words")
+    floats = [struct.unpack("<f", struct.pack("<I", case[i]))[0] for i in (1, 2, 4, 5, 6)]
+    if any((case[i] & 0x7f800000) == 0x7f800000 for i in (1, 2, 4, 5, 6)):
+        raise ValueError("Quick-scope adapter domain is finite state and dvar values")
+    if not 0 <= floats[3] <= 30 or not 0 <= floats[2] <= 255 or not 0 <= floats[4] <= 255:
+        raise ValueError("Quick-scope dvars exceed time [0,30] or spread settings [0,255]")
 
 
 def encode(cases, width=16):

@@ -109,8 +109,9 @@ def main():
         print('client script fields: 42 descriptors agree (names, order, offsets, sizes, types, masks); accessor behavior is not qualified', flush=True)
         (directory / 'original_fields.h').write_text('\n'.join(assertions) + '\n', encoding='utf-8')
     generated.write_text('#include <game_mp/g_main_mp.h>\n#include <game_mp/g_combat_mp.h>\n'
-                         '#include <bgame/bg_weapons_def.h>\n' +
+                         '#include <bgame/bg_weapons_def.h>\n#include <server_mp/sv_main_mp.h>\n#include <server/server.h>\n' +
                          definition(ROOT / 'src/game_mp/g_combat_mp.cpp', 'G_DamageClient') +
+                         definition(ROOT / 'src/server_mp/sv_snapshot_mp.cpp', 'SV_FrameIsStillInArchivedSnapshotBuffer') +
                          '\n'.join(definition(fields, name, data=True) for name in arrays), encoding='utf-8')
     command = ['cmake', '-S', str(ROOT / 'tools/re/damage-dispatch'), '-B', str(directory),
                '-DGENERATED_SOURCE=' + str(generated)]

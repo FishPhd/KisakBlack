@@ -71,10 +71,18 @@
         "player_aqs_spread_max",
         "player_aqs_spread_multiplier"
       ],
-      "mapping_status": "unverified",
-      "execution_status": "unverified",
+      "mapping_status": "verified",
+      "execution_status": "passes_recorded_native_and_wasm_corpus",
       "review_status": "pending_human_review",
-      "exceptions": []
+      "exceptions": [],
+      "execution_evidence": {
+        "catalog_id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bd940",
+        "cases": 694,
+        "capture_id": "27381e0425b4404dfe864e2b0ae3e4721d6a88943731492aa8d8abed707c9fe6",
+        "native_report": "build-re/reports/run-1792791429177373500.json",
+        "wasm_report": "build-re/reports/run-1792791482209534900.json",
+        "scope": "Complete function over finite state values, valid enable bool, time dvar [0,30], max/multiplier dvars [0,255], arbitrary signed timer; checks returned bits and no player/dvar writes. Corpus covers branch boundaries and duration rounding, not every finite float combination or NaNs."
+      }
     },
     {
       "symbol": "PM_AdjustAimSpreadScale",
@@ -264,10 +272,40 @@
       "abi_notes": "No arguments; integer result EAX; original MOV EAX,0x2a28; RET.",
       "change_scope": "Return the restored gclient_s size, also used at server game-data registration sites.",
       "dependencies": [],
-      "mapping_status": "unverified",
-      "execution_status": "unverified",
+      "mapping_status": "verified",
+      "execution_status": "passes_recorded_native_and_wasm_corpus",
       "review_status": "pending_human_review",
-      "exceptions": []
+      "exceptions": [],
+      "execution_evidence": {
+        "catalog_id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x16a1e0",
+        "cases": 1,
+        "capture_id": "f85012035c59be66987b17fb932407e55cc051208cf65a93276af26c3b5c2a02",
+        "native_report": "build-re/reports/run-1792791429177373500.json",
+        "wasm_report": "build-re/reports/run-1792791482209534900.json",
+        "scope": "Complete six-byte constant-return function, one no-input case. Does not qualify any gclient_s member semantics or callers."
+      },
+      "literal_byte_evidence": {
+        "status": "pass",
+        "comparison": "literal_x86_bytes",
+        "original_size": 6,
+        "candidate_size": 6,
+        "original_sha256": "b19ba003b165723cd38a0eeaeeb922b8c898d1046559ee35c8f535d135901ba4",
+        "candidate_sha256": "b19ba003b165723cd38a0eeaeeb922b8c898d1046559ee35c8f535d135901ba4",
+        "compiler_sha256": "125e238719659123e4fec4d76376d1bd479b4ea30eaede3c8946bb9d09b002bd",
+        "profile": "msvc143-sse2-precise",
+        "flags": [
+          "/nologo",
+          "/c",
+          "/O2",
+          "/Oi",
+          "/Oy",
+          "/GS-",
+          "/Gy",
+          "/arch:SSE2",
+          "/fp:precise"
+        ],
+        "coverage": "Isolated production function at original VA with declared constant bindings; no whole-game or custom-feature link identity."
+      }
     },
     {
       "symbol": "CG_UpdateClientDobjPartBits",
@@ -407,16 +445,21 @@
         "compiled client and snapshot layouts",
         "matching reservation routine"
       ],
-      "change_scope": "Use compiled sizeof for clients, snapshot clients and cached clients, including clears; retain the existing portable 32-frame counts and 16 MiB archive capacity.",
+      "change_scope": "Use compiled element widths with original 28-slot match/entity/client history capacities and 32 MiB archived snapshot storage.",
       "exceptions": [
         {
-          "scope": "Use compiled sizeof for clients, snapshot clients and cached clients, including clears; retain the existing portable 32-frame counts and 16 MiB archive capacity.",
-          "rationale": "Prevent smaller literal allocations from overlapping adjacent server buffers. Existing capacity and enclosing-layout divergences remain unqualified; this change does not establish original allocation equivalence.",
+          "scope": "Compiled client_t and cachedClient_s extents remain in use, plus existing ancillary reserves; their complete original layouts remain unqualified.",
+          "rationale": "Keep allocation and clearing safe for the compiled layouts. The prior snapshot capacity divergence is removed; no original allocation equivalence is claimed for the remaining layout differences.",
           "original_behavior": "Original uses client stride 0x7c2e8, 28 snapshot frames per client, client-state stride 0xd8, cached-client stride 0x27d0 and a 32 MiB archived snapshot buffer.",
           "review_status": "pending_human_review",
           "comparison_effect": "No comparison is waived; no equivalence claim."
         }
-      ]
+      ],
+      "historical_capacity_divergence": {
+        "snapshot_storage_frame_count": 32,
+        "archive_bytes": "0x1000000",
+        "status": "removed; original 28 slots and 0x2000000 bytes restored"
+      }
     },
     {
       "symbol": "SV_AllocateClientMemory_SizeRequired",
@@ -429,7 +472,7 @@
           "sha256": "b1299b22c14f7fb185d049e2e3f05036a0e713c1640d105dacd444498eb1011e"
         }
       ],
-      "abi_notes": "Original custom calling convention and dependency memory adapter are not bound; this is instruction inspection only.",
+      "abi_notes": "Original cdecl two integer arguments, first unused; returns size in EAX. IK size is loaded from original 0xad43f4. Original linear term 0x102b68, quadratic term 0x17a0, cached-client stride 0x27d0, reserve 0x4900.",
       "mapping_status": "unverified",
       "execution_status": "unverified",
       "review_status": "pending_human_review",
@@ -438,7 +481,7 @@
         "compiled client and snapshot layouts",
         "matching reservation routine"
       ],
-      "change_scope": "Budget the compiled client, snapshot-client and cached-client sizes with exactly the capacities allocated by the current allocator.",
+      "change_scope": "Reserve the restored 28-slot and 32 MiB capacities using exactly the compiled element widths allocated by SV_AllocateClientMemory.",
       "exceptions": [
         {
           "scope": "Budget the compiled client, snapshot-client and cached-client sizes with exactly the capacities allocated by the current allocator.",
@@ -1491,10 +1534,11 @@
     "src/game/actor_fields.cpp": "Update debug-only client-index divisor for restored structure size; whole original Cmd_AI_DisplayValue mapping remains unverified.",
     "src/demo/demo_version.cpp": "Legacy field offsets follow restored in-memory members; old demo encodings retained. All legacy demo versions are not qualified.",
     "src/demo/demo_playback.cpp": "Use restored playerState size for scratch storage.",
-    "src/server_mp/sv_snapshot_mp.cpp": "Use restored playerState size for copies.",
+    "src/server_mp/sv_snapshot_mp.cpp": "Use restored playerState copy size and original 32 MiB archive size/0x50000000 wrap throughout readers and writer. SV_HasCachedSnapshotInternal identity remains unverified; original reader 0x878360 and writer in SV_SendClientMessages 0x665c70 provide instruction evidence.",
     "tools/re/retool/emulator.py": "Check the complete original 0x26e8 playerState write set.",
     "tools/re/retool/live.py": "Require complete original 0x26e8 snapshots; old truncated captures remain blocked.",
-    "tools/re/frida/pm_capture.js": "Capture complete original 0x26e8 playerState."
+    "tools/re/frida/pm_capture.js": "Capture complete original 0x26e8 playerState.",
+    "tools/re/native/codegen_abi.h": "Client-size binding observes only sizeof(gclient_s); real production sizeof is asserted in weapon_adapter.cpp and tested against the native constant-return oracle. No full layout or whole-executable byte identity is implied."
   },
   "platform_changes": [
     {
@@ -1624,5 +1668,48 @@
       "matched_original_byte_coverage_percent": 2.4913941745908303
     },
     "limits": "Whole branch Release builds; includes earlier platform and C++ changes, different dependency wrappers, compiler/inlining effects and unreviewed heuristic matches. This is structural similarity, not original-execution or exact machine-byte equivalence. Main baseline is repository default master."
+  },
+  "snapshot_capacity_restoration": {
+    "snapshot_storage_frame_count": 28,
+    "entities_per_history_slot_per_client": 84,
+    "archive_buffer_bytes": "0x2000000",
+    "archive_counter_wrap": "0x50000000",
+    "sources": [
+      "src/server/server.h",
+      "src/server_mp/sv_init_mp.cpp",
+      "src/server_mp/sv_snapshot_mp.cpp"
+    ],
+    "instruction_evidence": [
+      {
+        "purpose": "Original allocator capacities, complete original function range from inventory",
+        "rva": "0x17a3e0",
+        "size": 610,
+        "sha256": "b693f72887187c62019350f6db8fcc7f401abb2f899ca57c38f92345b351fdb0"
+      },
+      {
+        "purpose": "Original reader retention threshold, 32 MiB modulus and split boundary",
+        "rva": "0x478360",
+        "size": 334,
+        "sha256": "354ef8a545a1b8d2790fba90cb1da9d3c4adfcb60612d85762e8575eed14b7a0"
+      },
+      {
+        "purpose": "Original SV_SendClientMessages inline archive writer; 0x50000000 counter modulus and 0x2000000 split boundary",
+        "rva": "0x26648f",
+        "size": 122,
+        "sha256": "a2e1367f9b032bc3b61f5848c36588cb9962ff91149c71799b5ae3c6d7d1f85f"
+      }
+    ],
+    "mapping_status": "instruction_evidence_only",
+    "execution_status": "full_allocator_and_archive_execution_unverified",
+    "unit_coverage": "64 circular-distance boundary cases against the extracted production retention predicate, native x86 and wasm32. This does not establish original-execution equivalence."
+  },
+  "last_behavioral_observation": {
+    "units": 10,
+    "cases_per_backend": 7372,
+    "native_report": "build-re/reports/run-1792791429177373500.json",
+    "wasm_report": "build-re/reports/run-1792791482209534900.json",
+    "old_native_captures_preserved": true,
+    "all_branch_fixes_qualified": false,
+    "scope": "Recorded catalog units only; unverified restorations and intentional platform changes remain outside this percentage."
   }
 }

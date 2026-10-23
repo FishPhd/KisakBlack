@@ -74,6 +74,10 @@ class Emulator:
             if self.f["name"] == "PM_Accelerate":
                 allowed += [(DATA + 0x1000, DATA + 0x1000 + 0x26E8),
                             (DATA + 0x200, DATA + 0x200 + 0x8C), (DATA + 0x300, DATA + 0x320)]
+            if self.f["name"] == "BG_GetQuickScopeSpread":
+                allowed += [(DATA + 0x14ec, DATA + 0x14f4), (DATA + 0x1560, DATA + 0x1564)]
+                allowed += [(DATA + 0x400 + i * 0x100 + 0x18,
+                             DATA + 0x400 + i * 0x100 + 0x18 + (1 if i == 0 else 4)) for i in range(4)]
         if not any(start <= address and address + size <= end for start, end in allowed):
             self._fail(f"Undeclared {'write' if write else 'read'} {address:#x}+{size}")
 
@@ -91,7 +95,22 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "FloatPack9S":
+        if name == "BG_GetQuickScopeSpread":
+            from .cases import validate_quickscope
+            validate_quickscope(case)
+            state = bytearray(0x26e8)
+            struct.pack_into("<I", state, 0x560, case[1])
+            struct.pack_into("<2I", state, 0x4ec, *case[2:4])
+            m.mem_write(DATA + 0x1000, bytes(state))
+            for i, rva in enumerate((0x84f874, 0x84f928, 0x851a8c, 0x8519e0)):
+                settings = bytearray(0x100)
+                struct.pack_into("<I", settings, 0x18, case[0] if i == 0 else case[i + 3])
+                m.mem_write(DATA + 0x400 + i * 0x100, bytes(settings))
+                m.mem_write(self.base + rva, struct.pack("<I", DATA + 0x400 + i * 0x100))
+            m.reg_write(x.UC_X86_REG_EAX, DATA + 0x1000)
+        elif name == "G_GetClientSize":
+            pass
+        elif name == "FloatPack9S":
             m.reg_write(x.UC_X86_REG_XMM1, case[0])
         elif name == "FloatPack10S":
             m.reg_write(x.UC_X86_REG_XMM2, case[0])
@@ -167,6 +186,10 @@ class Emulator:
             raise Blocked(self.error)
         if m.reg_read(x.UC_X86_REG_EIP) != stop:
             raise Blocked("Instruction or time limit reached")
+        if name == "BG_GetQuickScopeSpread":
+            return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
+        if name == "G_GetClientSize":
+            return [m.reg_read(x.UC_X86_REG_EAX), 0, 0, 0]
         if name.startswith("FloatPack"):
             reg = x.UC_X86_REG_XMM1 if name == "FloatPack9S" else x.UC_X86_REG_XMM4
             mask = 511 if name == "FloatPack9S" else 1023
