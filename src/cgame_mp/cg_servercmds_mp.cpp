@@ -47,7 +47,6 @@
 #include <gfx_d3d/r_model.h>
 #include "cg_ui_animate_mp.h"
 
-GfxFog cg_serverVolFog;
 
 struct //__declspec(align(4)) $59835072FC2CD3936CE4A4C9F556010B // sizeof=0x48
 {                                       // XREF: .data:cg_waitingScriptMenu/r
@@ -242,7 +241,8 @@ void __cdecl CG_ParseFog(int localClientNum)
     float sunDirX; // [esp+90h] [ebp-8h]
     float heightDensity; // [esp+94h] [ebp-4h]
 
-    time = CG_GetLocalClientGlobals(localClientNum)->time;
+    cg_s *cgameGlob = CG_GetLocalClientGlobals(localClientNum);
+    time = cgameGlob->time;
     info = CL_GetConfigString(0xAu);
     token = (const char *)Com_Parse(&info);
     start = atof(token);
@@ -303,23 +303,23 @@ void __cdecl CG_ParseFog(int localClientNum)
             maxFogOpacity);
         R_SwitchFog(localClientNum, 1u, time, transitionTime);
 
-        cg_serverVolFog.fogStart = start;
-        cg_serverVolFog.color[0] = r;
-        cg_serverVolFog.color[1] = g;
-        cg_serverVolFog.color[2] = b;
-        cg_serverVolFog.density = density;
-        cg_serverVolFog.heightDensity = heightDensity;
-        cg_serverVolFog.baseHeight = baseHeight;
-        cg_serverVolFog.color[3] = fogColorScale;
-        cg_serverVolFog.sunFogColor[0] = sunColorR;
-        cg_serverVolFog.sunFogColor[1] = sunColorG;
-        cg_serverVolFog.sunFogColor[2] = sunColorB;
-        cg_serverVolFog.sunFogDir[0] = sunDirX;
-        cg_serverVolFog.sunFogDir[1] = sunDirY;
-        cg_serverVolFog.sunFogDir[2] = sunDirZ;
-        cg_serverVolFog.sunFogStartAng = sunStartAng;
-        cg_serverVolFog.sunFogEndAng = sunEndAng;
-        cg_serverVolFog.sunFogColor[3] = maxFogOpacity;
+        cgameGlob->serverVolFog.fogStart = start;
+        cgameGlob->serverVolFog.color[0] = r;
+        cgameGlob->serverVolFog.color[1] = g;
+        cgameGlob->serverVolFog.color[2] = b;
+        cgameGlob->serverVolFog.density = density;
+        cgameGlob->serverVolFog.heightDensity = heightDensity;
+        cgameGlob->serverVolFog.baseHeight = baseHeight;
+        cgameGlob->serverVolFog.fogColorScale = fogColorScale;
+        cgameGlob->serverVolFog.sunFogColor[0] = sunColorR;
+        cgameGlob->serverVolFog.sunFogColor[1] = sunColorG;
+        cgameGlob->serverVolFog.sunFogColor[2] = sunColorB;
+        cgameGlob->serverVolFog.sunFogDir[0] = sunDirX;
+        cgameGlob->serverVolFog.sunFogDir[1] = sunDirY;
+        cgameGlob->serverVolFog.sunFogDir[2] = sunDirZ;
+        cgameGlob->serverVolFog.sunFogStartAng = sunStartAng;
+        cgameGlob->serverVolFog.sunFogEndAng = sunEndAng;
+        cgameGlob->serverVolFog.maxFogOpacity = maxFogOpacity;
     }
     else
     {

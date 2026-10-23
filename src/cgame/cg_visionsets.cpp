@@ -643,9 +643,6 @@ char __cdecl LoadVisionFile(const char *name, visionSetVars_t *resultSettings)
         return 0;
     Com_sprintf(fullPath, 0x40u, "vision/%s.vision", name);
     success = LoadVisionSettingsFromBuffer(fileBuf, fullPath, resultSettings);
-    resultSettings->name[0] = 0;
-    if ( success )
-        I_strncpyz(resultSettings->name, name, 64);
     Com_UnloadRawTextFile(fileBuf);
     return success;
 }
@@ -1300,6 +1297,19 @@ static float textScaleX = 1.25f;
 static float textScaleY = 1.5f;
 static float textVertSpacing = 20.0f;
 
+// Diagnostic labels belong to the separate cache-name table, not to the
+// original 0x2a0-byte settings record. Interpolated settings may have no name.
+static const char *VisionSetDebugName(const cg_s *cgameGlob, const visionSetVars_t *settings)
+{
+    for (int index = 0; index < 8; ++index)
+    {
+        if (cgameGlob->visionSetPreLoadedName[index][0] &&
+            !memcmp(settings, &cgameGlob->visionSetPreLoaded[index], sizeof(*settings)))
+            return cgameGlob->visionSetPreLoadedName[index];
+    }
+    return "<blended>";
+}
+
 void __cdecl DrawVisionSetDebug(int localClientNum, visionSetMode_t curChannel)
 {
     float v2; // [esp+1Ch] [ebp-140h]
@@ -1330,9 +1340,9 @@ void __cdecl DrawVisionSetDebug(int localClientNum, visionSetMode_t curChannel)
                 0x100u,
                 "%s c:%s f:%s t:%s",
                 visionsetModeNames[modeIndex],
-                cgameGlob->visionSetCurrent[modeIndex].name,
-                cgameGlob->visionSetFrom[modeIndex].name,
-                cgameGlob->visionSetTo[modeIndex].name);
+                VisionSetDebugName(cgameGlob, &cgameGlob->visionSetCurrent[modeIndex]),
+                VisionSetDebugName(cgameGlob, &cgameGlob->visionSetFrom[modeIndex]),
+                VisionSetDebugName(cgameGlob, &cgameGlob->visionSetTo[modeIndex]));
             if ( modeIndex == curChannel )
                 v3 = colorRed;
             else

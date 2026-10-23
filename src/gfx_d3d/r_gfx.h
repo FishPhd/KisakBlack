@@ -238,8 +238,10 @@ struct __declspec(align(16)) GfxLight // sizeof=0x170
         // padding byte
         // padding byte
         // padding byte
-        float44 viewMatrix;
-        float44 projMatrix;
+        // Original dynamic-light setup at 0x6e1380 passes matrix slots +0xe0
+        // and +0x120, then stores the light definition at +0x160.
+        alignas(16) float44 viewMatrix;
+        alignas(16) float44 projMatrix;
         GfxLightDef *def;
         // padding byte
         // padding byte

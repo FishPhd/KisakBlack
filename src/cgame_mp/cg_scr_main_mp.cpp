@@ -1222,23 +1222,23 @@ void CScr_SwitchToServerVolumetricFog()
     cg_s* cgameGlob = CG_GetLocalClientGlobals(clientIndex);
     R_SetFogFromServer(
         clientIndex,
-        cg_serverVolFog.fogStart,
-        cg_serverVolFog.color[0],
-        cg_serverVolFog.color[1],
-        cg_serverVolFog.color[2],
-        cg_serverVolFog.density,
-        cg_serverVolFog.heightDensity,
-        cg_serverVolFog.baseHeight,
-        cg_serverVolFog.color[3],
-        cg_serverVolFog.sunFogColor[0],
-        cg_serverVolFog.sunFogColor[1],
-        cg_serverVolFog.sunFogColor[2],
-        cg_serverVolFog.sunFogDir[0],
-        cg_serverVolFog.sunFogDir[1],
-        cg_serverVolFog.sunFogDir[2],
-        cg_serverVolFog.sunFogStartAng,
-        cg_serverVolFog.sunFogEndAng,
-        cg_serverVolFog.sunFogColor[3]);
+        cgameGlob->serverVolFog.fogStart,
+        cgameGlob->serverVolFog.color[0],
+        cgameGlob->serverVolFog.color[1],
+        cgameGlob->serverVolFog.color[2],
+        cgameGlob->serverVolFog.density,
+        cgameGlob->serverVolFog.heightDensity,
+        cgameGlob->serverVolFog.baseHeight,
+        cgameGlob->serverVolFog.fogColorScale,
+        cgameGlob->serverVolFog.sunFogColor[0],
+        cgameGlob->serverVolFog.sunFogColor[1],
+        cgameGlob->serverVolFog.sunFogColor[2],
+        cgameGlob->serverVolFog.sunFogDir[0],
+        cgameGlob->serverVolFog.sunFogDir[1],
+        cgameGlob->serverVolFog.sunFogDir[2],
+        cgameGlob->serverVolFog.sunFogStartAng,
+        cgameGlob->serverVolFog.sunFogEndAng,
+        cgameGlob->serverVolFog.maxFogOpacity);
 
     R_SwitchFog(clientIndex, 1u, cgameGlob->time, 0);
 }

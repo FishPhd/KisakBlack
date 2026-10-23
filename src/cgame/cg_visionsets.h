@@ -97,7 +97,7 @@ struct GfxVisionSet // sizeof=0x288
         GfxLightScale charPrimaryLightScale;
 };
 
-struct visionSetVars_t // sizeof=0x2E0
+struct visionSetVars_t // sizeof=0x2A0; original cache stride at 0x7f8d3a
 {                                                                             // XREF: cg_s/r cg_s/r ...
         bool filmEnable;                                        // XREF: CG_VisionSetUpdateTweaksFromFile_Film(void)+5E/r
         // padding byte
@@ -212,7 +212,6 @@ struct visionSetVars_t // sizeof=0x2E0
                                                                                 // CG_VisionSetUpdateTweaksFromFile_Bloom(void)+590/r ...
         float bloomStreakYTint[3];                    // XREF: CG_VisionSetUpdateTweaksFromFile_Bloom(void)+5B1/r
                                                                                 // CG_VisionSetUpdateTweaksFromFile_Bloom(void)+5B8/r ...
-        char name[64];
 };
 
 enum visionSetLerpStyle_t : __int32

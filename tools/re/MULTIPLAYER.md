@@ -26,12 +26,24 @@ Restored gaps:
 - Quick-scope timer/scale updates and spread/view consumers, using original dvar
   defaults, ranges, and arithmetic order. Existing `sinf` use in idle motion
   remains unqualified against the original x87 sine instruction.
+- Original snapshot stride `0x20300`, light stride `0x170` with aligned matrices,
+  and view-origin/axis boundaries. These restore the live client-info base
+  `cg+0x5f238` without inserting speculative filler.
+- Original vision-settings records of `0x2a0` bytes, eight cache slots and six
+  channels. Names occupy the separate cache-name table; the reconstructed
+  embedded `name[64]` incorrectly enlarged every copy and channel record.
+- Server volumetric fog occupies 17 floats at `cg+0x718ec..0x7192c`, in renderer
+  argument order. Parsing and script restoration now use that per-client state
+  instead of a separate global with the renderer's different `GfxFog` layout.
+  With these corrections, `sizeof(cg_s)` matches the original `0x71980` allocation.
 
 Run the small checks without launching a game:
 
 ```powershell
 build-re/venv/Scripts/python.exe tools/re/test_damage_dispatch.py --check-original-layout
 build-re/venv/Scripts/python.exe tools/re/test_damage_dispatch.py
+build-re/venv/Scripts/python.exe tools/re/test_damage_dispatch.py --check-original-cgame-layout
+build-re/venv/Scripts/python.exe tools/re/test_damage_dispatch.py --check-original-cgame-extent
 # With the repository Emscripten environment loaded:
 build-re/venv/Scripts/python.exe tools/re/test_damage_dispatch.py --check-original-layout --wasm
 build-re/venv/Scripts/python.exe tools/re/test_damage_dispatch.py --wasm
@@ -46,12 +58,14 @@ Keep existing native expected captures and failures intact. Header and RE-tool
 changes also require rebuilding and rerunning all existing pilots on native and
 Wasm, as specified in [README.md](README.md).
 
-The broader `--check-original-cgame-layout` guard currently **fails on native
-and Wasm**: the reconstructed live client-info base in `cg_s` is `0x5e178`,
-while the original instruction at `0x7ceae7` uses `0x5f238`. This guard is kept
-in `damage-dispatch/original_cgame_layout.cpp`; its failure is not included in
-the passing network/server-client contract. The enclosing `cg_s` members need
-mapping before that difference can be resolved. No padding has been invented.
+The `--check-original-cgame-layout` offset guards and the separate
+`--check-original-cgame-extent` size guard now **pass on native x86 and Wasm**.
+The former `0x5e178` client-info failure and intermediate `0x71f80` size failure
+remain historical observations in the evidence inventory and local logs.
+Passing these boundaries does not qualify every interior member or independently
+execute the affected game functions. Optional vision debug labels now use cache
+lookup and show `<blended>` for unnamed settings; that diagnostic difference is
+recorded separately and remains pending review.
 
 ## Wasm Combat Training check (2026-10-23)
 
@@ -78,6 +92,6 @@ retained its stock first-use introduction/difficulty dialogs.
 
 Remaining qualification work includes independent execution of the restored
 routines and their dependencies, an evidence-backed `CM_Trace` identity, legacy
-demo format coverage, the full `cg_s` layout, and extended combat/death/respawn
+demo format coverage, unchecked interior `cg_s` members, and extended combat/death/respawn
 coverage. This entry/control smoke test and successful compilation do not
 establish byte-for-byte gameplay equivalence.

@@ -40,7 +40,8 @@ enum thirdPersonType : __int32
         TP_FOR_SHADOW = 0x2,
 };
 
-struct snapshot_s // sizeof=0x20200
+// BlackOpsMP CG_ReadNextSnapshot (0x7f2a60) selects cg+0x80 and cg+0x20380.
+struct __declspec(align(128)) snapshot_s // sizeof=0x20300
 {                                                                             // XREF: cg_s/r snapshot_t/r
         int snapFlags;
         int ping;
@@ -257,7 +258,7 @@ struct playerEntity_t // sizeof=0x30
         float baseMoveAngles[3];
 };
 
-struct __declspec(align(16)) refdef_s // sizeof=0x18510
+struct __declspec(align(16)) refdef_s // sizeof=0x18520
 {                                                                             // XREF: cg_s/r refdef_t/r
         unsigned int x;
         unsigned int y;
@@ -266,7 +267,10 @@ struct __declspec(align(16)) refdef_s // sizeof=0x18510
         float tanHalfFovX;
         float tanHalfFovY;
         float fov_x;
-        float vieworg[3];
+        // Original view origin starts at +0x20; the following axis starts at
+        // +0x34 (CG_CalcViewValues 0x7f8360). Preserve its four-float footprint;
+        // the fourth component's semantics are not qualified by that mapping.
+        alignas(16) float vieworg[4];
         float yaw;
         float viewaxis[3][3];
         int time;
@@ -430,7 +434,24 @@ struct hudElemSoundInfo_t // sizeof=0x4
     int lastPlayedTime;
 };
 
-struct __declspec(align(128)) cg_s // sizeof=0x71C80
+// Server fog saved by CG_ParseFog (0x662b70), in R_SetFogFromServer
+// argument order. This differs from the renderer's GfxFog layout.
+struct serverVolFog_t
+{
+        float fogStart;
+        float color[3];
+        float density;
+        float heightDensity;
+        float baseHeight;
+        float fogColorScale;
+        float sunFogColor[3];
+        float sunFogDir[3];
+        float sunFogStartAng;
+        float sunFogEndAng;
+        float maxFogOpacity;
+};
+
+struct __declspec(align(128)) cg_s // sizeof=0x71980
 {                                                                             // XREF: cg_t/r
         int clientNum;
         int localClientNum;
@@ -849,6 +870,7 @@ struct __declspec(align(128)) cg_s // sizeof=0x71C80
         int alliesFlagAway;
         int axisFlagAway;
         int resetWeaponStateFlag;
+        serverVolFog_t serverVolFog;
         // padding byte
         // padding byte
         // padding byte

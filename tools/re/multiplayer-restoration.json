@@ -349,7 +349,7 @@
       "exceptions": [
         {
           "scope": "Allocate cgArray and cgsArray using compiled sizeof, retaining existing other allocation sizes and alignments.",
-          "rationale": "Avoid overlapping allocations after member restoration. Full cg_s equivalence is explicitly blocked by the retained layout guard.",
+          "rationale": "Avoid overlapping allocations after member restoration. cg_s now matches original 0x71980 size and checked offsets; not all interior members or allocator behavior have independent execution coverage.",
           "original_behavior": "Original allocates cgArray at 0x71980 per local client and cgsArray at 0x31c8; IK storage is 0x1ce00 per client.",
           "review_status": "pending_human_review",
           "comparison_effect": "No comparison is waived; no equivalence claim."
@@ -448,6 +448,148 @@
           "comparison_effect": "No comparison is waived; no equivalence claim."
         }
       ]
+    },
+    {
+      "symbol": "CG_ReadNextSnapshot",
+      "source": "src/cgame_mp/cg_local_mp.h",
+      "entry_va": "0x7f2a60",
+      "code": [
+        {
+          "rva": "0x3f2a60",
+          "size": 150,
+          "sha256": "18322420253cedf0910b8787cc937d79f055a0549bb3e8882b01d140d69113ea"
+        }
+      ],
+      "abi_notes": "Original snapshot selection uses cg+0x80 and cg+0x20380, stride 0x20300.",
+      "change_scope": "Restore snapshot alignment/stride; frameInterpolation +0x40680, time +0x40688, predictedPlayerState +0x4069c.",
+      "dependencies": [
+        "snapshot_s",
+        "cg_s",
+        "CL_GetSnapshot"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "CG_CalcViewValues",
+      "source": "src/cgame_mp/cg_local_mp.h",
+      "entry_va": "0x7f8360",
+      "code": [
+        {
+          "rva": "0x3f8360",
+          "size": 1247,
+          "sha256": "8336882c6df650046f597390548667c1cefea4b1b076974a27c7e646e6a8b48d"
+        }
+      ],
+      "abi_notes": "Instructions store view origin at cg+0x43120/24/28, axes +0x43134 and time +0x43158.",
+      "change_scope": "Restore refdef origin footprint and resulting axis/time offsets. Fourth origin component semantics remain unqualified.",
+      "dependencies": [
+        "refdef_s",
+        "cg_s",
+        "camera/view dependencies"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "GetVisionSet",
+      "source": "src/cgame/cg_visionsets.cpp",
+      "entry_va": "0x7f8ce0",
+      "code": [
+        {
+          "rva": "0x3f8ce0",
+          "size": 423,
+          "sha256": "97880636e1a7aec283c23a6b44d55c49ad0f3cf5b4903c8b0e1c0ffcb4cdb8df"
+        }
+      ],
+      "abi_notes": "cdecl name/result stack arguments; local-client state through global 0xd4f178; record copy is 0xa8 dwords.",
+      "change_scope": "Remove extra name[64] from settings; restore 0x2a0-byte records, eight cached slots, names +0x6c7ec, current channels +0x6e96c.",
+      "dependencies": [
+        "visionSetVars_t",
+        "LoadVisionSettingsFromBuffer 0x7f8c00",
+        "raw-file loading",
+        "separate cache-name table"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "CG_VisionSetMyChanges",
+      "source": "src/cgame/cg_visionsets.h",
+      "entry_va": "0x549df0",
+      "code": [
+        {
+          "rva": "0x149df0",
+          "size": 307,
+          "sha256": "07b0cf113b8880a6cc916e4c2198edc381a21e9a2340887916fead4d8f269374"
+        }
+      ],
+      "abi_notes": "Uses local-client global; clears 0x1500 bytes at cg+0x6b2ec, eight 64-byte names at +0x6c7ec.",
+      "change_scope": "Correct record extent without changing eight cache slots or six vision channels.",
+      "dependencies": [
+        "visionSetVars_t",
+        "GetVisionSet",
+        "cg_s"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "CG_ParseFog",
+      "source": "src/cgame_mp/cg_servercmds_mp.cpp",
+      "entry_va": "0x662b70",
+      "code": [
+        {
+          "rva": "0x262b70",
+          "size": 873,
+          "sha256": "a7c858f45b26e6295e9fbb2e740938c24f024a5b3866a83ee871eeb7b26920b2"
+        }
+      ],
+      "abi_notes": "cdecl local-client stack argument; original cg global at 0xd4f178; stores 17 floats at offsets 0x718ec through 0x7192c.",
+      "change_scope": "Restore serverVolFog state within cg_s in renderer argument order; remove separate GfxFog global with incompatible ordering.",
+      "dependencies": [
+        "CL_GetConfigString 0x4c8b00",
+        "Com_Parse 0x4fd9f0",
+        "atof/atoi",
+        "R_SetFogFromServer 0x719620",
+        "R_SwitchFog 0x719830"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "CScr_SwitchToServerVolumetricFog",
+      "source": "src/cgame_mp/cg_scr_main_mp.cpp",
+      "entry_va": "0x7ef480",
+      "code": [
+        {
+          "rva": "0x3ef480",
+          "size": 287,
+          "sha256": "30c186891b81cfb7bc9bbabb3030822846027b0bf7d42dddb67744c668177154"
+        }
+      ],
+      "abi_notes": "No C arguments; script VM supplies local-client number; 17 scalar loads feed cdecl R_SetFogFromServer, then R_SwitchFog.",
+      "change_scope": "Read server fog from the original per-client cg_s tail instead of the reconstructed global.",
+      "dependencies": [
+        "script VM argument/error functions",
+        "R_SetFogFromServer 0x719620",
+        "R_SwitchFog 0x719830",
+        "cg_s.time +0x40688"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
     }
   ],
   "historical_candidate_corrections": [
@@ -1271,23 +1413,7 @@
       "reason": "First candidate is network login code; second is a sight-trace hypothesis with an incompatible output contract. No replacement identity established."
     }
   ],
-  "blocked_layout_checks": [
-    {
-      "name": "cg_s live client-info base",
-      "status": "blocked",
-      "expected_offset": "0x5f238",
-      "observed_wasm_offset": "0x5e178",
-      "native_check": "fails",
-      "wasm_check": "fails",
-      "check_source": "tools/re/damage-dispatch/original_cgame_layout.cpp",
-      "instruction_evidence": {
-        "rva": "0x3ceae7",
-        "size": 7,
-        "sha256": "45509858e3ca6b1ae37eeac8b31b5eafcfefe153a219c648b102e69ea5a2d89d"
-      },
-      "reason": "Enclosing cg_s layout is not reconstructed. Do not insert speculative padding or promote narrower network-layout passes to complete cg_s coverage."
-    }
-  ],
+  "blocked_layout_checks": [],
   "data_tables": [
     {
       "name": "playerStateFields",
@@ -1347,6 +1473,18 @@
       "rva": "0xa74d1",
       "size": 5,
       "sha256": "efc4ce892cc1378ff99174bbf571de19ffa54b9f43d5dc4957f5b16bc55c9041"
+    },
+    {
+      "purpose": "Original dynamic spotlight GfxLight stride 0x170, view matrix +0xe0, projection +0x120, definition +0x160",
+      "rva": "0x2e1380",
+      "size": 1044,
+      "sha256": "1d1104522b0d0b35b5fc4511564a142c01eee95cd25944b10c39d3d58f261fac"
+    },
+    {
+      "purpose": "Original primary-light array cg+0x44600, stride 0x170; refdef+0x1500",
+      "rva": "0x3cec20",
+      "size": 989,
+      "sha256": "593fd4726f4c3176909f50e98320c4ac47fe5f0fe2d786960c0be5014844c0ad"
     }
   ],
   "additional_source_scope": {
@@ -1365,6 +1503,59 @@
       "scope": "Restore the stock FourthFlyout Combat Training action in the browser flyout, extend its fade chain and background to four visible rows.",
       "original_relationship": "Browser-only menu adaptation has no mapped original function; stock Combat Training scripts and first-use dialogs are retained.",
       "coverage": "Browser runtime entry smoke test only; no original binary equivalence claim."
+    },
+    {
+      "symbol": "DrawVisionSetDebug / VisionSetDebugName",
+      "source": "src/cgame/cg_visionsets.cpp",
+      "scope": "Diagnostic-only labels search the separate named settings cache by exact record bytes, falling back to <blended>.",
+      "exceptions": [
+        {
+          "scope": "Diagnostic labels only; no added bytes in original vision settings or cg_s.",
+          "rationale": "Preserve useful optional diagnostics after removing the non-original embedded name field.",
+          "original_behavior": "Retail records are 0x2a0 bytes and cache names are separate. The original diagnostic function identity is not established.",
+          "review_status": "pending_human_review",
+          "comparison_effect": "No game-logic comparison is waived; diagnostic behavior is unverified."
+        }
+      ]
+    }
+  ],
+  "historical_layout_failures": [
+    {
+      "name": "cg_s live client-info base",
+      "status": "blocked",
+      "expected_offset": "0x5f238",
+      "observed_wasm_offset": "0x5e178",
+      "native_check": "fails",
+      "wasm_check": "fails",
+      "check_source": "tools/re/damage-dispatch/original_cgame_layout.cpp",
+      "instruction_evidence": {
+        "rva": "0x3ceae7",
+        "size": 7,
+        "sha256": "45509858e3ca6b1ae37eeac8b31b5eafcfefe153a219c648b102e69ea5a2d89d"
+      },
+      "reason": "Enclosing cg_s layout is not reconstructed. Do not insert speculative padding or promote narrower network-layout passes to complete cg_s coverage."
+    },
+    {
+      "name": "cg_s full extent after snapshot/light/view corrections, before vision/fog restoration",
+      "expected_size": "0x71980",
+      "observed_wasm_size": "0x71f80",
+      "status": "failed_historical_observation",
+      "local_log": "build-re/multiplayer/cgame-extent-wasm-blocked.log"
+    }
+  ],
+  "layout_checks": [
+    {
+      "name": "cg_s snapshot/view/light/client-info/vision/server-fog boundaries",
+      "status": "passes_native_x86_and_wasm32",
+      "check_source": "tools/re/damage-dispatch/original_cgame_layout.cpp",
+      "scope": "Instruction-backed offsets and extents only; no whole-function execution qualification."
+    },
+    {
+      "name": "cg_s original allocator extent",
+      "expected_size": "0x71980",
+      "status": "passes_native_x86_and_wasm32",
+      "check_source": "tools/re/damage-dispatch/original_cgame_extent.cpp",
+      "scope": "Exact sizeof boundary only, not every interior member or gameplay behavior."
     }
   ]
 }

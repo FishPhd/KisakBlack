@@ -23,7 +23,9 @@ def main():
     checks.add_argument('--check-original-layout', action='store_true',
                         help='Compile the strict original client-layout checks; a failure blocks binary-layout qualification')
     checks.add_argument('--check-original-cgame-layout', action='store_true',
-                        help='Compile the broader cg_s guard; currently fails on native and Wasm and must not be reported as qualified')
+                        help='Compile original snapshot, light, view and cg_s prefix offset checks; does not qualify the complete cg_s extent')
+    checks.add_argument('--check-original-cgame-extent', action='store_true',
+                        help='Compile the complete cg_s size guard; a prefix pass does not qualify this separate boundary')
     args = parser.parse_args()
     directory = WORK / ('damage-dispatch-wasm' if args.wasm else 'damage-dispatch-native')
     directory.mkdir(parents=True, exist_ok=True)
@@ -122,9 +124,10 @@ def main():
         command += ['-G', 'Visual Studio 17 2022', '-A', 'Win32']
     subprocess.run(command, check=True, env=env)
     target = ('damage_original_layout' if args.check_original_layout else
-              'cgame_original_layout' if args.check_original_cgame_layout else 'damage_dispatch')
+              'cgame_original_layout' if args.check_original_cgame_layout else
+              'cgame_original_extent' if args.check_original_cgame_extent else 'damage_dispatch')
     subprocess.run(['cmake', '--build', str(directory), '--config', 'Release', '--target', target], check=True, env=env)
-    if args.check_original_layout or args.check_original_cgame_layout:
+    if args.check_original_layout or args.check_original_cgame_layout or args.check_original_cgame_extent:
         return
     runner = [shutil.which('node') or 'node', str(directory / 'damage_dispatch.js')] if args.wasm else [str(directory / 'Release/damage_dispatch.exe')]
     subprocess.run(runner, check=True, env=env)
