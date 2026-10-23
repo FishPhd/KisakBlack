@@ -4115,7 +4115,7 @@ void Web_EnsurePartyMenu(UiContext *dc, menuDef_t *menu)
         if (!create || !training || !first || !ranked || !wager || (create->typeData.textDef
             && create->typeData.textDef->text && !strcmp(create->typeData.textDef->text, "CREATE A GAME"))) return;
         const float top = first->window.rectClient.y, old = create->window.rectClient.y;
-        const float hidden = training->window.rectClient.y;
+        const float trainingY = training->window.rectClient.y;
         const float rankedY = ranked->window.rectClient.y, wagerY = wager->window.rectClient.y;
         const float step = (old - top) / 4;
         // Stock labels fade in through a chain of named rows. Removing a row
@@ -4126,7 +4126,7 @@ void Web_EnsurePartyMenu(UiContext *dc, menuDef_t *menu)
             if (!strcmp(h->name, "onOpen"))
                 h->eventScript->action = "execNow ui_animate live_flyout ButtonBackground Fly 200 ; execNow ui_animate live_flyout FifthFlyout FadeIn ( 200 / 3 ) ; execNow set ui_flownOut 0 ; setDvar ui_flyoutHasFocus 1 ;";
             else if (!strcmp(h->name, "onClose"))
-                h->eventScript->action = "execNow ui_animate live_flyout ButtonBackground Default 0 ; execNow ui_animate live_flyout FifthFlyout Default 0 ; execNow ui_animate live_flyout FirstFlyout Default 0 ; execNow ui_animate live_flyout ThirdFlyout Default 0 ; execNow set ui_flownOut 0 ; setDvar ui_flyoutHasFocus 0 ;";
+                h->eventScript->action = "execNow ui_animate live_flyout ButtonBackground Default 0 ; execNow ui_animate live_flyout FifthFlyout Default 0 ; execNow ui_animate live_flyout FirstFlyout Default 0 ; execNow ui_animate live_flyout ThirdFlyout Default 0 ; execNow ui_animate live_flyout FourthFlyout Default 0 ; execNow set ui_flownOut 0 ; setDvar ui_flyoutHasFocus 0 ;";
         }
         const auto chainFade = [](itemDef_s *it, const char *action) {
             if (!it->animInfo) return;
@@ -4141,7 +4141,8 @@ void Web_EnsurePartyMenu(UiContext *dc, menuDef_t *menu)
         };
         chainFade(create, "execNow ui_animate live_flyout FirstFlyout FadeIn ( 200 / 3 ) ;");
         chainFade(first, "execNow ui_animate live_flyout ThirdFlyout FadeIn ( 200 / 3 ) ;");
-        chainFade(wager, "execNow set ui_flownOut 1 ;");
+        chainFade(wager, "execNow ui_animate live_flyout FourthFlyout FadeIn ( 200 / 3 ) ;");
+        chainFade(training, "execNow set ui_flownOut 1 ;");
         itemDef_s *removedItems[6]{};
         int removedCount = 0;
         const auto moveRow = [](itemDef_s *it, float next) {
@@ -4162,26 +4163,26 @@ void Web_EnsurePartyMenu(UiContext *dc, menuDef_t *menu)
             if (it->window.name && !strcmp(it->window.name, "ButtonBackground"))
             {
                 moveRow(it, top);
-                it->window.rectClient.h = it->window.rect.h = 3 * step;
+                it->window.rectClient.h = it->window.rect.h = 4 * step;
                 if (it->rectExpData) it->rectExpData->rectHExp = {};
                 if (it->animInfo)
                 {
-                    it->animInfo->currentAnimState.rectClient.h = it->animInfo->nextAnimState.rectClient.h = 3 * step;
+                    it->animInfo->currentAnimState.rectClient.h = it->animInfo->nextAnimState.rectClient.h = 4 * step;
                     for (int a = 0; a < it->animInfo->animStateCount; ++a)
-                        it->animInfo->animStates[a]->rectClient.h = 3 * step;
+                        it->animInfo->animStates[a]->rectClient.h = 4 * step;
                 }
                 continue;
             }
-            if (it->window.rectClient.x == -60 && it->window.rectClient.y == 130) moveRow(it, top + 3 * step + 5);
-            if (it->window.rectClient.x == -70 && it->window.rectClient.y == 131) moveRow(it, top + 3 * step + 6);
+            if (it->window.rectClient.x == -60 && it->window.rectClient.y == 130) moveRow(it, top + 4 * step + 5);
+            if (it->window.rectClient.x == -70 && it->window.rectClient.y == 131) moveRow(it, top + 4 * step + 6);
             if (it->window.rectClient.x != create->window.rectClient.x
                 || it->window.rectClient.w != create->window.rectClient.w
                 || it->window.rectClient.h != create->window.rectClient.h) continue;
             const float y = it->window.rectClient.y;
-            if (y == hidden || y == rankedY) { if (removedCount < 6) removedItems[removedCount++] = it; continue; }
-            const float next = y == old ? top : y == top ? top + step : y == wagerY ? top + 2 * step : y;
+            if (y == rankedY) { if (removedCount < 6) removedItems[removedCount++] = it; continue; }
+            const float next = y == old ? top : y == top ? top + step : y == wagerY ? top + 2 * step : y == trainingY ? top + 3 * step : y;
             moveRow(it, next);
-            if (it == create || it == wager)
+            if (it == create || it == wager || it == training)
             {
                 it->visibleExp = {}; it->showBits = 0; it->hideBits = ~0ull;
                 it->dvarFlags = 0;
