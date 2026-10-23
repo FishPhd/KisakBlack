@@ -1,0 +1,14 @@
+{
+  "source_file": "src/client_mp/sv_client_mp.cpp",
+  "mapping_status": "unverified",
+  "functions": [{
+    "name": "SV_AddTestClient",
+    "exceptions": [{
+      "scope": "Reject test-client creation while pregame is enabled and has not reached PREGAME_GAMESTARTED.",
+      "rationale": "User-requested human-only waiting lobby: bots must not fill slots or count toward the minimum-player threshold. Preserve bot settings for the subsequent match.",
+      "original_behavior": "Binary behavior is unverified for this unmapped function. The previous reconstructed implementation allowed test-client creation during pregame.",
+      "review_status": "User requested the behavior; implementation pending human review."
+    }]
+  }],
+  "coverage": "No original-binary equivalence claimed. Pregame-disabled matches and the PREGAME_GAMESTARTED path retain the existing bot admission logic."
+}

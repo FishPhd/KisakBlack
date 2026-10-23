@@ -2,6 +2,9 @@ import {rendererForLaunch, scheduleRendererRecovery, clearRendererRecovery, rend
 import { GameTransport } from "./transport.js";
 import { startGpuRecipeCache } from "./gpu-cache.js";
 import {preparationMode, residentStaticImages, pipelineNostall, preparationReadiness, preparationMessage} from './gpu-preparation.js';
+import {MapLoading} from './map-loading.js';
+import {isolateProfile} from './profile-session.js';
+import {LoadingKeepalive} from './loading-keepalive.js';
 import { mouseButtonChanges, nextMouseMask } from "./mouse-buttons.js";
 import { MouseMotion } from "./mouse-motion.js";
 import { gamepadPoller } from "./gamepad.js";
@@ -63,6 +66,10 @@ const cfg = {
   refresh: params.has("refresh"),
   agent: agentEnabled,
 };
+let releaseProfile;
+const profileHold = new Promise(resolve => { releaseProfile = resolve; });
+window.addEventListener('pagehide', () => releaseProfile(), {once:true});
+const isolatedProfile = await isolateProfile({guest:!!cfg.join, locks:navigator.locks, hold:profileHold});
 
 const state = {
   opfs: null,
@@ -124,33 +131,70 @@ window.kisak = state; // for tests and the console
 
 // ---------------------------------------------------------------- ui
 
+const consolePanel = $("web-console");
 const logEl = $("log");
-const pendingLog = [];
-let logTimer = 0;
-function flushLog() {
-  logTimer = 0;
-  const visible = logEl.getClientRects().length > 0;
-  const stick = !visible || logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 40;
+let displayedLogSequence = 0;
+function refreshConsole() {
+  if (consolePanel.hidden) return;
+  const stick = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 40;
   const fragment = document.createDocumentFragment();
-  for (const entry of pendingLog.splice(0)) {
-    const line = document.createElement("div");
-    if (entry.cls) line.className = entry.cls;
+  for (const entry of state.records) {
+    if (entry.seq <= displayedLogSequence) continue;
+    const line = document.createElement('div');
     line.textContent = entry.text;
+    if (entry.level === 'err') line.className = 'err';
     fragment.appendChild(line);
+    displayedLogSequence = entry.seq;
   }
   logEl.appendChild(fragment);
   while (logEl.childElementCount > 3000) logEl.firstChild.remove();
-  if (visible && stick) logEl.scrollTop = logEl.scrollHeight;
+  if (stick) logEl.scrollTop = logEl.scrollHeight;
 }
+function toggleConsole(open = consolePanel.hidden) {
+  consolePanel.hidden = !open;
+  if (open) {
+    document.exitPointerLock?.();
+    call('_Kisak_Focus', 0);
+    refreshConsole();
+    logEl.scrollTop = logEl.scrollHeight;
+    $('console-command').focus();
+  } else {
+    call('_Kisak_Focus', 1);
+    $('game').focus();
+  }
+}
+setInterval(refreshConsole, 100);
+$('console-close').addEventListener('click', () => toggleConsole(false));
+$('console-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(state.records.map(entry => entry.text).join('\n'));
+    $('console-copy').textContent = 'Copied';
+  } catch { $('console-copy').textContent = 'Copy unavailable'; }
+});
+$('console-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const input = $('console-command');
+  const command = input.value.trim();
+  if (!command || !state.mod) return;
+  log(`> ${command}`);
+  send(command);
+  input.value = '';
+  refreshConsole();
+});
+window.addEventListener('keydown', event => {
+  if (event.code === 'F2' || (!consolePanel.hidden && event.code === 'Escape')) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!event.repeat) toggleConsole();
+  }
+}, true);
+
 function log(text, cls) {
   state.records.push({ seq: (state.logSequence = (state.logSequence || 0) + 1), at: performance.now(), level: cls || "info", text: String(text) });
   if (state.records.length > 5000) state.records.splice(0, state.records.length - 5000);
   state.lastLogAt = new Date().toISOString();
   state.log.push(text);
   if (state.log.length > 5000) state.log.splice(0, state.log.length - 5000);
-  pendingLog.push({ text, cls });
-  if (pendingLog.length > 3000) pendingLog.splice(0, pendingLog.length - 3000);
-  if (!logTimer) logTimer = setTimeout(flushLog, 50);
   const optionalDevGui = /^\s*ERROR: Could not open 'devgui_[^']+\.cfg'/.test(text);
   // Image_LoadFromFile reports missing/truncated images as recoverable load
   // failures and substitutes the default texture. Keep these diagnostics.
@@ -170,7 +214,7 @@ function saveDiagnostics() {
   };
   const body = JSON.stringify({
     session: webSession, role: cfg.join ? "guest" : "host", room: state.relay?.room || cfg.join,
-    lastLogAt: state.lastLogAt || "", status: $("status").textContent, crash: state.crash || "",
+    lastLogAt: state.lastLogAt || "", status: state.status, crash: state.crash || "",
     renderPhase: inspect("Kisak_GlPhase"), threadWaits: inspect("Kisak_ThreadWaits"),
     lines: state.log.slice(-300).map(line => String(line).slice(0, 1024)),
     timings: state.timings, phase: state.phase, engine: state.engine,
@@ -191,11 +235,11 @@ function reportCrash(message, filename, lineno, colno) {
   log(`crash: ${msg} ${file}:${lineNo}:${col}`, "err");
 }
 const setStatus = (t) => {
-  $("status").textContent = t;
+  state.status = t;
   const load = $("load-status");
   if (load) load.textContent = t;
 };
-const setBar = (f) => { $("bar").firstElementChild.style.width = `${Math.max(0, Math.min(1, f)) * 100}%`; };
+const setBar = (f) => { state.transferProgress = Math.max(0, Math.min(1, f)); };
 const mb = (b) => (b / 1048576).toFixed(1);
 
 // ---------------------------------------------------------------- OPFS
@@ -235,10 +279,10 @@ async function writeRootText(name, text) {
 
 // Key bindings and the look settings live in the profile's config_mp.cfg (OPFS). localStorage
 // keeps a copy so a cleared or evicted profile can be put back before the engine starts.
-const controlsKey = cfg.join ? "kisak.controls:" + guestProfile : "kisak.controls";
+const controlsKey = isolatedProfile ? "kisak.controls:" + guestProfile : "kisak.controls";
 const controlsParts = () => {
   const parts = ["profile"];
-  if (cfg.join) parts.push("guests", guestProfile);
+  if (isolatedProfile) parts.push("guests", guestProfile);
   parts.push("players", "config_mp.cfg");
   return parts;
 };
@@ -326,6 +370,24 @@ async function openSource(entry) {
 // ---------------------------------------------------------------- transfer
 
 let progress = { total: 0, done: 0, label: "" };
+const mapLoading = new MapLoading(view => {
+  $("map-load").hidden = !view;
+  if (!view) return;
+  $("map-load-status").textContent = view.text;
+  $("map-load-name").textContent = view.map.replace(/^mp_/, '').replaceAll('_', ' ').toUpperCase();
+  const bar = $("map-load-progress");
+  if (view.percent !== null && view.percent < 100) bar.value = view.percent;
+  else bar.removeAttribute('value');
+  $("map-load-dismiss").hidden = !view.error;
+});
+$("map-load-dismiss").addEventListener('click', () => mapLoading.clear());
+function kisakMapStarting(map) {
+  const key = String(map).toLowerCase();
+  const files = state.supersededPacks ? [] : [
+    ...(state.manifest?.maps?.[key] || []), ...(state.manifest?.client?.maps?.[key] || [])];
+  mapLoading.start(key, files);
+  kisakPrefetchMap(key, true);
+}
 // ui=false is for background prefetch: it counts toward "transferred" but never drives the progress bar.
 function bump(n, ui) {
   state.transferred += n;
@@ -347,17 +409,20 @@ async function copyEntry(entry, ui) {
   const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
   const reader = stream.getReader();
   let written = 0;
+  mapLoading.transfer(entry, 0);
+  let received = 0;
+  const receivedBytes = n => { received += n; mapLoading.transfer(entry, received); bump(n, ui); };
   try {
     if (entry.hashes) {
       // Release the reader acquired below before verifyStream takes ownership.
       reader.releaseLock();
-      written = await verifyStream(stream, entry, bytes => w.write(bytes), n => bump(n, ui));
+      written = await verifyStream(stream, entry, bytes => w.write(bytes), receivedBytes);
     } else for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       await w.write(value);
       written += value.length;
-      bump(value.length, ui);
+      receivedBytes(value.length);
     }
     if (written !== entry.size) throw new Error(`${entry.path}: got ${written} bytes, expected ${entry.size}`);
     await w.close();
@@ -418,12 +483,12 @@ function ensureEntry(entry, ui = true) {
   if (!p) {
     p = (async () => {
       if ((await opfsSize(entry.path)) === entry.size) {
-        if (!entry.hashes || await verifiedLocalEntry(entry)) return;
+        if (!entry.hashes || await verifiedLocalEntry(entry)) { mapLoading.transfer(entry, entry.size); return; }
       }
       await copyEntry(entry, ui);
     })();
     inflight.set(key, p);
-    p.catch(() => inflight.delete(key));
+    p.catch(error => { inflight.delete(key); mapLoading.fail(entry, error); });
   }
   return p;
 }
@@ -709,24 +774,13 @@ function send(line) {
 }
 state.send = send;
 
-const UI_IDS = ["play", "start", "pick", "mode", "arg", "reset", "res"];
-
-function syncResolutionControl(resolution) {
-  const select = $("res");
-  if (!Array.from(select.options).some(option => option.value === resolution))
-    select.add(new Option(resolution, resolution));
-  select.value = resolution;
-}
-
-// Saved engine settings win unless the launcher or URL explicitly selects a size.
+// Saved engine settings win unless the URL explicitly selects a size.
 function chooseResolution() {
   const requested = params.get('res');
   if (requested) {
-    if (!Array.from($("res").options).some(o => o.value === requested && requested !== 'auto')) throw new Error('Unsupported res parameter');
+    if (!['1280x720', '1600x900', '1920x1080', '960x540'].includes(requested)) throw new Error('Unsupported res parameter');
     return requested;
   }
-  const sel = $("res").value;
-  if (sel !== "auto") return sel;
   const saved = state.savedGraphics?.get('r_mode');
   if (saved && /^\d{3,4}x\d{3,4}$/.test(saved)) return saved;
   return fitResolution(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
@@ -753,7 +807,6 @@ function playArgs() {
 async function start(play = false) {
   if (state.starting) return;
   state.starting = true;
-  for (const id of UI_IDS) $(id).disabled = true;
   try {
     if (!crossOriginIsolated)
       throw new Error("this page is not cross-origin isolated (needs COOP: same-origin and COEP: require-corp); use tools/web/serve.mjs");
@@ -765,8 +818,7 @@ async function start(play = false) {
     state.savedGraphics.delete('web_warmshaders');
 
     if (play) document.body.classList.add("playing", "booting");
-    cfg.mode = $("mode").value;
-    cfg.args = play ? playArgs() : $("arg").value.trim();
+    cfg.args = play ? playArgs() : cfg.args;
     state.play = play;
 
     setStatus("Reading manifest…");
@@ -878,7 +930,7 @@ async function start(play = false) {
         residentStaticImages(state.preparationMode, state.rendererBackend) ? '1' : '0',
         "--web-session", webSession,
         ...(cfg.agent && params.get("readcache") === "0" ? ["--no-read-cache"] : []),
-        ...(cfg.join ? ["--guest-profile", guestProfile] : [])],
+        ...(isolatedProfile ? ["--guest-profile", guestProfile] : [])],
       print: (t) => onEngineLine(t),
       printErr: (t) => onEngineLine(t, "err"),
       onRuntimeInitialized: function () {
@@ -910,8 +962,10 @@ async function start(play = false) {
       kisakEnsureEntry,
       kisakEnsureLoose,
       kisakPrefetchMap,
+      kisakMapStarting,
       kisakPartyCopy: (kind) => copyPartyInvite(kind),
       kisakPartyStarting: (map) => {
+        kisakMapStarting(map);
         if (!state.relay?.host || !state.partyHosted) return;
         state.partyPhase = "loading";
         state.partyLoadingMap = map;
@@ -930,12 +984,12 @@ async function start(play = false) {
         if (snapshot.map !== state.engine?.map || snapshot.connection !== state.engine?.connection)
           state.perf.mapTransitions.push({ at: performance.now(), map: snapshot.map || "", connection: snapshot.connection });
         state.engine = snapshot;
+        mapLoading.observe(snapshot, present.shown);
         if (snapshot.graphics) {
           const previousResolution = state.res;
           state.res = `${snapshot.graphics.width}x${snapshot.graphics.height}`;
-          if (state.res !== previousResolution && state.menuReady && $("status").textContent.startsWith("Playing ("))
+          if (state.res !== previousResolution && state.menuReady && state.status.startsWith("Playing ("))
             setStatus(`Playing (${state.res}${state.rendererBackend === "webgpu" ? ", Dawn WebGPU" : ""}).`);
-          syncResolutionControl(state.res);
           state.fullscreen?.observe(snapshot.graphics.fullscreen);
         }
         state.engineAt = performance.now();
@@ -950,7 +1004,7 @@ async function start(play = false) {
           state.menuFrame = present.shown;
       },
       kisakPumpNetwork: () => state.relay?.pump?.(),
-      onExit: (code) => { state.relay?.stop?.(); setStatus(`Engine exited (${code})`); $("cmd").disabled = true; $("send").disabled = true; },
+      onExit: (code) => { state.relay?.stop?.(); setStatus(`Engine exited (${code})`); },
     };
     if (state.rendererBackend === "webgpu") config.canvas = $("game");
     if (play) {
@@ -967,14 +1021,11 @@ async function start(play = false) {
     // The gesture context wins if the click landed while the module was still starting.
     if (window.kisakAudio) state.mod.kisakAudio = window.kisakAudio;
     else if (state.mod.kisakAudio) window.kisakAudio = state.mod.kisakAudio;
-    $("cmd").disabled = false;
-    $("send").disabled = false;
     if (play) {
       setStatus("Loading multiplayer menus…");
       $("game").focus();
     } else {
-      setStatus("Server running. Type console commands below.");
-      $("cmd").focus();
+      setStatus("Server running.");
     }
   } catch (e) {
     state.starting = false;
@@ -982,15 +1033,14 @@ async function start(play = false) {
     console.error(e);
     log(String(e?.stack || e), "err");
     setStatus(`Error: ${e?.message || e}`);
-    document.body.classList.remove("playing", "booting", "debug", "logshown");
-    for (const id of UI_IDS) $(id).disabled = false;
+    document.body.classList.add("playing", "booting");
   }
 }
 
 // ---------------------------------------------------------------- play mode: presentation + input
 
 // The render thread posts ImageBitmaps on "kisak-present". This page paints the newest one into
-// #game once per animation frame. Frame rate for the F1 overlay arrives on "kisak-stats".
+// #game once per animation frame. Frame telemetry arrives on "kisak-stats".
 const present = { ctx: null, latest: null, frames: 0, shown: 0, lastT: performance.now(), lastShown: 0 };
 
 // engine key codes (src/win32/win_wndproc.cpp virtualKeyConvert; mouse 200.., wheel 205 = down, 206 = up)
@@ -1023,7 +1073,6 @@ function enterPlay() {
   const [w, h] = state.res.split("x").map(Number);
   canvas.width = w;
   canvas.height = h;
-  syncResolutionControl(state.res);
   state.fullscreen = fullscreenSync({ document, stage: $("stage"),
     notify: enabled => call("_Kisak_FullscreenChanged", enabled ? 1 : 0),
     onError: error => log(`Fullscreen unavailable: ${error.message || error}`, "warn"),
@@ -1069,14 +1118,6 @@ function enterPlay() {
       if (state.perf.gpuEvents.length > 24000) state.perf.gpuEvents.splice(0,state.perf.gpuEvents.length-24000);
       for (const frame of d.gpuFrames || []) if (frame.at) hitchDiagnostics.frame({...frame, gameplay:state.engine?.connection === 10});
       for (const event of d.gpuEvents || []) if (event.at) hitchDiagnostics.event(event);
-      const gpu = state.perf.gpu;
-      if (gpu.intervalMs > 0) {
-        const fps = 1000 / gpu.intervalMs;
-        const counts = gpu.draws != null && gpu.passes != null && gpu.flushes != null && gpu.bindGroups != null
-          ? ` (${Math.round(gpu.draws)} draws, ${Math.round(gpu.passes)} passes, ${Math.round(gpu.flushes)} flushes, ${Math.round(gpu.bindGroups)} bind groups)`
-          : "";
-        $("fps").textContent = `${fps.toFixed(0)} render fps${counts}`;
-      }
       if (d.gpu.submitted) {
         present.shown = d.gpu.submitted;
         if ((state.engine?.frontendReady || state.engine?.connection === 10) && state.menuFrame !== undefined && present.shown > state.menuFrame && document.body.classList.contains("booting")) {
@@ -1134,11 +1175,10 @@ function enterPlay() {
       shown: present.shown, draws: d.draws || 0 });
     if (d.frameIntervals) state.perf.renderIntervals.push(...d.frameIntervals);
     if (d.copyMs) state.perf.copyMs.push(...d.copyMs);
-    $("fps").textContent = `${fps.toFixed(0)} render fps (${d.copied || 0} copied, ${present.shown} shown)`;
   };
   const pollGamepad = gamepadPoller((...sample) => call("_Kisak_Gamepad", ...sample));
   const loop = () => {
-    pollGamepad(engineFocused && !document.hidden && document.activeElement?.id !== "cmd");
+    pollGamepad(engineFocused && !document.hidden && consolePanel.hidden);
     const now = performance.now();
     const dt = Math.min(50, now - lookAt);
     lookAt = now;
@@ -1165,7 +1205,7 @@ function enterPlay() {
           state.menuReady = true;
           mark("menuReady");
           document.body.classList.remove("booting");
-          setStatus(`Playing (${state.res}). Create a private match from the game menus. F1 shows the debug page.`);
+          setStatus(`Playing (${state.res}). Create a private match from the game menus.`);
         }
       } catch (e) {
         b.close?.();
@@ -1173,6 +1213,7 @@ function enterPlay() {
         if (present.ready) Atomics.store(present.ready, 0, 1);
       }
     }
+    mapLoading.presented(present.shown);
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
@@ -1191,7 +1232,6 @@ function enterPlay() {
       }
       return;
     }
-    if (e.code === "F1" || e.code === "F2") return;
     const k = KEYMAP[e.code];
     if (k === undefined) return;
     e.preventDefault();
@@ -1211,30 +1251,10 @@ function enterPlay() {
       if (c) call("_Kisak_Char", c);
     }
   };
-  // F1/F2 are page keys. They must work while the console input is focused, or the log cannot be closed.
-  const onPageKey = (e) => {
-    if (!state.play || e.repeat) return;
-    if (e.code === "F1") {
-      e.preventDefault();
-      e.stopPropagation();
-      const on = document.body.classList.toggle("debug");
-      if (!on) {
-        document.body.classList.remove("logshown");
-        if (document.activeElement?.id === "cmd") $("game").focus();
-      }
-    } else if (e.code === "F2") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!document.body.classList.contains("debug")) document.body.classList.add("debug");
-      const shown = document.body.classList.toggle("logshown");
-      if (!shown && document.activeElement?.id === "cmd") $("game").focus();
-    }
-  };
   window.addEventListener("pointerdown", () => { if (state.play) unlockAudio(); }, true);
   window.addEventListener("keydown", () => { if (state.play) unlockAudio(); }, true);
-  window.addEventListener("keydown", onPageKey, true);
-  window.addEventListener("keydown", (e) => { if (state.play && document.activeElement?.id !== "cmd") onKey(e, true); }, true);
-  window.addEventListener("keyup", (e) => { if (state.play && document.activeElement?.id !== "cmd") onKey(e, false); }, true);
+  window.addEventListener("keydown", (e) => { if (state.play && consolePanel.hidden) onKey(e, true); }, true);
+  window.addEventListener("keyup", (e) => { if (state.play && consolePanel.hidden && e.code !== 'F2') onKey(e, false); }, true);
 
   // ---- mouse
   const toCanvas = (e) => {
@@ -1253,6 +1273,7 @@ function enterPlay() {
   // focus on every move, so walking stopped until W/A/S/D was pressed again.
   let engineFocused = true;
   const engage = () => {
+    if (!consolePanel.hidden) return;
     if (engineFocused) return;
     engineFocused = true;
     call("_Kisak_Focus", 1);
@@ -1289,7 +1310,7 @@ function enterPlay() {
     mouseMask = step.mask;
     for (const change of step.changes) call("_Kisak_Key", change.key, 0);
   };
-  const gameMouseTarget = (e) => e.target === canvas || locked();
+  const gameMouseTarget = (e) => consolePanel.hidden && (e.target === canvas || locked());
   const syncMouseButtons = (e, { gameTarget, gesture }) => {
     if (!state.play || typeof e.buttons !== "number") return;
     // Cancelling pointerdown/pointerup suppresses the compatibility mouse events.
@@ -1327,6 +1348,7 @@ function enterPlay() {
     syncMouseButtons(e, { gameTarget, gesture: e.type === "mousedown" || e.type === "pointerdown" });
   };
   canvas.addEventListener("mousemove", (e) => {
+    if (!consolePanel.hidden) return;
     engage();
     if (!wantsCapture() && locked()) document.exitPointerLock();
     syncCursor();
@@ -1360,6 +1382,7 @@ function enterPlay() {
   window.addEventListener("contextmenu", onSuppressedClick, true);
   window.addEventListener("auxclick", onSuppressedClick, true);
   canvas.addEventListener("wheel", (e) => {
+    if (!consolePanel.hidden) return;
     e.preventDefault();
     engage();
     const k = e.deltaY > 0 ? 205 : 206;
@@ -1372,7 +1395,7 @@ function enterPlay() {
   // pause menu and the latched click never reaches the game.
   document.addEventListener("pointerlockchange", () => {
     motion.reset();
-    if (!locked() && performance.now() - lastEscape > 150 && performance.now() - rightButtonAt > 400) {
+    if (consolePanel.hidden && !locked() && performance.now() - lastEscape > 150 && performance.now() - rightButtonAt > 400) {
       const wants = state.mod?._Kisak_WantsMouseCapture ? state.mod._Kisak_WantsMouseCapture() : 0;
       if (wants) { call("_Kisak_Key", 27, 1); call("_Kisak_Key", 27, 0); }
     }
@@ -1402,12 +1425,6 @@ function enterPlay() {
     }
   });
 
-  $("btn-log").onclick = () => {
-    const shown = document.body.classList.toggle("logshown");
-    if (shown) document.body.classList.add("debug");
-    if (!shown && document.activeElement?.id === "cmd") $("game").focus();
-  };
-  $("btn-full").onclick = () => state.fullscreen.toggle();
   warnSoftwareGl();
   startRelay();
 }
@@ -1643,7 +1660,6 @@ function startRelay(joinRoom = cfg.join) {
     room: joinRoom, iceServers, rtc: params.get("net") !== "relay", log,
     failed: (message) => {
       setStatus(message);
-      $("room").textContent = message;
       saveDiagnostics();
     },
     receive: (packet) => {
@@ -1680,6 +1696,7 @@ function startRelay(joinRoom = cfg.join) {
     },
   });
   state.relay = { transport, room: joinRoom || "", host: !joinRoom };
+  const loadingKeepalive = new LoadingKeepalive();
   let scratch = 0;
   function pump() {
     if (stopped) return;
@@ -1687,6 +1704,12 @@ function startRelay(joinRoom = cfg.join) {
     if (!mod?._Kisak_NetPush || !mod?._Kisak_NetDrain) return;
     if (!scratch) scratch = mod._malloc(4102);
     if (!scratch) return;
+    const keepalive = loadingKeepalive.packet({guest:!transport.host, joined:state.joined,
+      connection:state.engine?.connection, now:performance.now()});
+    if (keepalive) {
+      transport.send(keepalive);
+      state.perf.loadingKeepalives = (state.perf.loadingKeepalives || 0) + 1;
+    }
     while (inbox.length) {
       const u = inbox.shift();
       mod.HEAPU8.set(u.subarray(6), scratch);
@@ -1777,7 +1800,7 @@ if (cfg.agent) window.kisak.agent = {
       waiting: document.body.classList.contains("party-wait"),
       href: $("party-link")?.href || "",
     },
-    status: $("status").textContent, crash: state.crash || "", transferred: state.transferred, bootTransferred: state.bootTransferred }),
+    status: state.status, crash: state.crash || "", transferred: state.transferred, bootTransferred: state.bootTransferred }),
   metrics: (sinceFrameId = null) => ({ ...state.perf, preparation:state.preparation, catalog:state.catalog, installation:state.installation,
     ...(sinceFrameId == null ? {} : {
       gpuFrames:(state.perf.gpuFrames || []).filter(f=>f.frameId>sinceFrameId),
@@ -1795,15 +1818,6 @@ if (cfg.agent) window.kisak.agent = {
   },
 };
 
-$("arg").value = cfg.args;
-$("mode").value = cfg.mode;
-$("start").onclick = () => start(false);
-$('best-case')?.addEventListener('click', state.bestCase);
-$("hitch-report")?.addEventListener('click', () => {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(state.hitchReport(), null, 2)], {type:'application/json'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'kisak-hitches.json'; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
 $("party-copy")?.addEventListener("click", async () => {
   const href = $("party-link")?.href || "";
   if (!href) return;
@@ -1827,40 +1841,6 @@ async function copyPartyInvite(kind = "link") {
   }
 }
 
-$("play").onclick = () => {
-  unlockAudio();
-  $("stage").requestFullscreen().catch(() => {});
-  start(true);
-};
-
-$("pick").onclick = async () => {
-  if (!window.showDirectoryPicker) { setStatus("This browser cannot pick a folder; use ?assets=<url>."); return; }
-  try {
-    state.folder = await window.showDirectoryPicker({ mode: "read" });
-    setStatus(`Importing from "${state.folder.name}"`);
-    log(`game folder: ${state.folder.name}`);
-  } catch { /* cancelled */ }
-};
-
-$("reset").onclick = async () => {
-  if (!confirm("Delete the imported game files and the saved profile from this browser?")) return;
-  const root = await navigator.storage.getDirectory();
-  for (const n of ["game", "profile", "manifest.txt", "manifest.json", "installation.json", "installation-state.json", "asset-verification.json"]) await root.removeEntry(n, { recursive: true }).catch(() => {});
-  inflight.clear();
-  state.verifiedThisPage.clear();
-  setStatus("Storage cleared.");
-  log("storage cleared");
-};
-
-$("form").onsubmit = (ev) => {
-  ev.preventDefault();
-  const line = $("cmd").value.trim();
-  if (!line) return;
-  log(`> ${line}`);
-  send(line);
-  $("cmd").value = "";
-};
-
 window.addEventListener("error", (ev) => {
   reportCrash(ev.message, ev.filename, ev.lineno, ev.colno);
   ev.preventDefault();
@@ -1873,10 +1853,10 @@ window.addEventListener("unhandledrejection", (ev) => {
 
 setStatus(!crossOriginIsolated
   ? "Not cross-origin isolated: serve with COOP/COEP (tools/web/serve.mjs)."
-  : "Ready. Pick your game folder or start with ?assets=<url>.");
+  : "Loading multiplayer…");
 // Registered before boot so the first click or key resumes the context the engine is using.
 window.addEventListener("pointerdown", unlockAudio, true);
 window.addEventListener("keydown", unlockAudio, true);
-// Boot straight into the multiplayer menu. ?server keeps the old headless page.
+// Boot straight into the multiplayer menu. ?server runs without rendering.
 if (params.has("server")) start(false);
 else start(true);

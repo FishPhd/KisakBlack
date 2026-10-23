@@ -24,6 +24,12 @@ const gen = path.resolve(option("--gen", path.join(root, "assets-gen"))), outOpt
 const headed = flag("--headed"), trace = flag("--trace");
 const keepOpen = flag("--keep-open");
 const hostOnly = flag("--host-only");
+const joinOnly = flag("--join-only");
+const lateJoin = flag("--late-join");
+const listedJoin = flag("--listed-join");
+const pregameMinPlayers = Number(option("--pregame-minplayers", "0"));
+if (!Number.isInteger(pregameMinPlayers) || pregameMinPlayers < 0 || pregameMinPlayers > 18)
+  throw new Error('--pregame-minplayers must be between 0 and 18');
 const map = option("--map", "mp_nuked");
 const readCache = option("--read-cache", "on");
 const renderer = option("--renderer", "auto");
@@ -218,10 +224,35 @@ async function launch() {
 }
 async function join(room) {
   if (!session || !room || !/^[a-zA-Z0-9_-]+$/.test(room)) throw new Error("join requires an owned session and room ID");
-  const url = new URL(session.url); url.searchParams.set("join", room); url.searchParams.set("player", "agent-guest");
+  const url = new URL(session.url);
+  if (!listedJoin) { url.searchParams.set("join", room); url.searchParams.set("player", "agent-guest"); }
   const { targetId } = await cdp.send("Target.createTarget", { url: url.href });
   session = readSession(); session.targets.guest = targetId; writeSession(session);
-  sid = await cdp.attach(targetId); await cdp.send("Page.bringToFront", {}, sid); return targetId;
+  sid = await cdp.attach(targetId); await cdp.send("Page.bringToFront", {}, sid);
+  if (listedJoin) {
+    await waitFor(s => s.menuReady, 'server-browser guest menu');
+    await clickItem('^.*\\bPLAY\\b.*$');
+    await clickItem('SERVER.?BROWSER');
+    let previousList, stableSince = 0;
+    const browser = await waitFor(s => {
+      const list = s.engine?.menus.filter(m => /server_browser/.test(m.name)).flatMap(m => m.items).find(i => i.name === 'browser');
+      const signature = list ? JSON.stringify(list.rect) : null;
+      if (signature !== previousList) stableSince = Date.now();
+      previousList = signature;
+      return signature && list.rect[1] >= 0 && Date.now() - stableSince > 700;
+    }, 'server browser animation');
+    fs.writeFileSync(path.join(dir, 'server-browser-before-join.json'), JSON.stringify(browser, null, 2));
+    const list = browser.engine.menus.flatMap(m => m.items).find(i => i.name === 'browser');
+    if (!list) throw new Error('Server list control not found; see server-browser-before-join.json');
+    const rows = await cdp.evaluate('window.kisak.serversText', sid);
+    if (rows.split('\n').filter(Boolean).length !== 1 || !rows.startsWith(room + '\t'))
+      throw new Error('Expected the isolated host to be the only server-browser row');
+    const rect = [...list.rect]; rect[3] = Math.min(16, rect[3]);
+    const point = await itemPoint({rect});
+    await click(cdp, sid, ...point);
+    await key(cdp, sid, 'Enter');
+  }
+  return targetId;
 }
 async function closeSession() {
   if (!session || debugPort) throw new Error("close requires an owned --session without --port override");
@@ -298,17 +329,23 @@ async function selectMap() {
 }
 async function smoke() {
   const result = { startedAt: new Date().toISOString(), steps: [] }, hostSid = sid;
+  // Repeated runs must release prior test guests and their Wasm heaps.
+  const targets = (await cdp.send('Target.getTargets')).targetInfos;
+  for (const target of targets)
+    if (target.type === 'page' && target.targetId !== session.targets.host
+        && target.url.startsWith(new URL(session.url).origin + '/'))
+      await cdp.send('Target.closeTarget', {targetId:target.targetId});
   const step = (name, data) => { result.steps.push({ name, data }); console.log(name); };
   const previous = (await status()).documentId;
   await cdp.send("Page.bringToFront", {}, sid); await cdp.send("Page.reload", {}, sid);
   step("menu ready", await waitFor(s => s.menuReady, "host menu", timeout, previous));
   step("play clicked", await clickItem("^.*\\bPLAY\\b.*$"));
-  step("create game clicked", await clickItem("CREATE.?GAME|PRIVATE.?MATCH"));
+  step("create game clicked", await clickItem("CREATE.*GAME|PRIVATE.*MATCH"));
   const lobby = await waitFor(s => s.engine?.menus.some(m => /privatelobby/.test(m.name)) && s.room && s.party?.open && /[?&]join=/.test(s.party.href || ""), "Private Match lobby");
   const room = lobby.room;
   step("party code visible", { room, href: lobby.party.href });
   let guestSid = "";
-  if (!hostOnly) {
+  if (!hostOnly && !lateJoin) {
     await join(room);
     guestSid = sid;
     step("guest waiting", await waitFor(s => s.party?.phase === "lobby" && s.party.waiting && (s.party.roster?.length || 0) >= 2 && s.engine?.connection !== 10, "guest lobby"));
@@ -322,8 +359,19 @@ async function smoke() {
     sid = hostSid;
     await cdp.send("Page.bringToFront", {}, sid);
   }
+  if (pregameMinPlayers) {
+    await cdp.evaluate(`window.kisak.state.send('set g_pregame_enabled 1; set party_minplayers ${pregameMinPlayers}')`, sid);
+    await sleep(300);
+  }
   step("start match clicked", await clickItem("START.?MATCH"));
   await waitFor(s => s.engine?.connection === 10 && s.engine.serverTime > 0, "host active match");
+  if (lateJoin && !hostOnly) {
+    await join(room);
+    guestSid = sid;
+    step("late guest connecting", await waitFor(s => s.party?.phase === 'match', 'late guest host state'));
+    sid = hostSid;
+    await cdp.send("Page.bringToFront", {}, sid);
+  }
   await enterGameplay(step);
   const hostMetrics = await cdp.evaluate("window.kisak.agent.metrics()", sid);
   fs.writeFileSync(path.join(dir, "smoke-performance.json"), JSON.stringify(hostMetrics, null, 2));
@@ -361,6 +409,14 @@ async function smoke() {
   step("guest joined", await waitFor(s => s.engine?.connection === 10 && s.engine.serverTime > 0, "guest active match"));
   await enterGameplay(step);
   step("guest screenshot", await screenshot(path.join(dir, "smoke-guest.png")));
+  if (joinOnly) {
+    result.passed = true;
+    result.pregameMinPlayers = pregameMinPlayers;
+    fs.writeFileSync(path.join(dir, "smoke.json"), JSON.stringify(result, null, 2));
+    output({passed:true,joinOnly:true,artifacts:dir});
+    if (!keepOpen) await closeSession();
+    return;
+  }
   sid = hostSid;
   await cdp.send("Page.bringToFront", {}, sid);
   await cdp.evaluate("window.kisak.state.send('disconnect')", sid);
@@ -476,6 +532,9 @@ Use a fixed --http-port and the same --session/profile for comparable warm start
 Artifacts, profile, and continuous page/worker logs are beside session.json.
 smoke closes the owned browser and server; --keep-open retains the host for inspection.
 --host-only skips guest startup when profiling host rendering.
+--join-only ends smoke after both players reach gameplay; --late-join joins after the host starts.
+--listed-join exercises the server-browser join path instead of an invite URL.
+--pregame-minplayers N enables the pregame player threshold for the smoke test.
 smoke shows the join code in the private lobby, lets a guest wait there, follows the host map,
 starts the match, then returns both players to that lobby. --map MAP changes the test map.
 bench supports --read-cache off|on for A/B measurement without changing the build.`);

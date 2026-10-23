@@ -1,0 +1,25 @@
+{
+  "source_file": "src/ui_mp/ui_main_mp.cpp",
+  "mapping_status": "unverified",
+  "functions": [
+    {
+      "name": "UI_RunMenuScript_StartListenServer",
+      "exceptions": [{
+        "scope": "KISAK_WEB only: notify the browser before queuing the existing map command",
+        "rationale": "Display loading feedback before synchronous first-map asset waits; display downloaded map bytes while the engine worker is blocked.",
+        "original_behavior": "Original binary behavior is unverified for this unmapped function. The existing reconstructed code queues wait ; wait ; map without a browser presentation notification.",
+        "review_status": "pending human review"
+      }]
+    },
+    {
+      "name": "UI_RunMenuScript_StartServer",
+      "exceptions": [{
+        "scope": "KISAK_WEB only: notify the browser before queuing the existing map command",
+        "rationale": "Use the same immediate loading presentation for the dedicated/server menu path.",
+        "original_behavior": "Original binary behavior is unverified for this unmapped function. Existing map command and wait ordering are preserved; desktop code is unchanged.",
+        "review_status": "pending human review"
+      }]
+    }
+  ],
+  "coverage": "Browser presentation and transfer accounting tests do not establish original-game equivalence. No binary identity is invented in catalog.json."
+}

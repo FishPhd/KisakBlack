@@ -3168,6 +3168,11 @@ int __cdecl SV_ClientCommand(client_t *cl, msg_t *msg, int fromOldServer)
 
 gentity_s *__cdecl SV_AddTestClient()
 {
+    // Bots must not occupy the lobby or satisfy its minimum-player threshold.
+    // Keep configured bot counts intact so the manager can add them after pregame.
+    if (Pregame_isEnabled() && Pregame_GetState() != PREGAME_GAMESTARTED)
+        return nullptr;
+
     if (Dvar_GetBool("xblive_wagermatch") && svs.clients && com_maxclients)
     {
         const int wanted = Dvar_GetInt("kisak_pm_bots");

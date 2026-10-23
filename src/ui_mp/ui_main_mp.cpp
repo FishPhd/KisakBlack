@@ -1,5 +1,6 @@
 #include "ui_main_mp.h"
 #ifdef KISAK_WEB
+#include <emscripten.h>
 #include <web/web_assets.h>
 #include <database/db_registry.h>
 #endif
@@ -2525,6 +2526,14 @@ void __cdecl UI_RunMenuScript_StartListenServer()
     for ( value = UI_GetMapRotationToken(); value && I_strcmp(value->token, map); value = UI_GetMapRotationToken() )
         ;
     //BLOPS_NULLSUB();
+#ifdef KISAK_WEB
+    // Publish before the queued map command can block on first-load assets.
+    char *loadingMap = strdup(map);
+    MAIN_THREAD_ASYNC_EM_ASM({
+        Module.kisakMapStarting?.(UTF8ToString($0));
+        _free($0);
+    }, loadingMap);
+#endif
     v2 = va("wait ; wait ; map %s\n", map);
     Cbuf_AddText(0, v2);
 }
@@ -2549,6 +2558,13 @@ void __cdecl UI_RunMenuScript_StartServer(int localClientNum)
         ;
     //BG_EvalVehicleName();
     //BG_EvalVehicleName();
+#ifdef KISAK_WEB
+    char *loadingMap = strdup(map);
+    MAIN_THREAD_ASYNC_EM_ASM({
+        Module.kisakMapStarting?.(UTF8ToString($0));
+        _free($0);
+    }, loadingMap);
+#endif
     v3 = va("wait ; wait ; map %s\n", map);
     Cbuf_AddText(localClientNum, v3);
 }
