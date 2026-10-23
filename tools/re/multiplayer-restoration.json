@@ -1505,7 +1505,7 @@
       "coverage": "Browser runtime entry smoke test only; no original binary equivalence claim."
     },
     {
-      "symbol": "DrawVisionSetDebug / VisionSetDebugName",
+      "symbol": "DrawVisionSetDebug",
       "source": "src/cgame/cg_visionsets.cpp",
       "scope": "Diagnostic-only labels search the separate named settings cache by exact record bytes, falling back to <blended>.",
       "exceptions": [
@@ -1516,6 +1516,10 @@
           "review_status": "pending_human_review",
           "comparison_effect": "No game-logic comparison is waived; diagnostic behavior is unverified."
         }
+      ],
+      "dependencies": [
+        "VisionSetDebugName diagnostic helper",
+        "separate cache settings and names"
       ]
     }
   ],
@@ -1557,5 +1561,68 @@
       "check_source": "tools/re/damage-dispatch/original_cgame_extent.cpp",
       "scope": "Exact sizeof boundary only, not every interior member or gameplay behavior."
     }
-  ]
+  ],
+  "last_full_branch_comparison": {
+    "date": "2026-10-23",
+    "metric": "compiled-code structural similarity; not byte equality or execution equivalence",
+    "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+    "minimum_confidence": 0.7,
+    "original_function_byte_weight": 5506154,
+    "baseline": {
+      "binary_sha256": "792220761037782440adc6df36639277ec186b73b6180095b8f15c0255356521",
+      "report_sha256": "39238016086cbb6877fc080439ea3340513c13f756d185a3b6625558a37aa5de",
+      "summary": {
+        "overall_similarity_percent": 12.527808063688795,
+        "matched_only_similarity_percent": 69.80040463680874,
+        "matched_original_byte_coverage_percent": 17.94804504196577,
+        "original_functions": 21679,
+        "candidate_functions": 28763,
+        "accepted_matches": 4416,
+        "low_confidence_matches": 12404,
+        "unmatched_original_functions": 4859,
+        "unmatched_candidate_functions": 11943,
+        "original_function_byte_weight": 5506154,
+        "minimum_confidence": 0.7
+      },
+      "report_json": "build-re/binary-diff/reports/run-1792773398033490000/report.json",
+      "report_html": "build-re/binary-diff/reports/run-1792773398033490000/report.html",
+      "source": {
+        "ref": "master",
+        "commit": "306bb14a8e052a6244bd1df4e4df7d8504c04ef4",
+        "source": "unmodified git archive",
+        "profile": "MSVC x86 Release, toolset 14.37.32822, GS disabled for parity with candidate",
+        "build_compatibility": {
+          "scope": "db_registry.cpp forced include setjmp.h and jmp_buf argument cast at the existing _setjmp call",
+          "reason": "Unmodified master does not compile against installed MSVC/UCRT headers; no source files changed."
+        }
+      }
+    },
+    "candidate": {
+      "binary_sha256": "18107aaa1f101481226d32c51c846f9262c1b10747f0bb9166456e0383dc10a1",
+      "report_sha256": "5594d86d545ff5a9aeb3aa57f88bef516aac37a925c9c23cfb140642c907b138",
+      "summary": {
+        "overall_similarity_percent": 14.242512594944195,
+        "matched_only_similarity_percent": 69.68152327490131,
+        "matched_original_byte_coverage_percent": 20.4394392165566,
+        "original_functions": 21679,
+        "candidate_functions": 33075,
+        "accepted_matches": 4912,
+        "low_confidence_matches": 12708,
+        "unmatched_original_functions": 4059,
+        "unmatched_candidate_functions": 15455,
+        "original_function_byte_weight": 5506154,
+        "minimum_confidence": 0.7
+      },
+      "report_json": "build-re/binary-diff/reports/run-1792773372152870500/report.json",
+      "report_html": "build-re/binary-diff/reports/run-1792773372152870500/report.html",
+      "commit": "6213c960ec95212225d9c2ca45d76730dbcb2931",
+      "build_profile": "MSVC x86 Release, toolset 14.37.32822, /O2, /GS-, LTO/profile off; existing native platform wrappers retained."
+    },
+    "delta_percentage_points": {
+      "overall_similarity_percent": 1.7147045312554,
+      "matched_only_similarity_percent": -0.11888136190742671,
+      "matched_original_byte_coverage_percent": 2.4913941745908303
+    },
+    "limits": "Whole branch Release builds; includes earlier platform and C++ changes, different dependency wrappers, compiler/inlining effects and unreviewed heuristic matches. This is structural similarity, not original-execution or exact machine-byte equivalence. Main baseline is repository default master."
+  }
 }

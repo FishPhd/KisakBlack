@@ -67,6 +67,31 @@ execute the affected game functions. Optional vision debug labels now use cache
 lookup and show `<blended>` for unnamed settings; that diagnostic difference is
 recorded separately and remains pending review.
 
+## Full native comparison with the default branch (2026-10-23)
+
+The full scans against the same pinned original measured **12.527808%**
+demonstrated structural similarity for default branch `master` at `306bb14`,
+and **14.242513%** for `wasm-decomp` at `6213c96`: **+1.714705 percentage
+points**. Accepted original-function byte coverage increased from **17.948045%**
+to **20.439439%**. Both used confidence threshold `0.7` and the same
+5,506,154-byte original-function denominator.
+
+These are whole-branch Release observations, including earlier platform/source
+changes, compiler effects and heuristic matches. They do not isolate this commit
+or establish exact machine-byte agreement. Both builds used MSVC x86 toolset
+14.37.32822, `/O2` and disabled stack-cookie instrumentation. The archived master
+source needed its missing `setjmp.h` declaration and `jmp_buf` argument cast
+supplied through a build-only forced include; its source files were unchanged.
+The branches retain their different native dependency wrappers.
+
+Full local reports are retained at
+`build-re/binary-diff/reports/run-1792773398033490000/` (master) and
+`build-re/binary-diff/reports/run-1792773372152870500/` (decomp).
+Binary/report hashes and numeric results are recorded in
+`last_full_branch_comparison` in the evidence inventory. All eight existing
+behavioral pilots also passed 6,677 original-capture cases per backend on native
+x86 and Wasm; their original contracts remain narrower than this whole-EXE scan.
+
 ## Wasm Combat Training check (2026-10-23)
 
 The menu route PLAY → COMBAT TRAINING → START MATCH loaded Summit
