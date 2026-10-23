@@ -1,0 +1,1206 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "meaning": "Instruction and data evidence inventory, not an executable verification catalog or proof of equivalence.",
+  "restorations": [
+    {
+      "symbol": "G_DamageClient",
+      "source": "src/game_mp/g_combat_mp.cpp",
+      "entry_va": "0x619480",
+      "code": [
+        {
+          "rva": "0x219480",
+          "size": 328,
+          "sha256": "15ad2c89c7abe6de067069b5d74e43a71be17da45ed2f7fbce4bb8a7cab79666"
+        }
+      ],
+      "abi_notes": "cdecl stack arguments; target at entry ESP+4, damage at ESP+0x18; client flags +0x28e4, lastStand +0x2a20",
+      "change_scope": "Restore the Last Stand timestamp gate before hit-location scaling. Melee MOD 7 bypasses it; equality permits damage.",
+      "dependencies": [
+        "G_GetClientState 0x463810",
+        "level.time",
+        "hit-location scaling and script damage callback"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "PM_UpdateQuickScope",
+      "source": "src/bgame/bg_weapons.cpp",
+      "entry_va": "0x7bf320",
+      "code": [
+        {
+          "rva": "0x3bf320",
+          "size": 350,
+          "sha256": "ecafbd2a655cd664571d09ba9ee593cec6ae8a3e852a029a95d942e7be2d0efb"
+        }
+      ],
+      "abi_notes": "pm in EAX; pml at entry ESP+4; previous ADS fraction at ESP+8; ps quickScopeScale +0x4ec and timer +0x4f0",
+      "change_scope": "Restore timer update, ADS-dependent penalty target, DiffTrack and minimum scale of one.",
+      "dependencies": [
+        "BG_GetViewmodelWeaponIndex",
+        "BG_GetWeaponDef",
+        "BG_GetWeaponVariantDef",
+        "BG_GetPlayerAnimTypeIndex",
+        "DiffTrack",
+        "player_aqs_* dvars"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "BG_GetQuickScopeSpread",
+      "source": "src/bgame/bg_weapons.cpp",
+      "entry_va": "0x7bd940",
+      "code": [
+        {
+          "rva": "0x3bd940",
+          "size": 103,
+          "sha256": "5ab39e503a30abb77f97957e31254ecbe764494968095af0ab3b5f25769e455e"
+        }
+      ],
+      "abi_notes": "Original ABI must be bound before an execution adapter is enabled.",
+      "change_scope": "Restore the spread penalty only while timer equals the configured full duration.",
+      "dependencies": [
+        "bg_aqs",
+        "player_aqs_time",
+        "player_aqs_spread_max",
+        "player_aqs_spread_multiplier"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "PM_AdjustAimSpreadScale",
+      "source": "src/bgame/bg_weapons.cpp",
+      "entry_va": "0x561d20",
+      "code": [
+        {
+          "rva": "0x161d20",
+          "size": 885,
+          "sha256": "68e69b35f1f118d5d4aaf27b7f202fcb4da19dc4b1a986403f30a93d48735561"
+        }
+      ],
+      "abi_notes": "pm and pml stack arguments; weapon definition and dvars read by original.",
+      "change_scope": "Restore quick-scope contribution and the fully-ADS exception while its timer is active.",
+      "dependencies": [
+        "BG_GetQuickScopeSpread",
+        "BG_GetWeaponDef",
+        "movement and weapon spread dvars"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "BG_CalculateViewMovement_IdleAngles",
+      "source": "src/bgame/bg_weapons_view.cpp",
+      "entry_va": "0x7c5560",
+      "code": [
+        {
+          "rva": "0x3c5560",
+          "size": 685,
+          "sha256": "bbd5d2a67ae8d437e20cbacfcbf50c7c628885a5b59cea840a3152f2b07b4364"
+        }
+      ],
+      "abi_notes": "viewState in ESI; angles argument must be bound for execution. Original uses x87 sine.",
+      "change_scope": "Restore AQS style 1 scale and style 2 yaw/pitch terms. Existing sinf replacement is not bit-qualified.",
+      "dependencies": [
+        "bg_aqs",
+        "bg_aqsStyle",
+        "player_aqs_sway_factor",
+        "weapon idle state"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "PM_UpdateScopeZoom",
+      "source": "src/bgame/bg_weapons.cpp",
+      "entry_va": "0x5eddc0",
+      "code": [
+        {
+          "rva": "0x1eddc0",
+          "size": 306,
+          "sha256": "8fcb8d0bb7068b4bf035a7187f55768a6ec8ac596e790b1c95464b0a35dea870"
+        }
+      ],
+      "abi_notes": "Original ABI must be bound before an execution adapter is enabled.",
+      "change_scope": "Restore default per-held-weapon zoom selection, modulo 3 or 4, using helper 0x5cc8f0.",
+      "dependencies": [
+        "cg_useWeaponBasedVariableZoom",
+        "cg_adsZoomToggleStyle",
+        "BG_GetHeldWeapon",
+        "PM_AddEvent"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "CG_GetViewFov",
+      "source": "src/cgame/cg_camera.cpp",
+      "entry_va": "0x647340",
+      "code": [
+        {
+          "rva": "0x247340",
+          "size": 876,
+          "sha256": "081dea5371fa66e7fdcfd0f7a0dc760e03a44aee0f0b10a28e1def661da7039b"
+        }
+      ],
+      "abi_notes": "Original ABI and complete cg layout must be bound before execution.",
+      "change_scope": "Select the held weapon zoom value when weapon-based variable zoom is enabled.",
+      "dependencies": [
+        "CG globals",
+        "weapon zoom FOV definitions",
+        "BG_GetHeldWeaponConst"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "MSG_ReadDeltaPlayerstate",
+      "source": "src/qcommon/msg_mp.cpp",
+      "entry_va": "0x56d600",
+      "code": [
+        {
+          "rva": "0x16d600",
+          "size": 3368,
+          "sha256": "f01f2b5312cb2e4d141f2e99c7523c044ce11953829a95fab14aee01d5a8e2cd"
+        }
+      ],
+      "abi_notes": "Original stack ABI and message memory adapter not implemented; original copies 0x26e8 bytes.",
+      "change_scope": "Restore held weapon stride and version-3 three-bit zoom delta before the four boolean bits.",
+      "dependencies": [
+        "message bit readers",
+        "Demo_IsVersionAtLeast",
+        "playerStateFields",
+        "held weapon state"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "MSG_WriteDeltaPlayerstate",
+      "source": "src/qcommon/sv_msg_write.cpp",
+      "entry_va": "0x696410",
+      "code": [
+        {
+          "rva": "0x296410",
+          "size": 317,
+          "sha256": "ea1ac72f37737e29f88dfbf5fff0e6dd3fac385c3ef37b241bafdcecfeea67fb"
+        },
+        {
+          "rva": "0x296550",
+          "size": 1306,
+          "sha256": "ca3f3c91a0a75597dc6748f43e4caee14be417f474c18abc4aa020c723d359d7"
+        },
+        {
+          "rva": "0x296a70",
+          "size": 616,
+          "sha256": "32584ab8980592c0e3a472dc76eebc2f3af991aed033cc533b848ca3f2e23ff1"
+        }
+      ],
+      "abi_notes": "Five stack arguments (snapshot, msg, time, from, to); original held record stride 0x1c.",
+      "change_scope": "Restore full held record comparison and version-3 zoom delta, symmetric with original reader.",
+      "dependencies": [
+        "message bit writers",
+        "Demo_IsVersionAtLeast",
+        "playerStateFields",
+        "held weapon state"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "Demo_IsVersionAtLeast",
+      "source": "src/demo/demo_version.cpp",
+      "entry_va": "0x561860",
+      "code": [
+        {
+          "rva": "0x161860",
+          "size": 49,
+          "sha256": "ba3693f86afeb16f690a4e1bc907b45ca35f3fac8b361846c17817f9dda96963"
+        }
+      ],
+      "abi_notes": "Integer version on stack; bool return in AL.",
+      "change_scope": "Live traffic uses current format; playing demos compare their recorded version.",
+      "dependencies": [
+        "Demo_IsPlaying",
+        "Demo_GetVersion"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "G_GetClientSize",
+      "source": "src/game_mp/g_main_mp.cpp",
+      "entry_va": "0x56a1e0",
+      "code": [
+        {
+          "rva": "0x16a1e0",
+          "size": 6,
+          "sha256": "b19ba003b165723cd38a0eeaeeb922b8c898d1046559ee35c8f535d135901ba4"
+        }
+      ],
+      "abi_notes": "No arguments; integer result EAX; original MOV EAX,0x2a28; RET.",
+      "change_scope": "Return the restored gclient_s size, also used at server game-data registration sites.",
+      "dependencies": [],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    },
+    {
+      "symbol": "CG_UpdateClientDobjPartBits",
+      "source": "src/cgame_mp/cg_ents_mp.cpp",
+      "entry_va": "0x7cea50",
+      "code": [
+        {
+          "rva": "0x3cea50",
+          "size": 459,
+          "sha256": "6b5586a04c94bfd52e6d6268788811bcf67e87d641e4364f6441e567899bf56f"
+        }
+      ],
+      "abi_notes": "cent in EAX; entity number at entry ESP+4; local client number at ESP+8.",
+      "change_scope": "Replace obsolete corpse pointer arithmetic with corpseinfo[number-32]; original stride 0x5d0 and array base 0x17e0 are asserted.",
+      "dependencies": [
+        "Com_GetClientDObj 0x615ea0",
+        "DObjGetHidePartBits 0x5d2aa0",
+        "DObjSetHidePartBits 0x51fb20",
+        "BG_UpdatePlayerDObj 0x6ab0e0",
+        "FX_MarkEntUpdateHidePartBits 0x51c210"
+      ],
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "exceptions": []
+    }
+  ],
+  "historical_candidate_corrections": [
+    {
+      "name": "CG_PredictPlayerState",
+      "entry_va": "0x477bd0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x477bd0",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x77bd0",
+          "size": 954,
+          "sha256": "98d569650fe44b023beba39cec994a7bcc0a95c771068016fa98ff8cc8358372"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x83b0",
+        "0xc170",
+        "0x12560",
+        "0x5a370",
+        "0x61470",
+        "0x6d900",
+        "0x80670",
+        "0xc1220",
+        "0x129ff0",
+        "0x1557c0",
+        "0x182c10",
+        "0x194c60",
+        "0x1999b0",
+        "0x1afe10",
+        "0x1bb950",
+        "0x26ff20",
+        "0x29aaf0",
+        "0x3e1660",
+        "0x3e1ae0"
+      ]
+    },
+    {
+      "name": "CG_PredictPlayerState_Internal",
+      "entry_va": "0x7e1ae0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x4dab30",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x3e1ae0",
+          "size": 2442,
+          "sha256": "fa9313d318cb550e1cf322ae8ad61eae10f0988557567bc0630264034ab5b2e6"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x126c0",
+        "0x34fb0",
+        "0x81e10",
+        "0x8f620",
+        "0xae950",
+        "0xc17e0",
+        "0xd1220",
+        "0xd3070",
+        "0xf4470",
+        "0x10b910",
+        "0x166e00",
+        "0x168b90",
+        "0x16aa00",
+        "0x1b0500",
+        "0x1e6910",
+        "0x24d830",
+        "0x257a00",
+        "0x271fb0",
+        "0x27a0d0",
+        "0x280690",
+        "0x28bed0",
+        "0x3e1120",
+        "0x3e11c0",
+        "0x3e16c0",
+        "0x5cb010"
+      ]
+    },
+    {
+      "name": "Pmove",
+      "entry_va": "0x68bed0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x826f60",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x28bed0",
+          "size": 83,
+          "sha256": "023748f1c449f7f9b4f8fad930e27970a15d08f8d8fceb8a94a0e94667430812"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x40fe0",
+        "0x9d720",
+        "0x16cb90",
+        "0x20b930"
+      ]
+    },
+    {
+      "name": "Pmove_1",
+      "entry_va": "0x60b930",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x7d3f60",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x20b930",
+          "size": 56,
+          "sha256": "22e0d69976f4b211bc9425724481db120467d5bcb7faccdb09b4042554a0b518"
+        },
+        {
+          "rva": "0x20b970",
+          "size": 57,
+          "sha256": "357ef92ba4348bb29b48acb31025479dcb0e308f274dce38bd20763e35e11ec9"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x3b74b0"
+      ]
+    },
+    {
+      "name": "PmoveSingle",
+      "entry_va": "0x7b74b0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x7d2af0",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x3b74b0",
+          "size": 3773,
+          "sha256": "3e46982fd3a232ecea4c24551082fda83d6eca083bca46cf7849b053dafd3ac0"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x76a0",
+        "0x31520",
+        "0x50740",
+        "0x84750",
+        "0xa31d0",
+        "0xbdfd0",
+        "0xd1880",
+        "0xe6620",
+        "0xee620",
+        "0xf5a50",
+        "0xfcd00",
+        "0x129ff0",
+        "0x12a1e0",
+        "0x13e570",
+        "0x1606b0",
+        "0x161d20",
+        "0x178750",
+        "0x183a10",
+        "0x187270",
+        "0x1cb750",
+        "0x1cf0e0",
+        "0x1de420",
+        "0x1e5cd0",
+        "0x1e8b40",
+        "0x1f0770",
+        "0x20d4f0",
+        "0x224ef0",
+        "0x252780",
+        "0x273f50",
+        "0x27c6f0",
+        "0x2956c0",
+        "0x2ad1d0",
+        "0x3b0b00",
+        "0x3b0b90",
+        "0x3b1480",
+        "0x3b1a10",
+        "0x3b1f60",
+        "0x3b20e0",
+        "0x3b2310",
+        "0x3b2660",
+        "0x3b3200",
+        "0x3b3280",
+        "0x3b3470",
+        "0x3b34f0",
+        "0x3b3b90",
+        "0x3b3d50",
+        "0x3b3fd0",
+        "0x3b4410",
+        "0x3b4470",
+        "0x3b45a0",
+        "0x3b4790",
+        "0x3b4d70",
+        "0x3b5260",
+        "0x3b5f80",
+        "0x3b6380",
+        "0x3b6530",
+        "0x3b6910",
+        "0x3b6ba0",
+        "0x3b6f70",
+        "0x5ca590"
+      ]
+    },
+    {
+      "name": "PM_SlideMove",
+      "entry_va": "0x7b8550",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x417660",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x3b8550",
+          "size": 619,
+          "sha256": "d1c68fdfd07a869fa026777df7d7ecff4893057bbca37fb104083b7187e2e9c2"
+        },
+        {
+          "rva": "0x3b87c0",
+          "size": 422,
+          "sha256": "55cfde9dbfa0aebebbf3466ddf77de17207778a69d2686027e8578e41bfaae69"
+        },
+        {
+          "rva": "0x3b8970",
+          "size": 1176,
+          "sha256": "9f68d0d013ef4ab3fdcfd7f3d3c47acd055350c35526eeef1587218a6d775798"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0xad6c0",
+        "0xcd4d0",
+        "0x1a8c60",
+        "0x1baaa0",
+        "0x1f8120",
+        "0x25cb40",
+        "0x2b45c0"
+      ]
+    },
+    {
+      "name": "PM_Accelerate",
+      "entry_va": "0x7b0e30",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "existing_catalog_pilot_only",
+      "historical_bindiff_candidate_va": "0x7fc940",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x3b0e30",
+          "size": 378,
+          "sha256": "675e0b005bfd1b1489ffb18fefcdfe4b3667cd44e1b3878165fbe504a4638a79"
+        }
+      ],
+      "dependency_callee_rvas": []
+    },
+    {
+      "name": "MSG_ReadDeltaPlayerstate",
+      "entry_va": "0x56d600",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x56d600",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x16d600",
+          "size": 3368,
+          "sha256": "f01f2b5312cb2e4d141f2e99c7523c044ce11953829a95fab14aee01d5a8e2cd"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x9510",
+        "0x126c0",
+        "0x40440",
+        "0x8f0d0",
+        "0xfd650",
+        "0x138140",
+        "0x161860",
+        "0x168b90",
+        "0x1734a0",
+        "0x183860",
+        "0x200470",
+        "0x21ac00",
+        "0x2635a0",
+        "0x280d20",
+        "0x46fe40",
+        "0x5ca590",
+        "0x5cb010",
+        "0x5cb690"
+      ]
+    },
+    {
+      "name": "MSG_ReadDeltaField",
+      "entry_va": "0x600470",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x600470",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x200470",
+          "size": 2495,
+          "sha256": "4adda3fb5beb4351bbbc42a7e5d68503a745b197f17101980204e21f8b2ac520"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x99b0",
+        "0x126c0",
+        "0x40440",
+        "0x5f1a0",
+        "0xa1370",
+        "0xda3d0",
+        "0xe6e10",
+        "0x1137e0",
+        "0x138140",
+        "0x179e30",
+        "0x181bd0",
+        "0x1d2a60",
+        "0x2204e0",
+        "0x233860",
+        "0x28e520",
+        "0x294950",
+        "0x2b5d90",
+        "0x46fb50",
+        "0x46fbb0",
+        "0x46fc40",
+        "0x46fc80",
+        "0x46fcc0",
+        "0x46fd90"
+      ]
+    },
+    {
+      "name": "SV_Frame",
+      "entry_va": "0x581d70",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x671ea0",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x181d70",
+          "size": 109,
+          "sha256": "c354ecd6d3404f3c898e7235baed84d2f55eb03156d2a2852514bbb43c5f19d8"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0xa2fd0",
+        "0x1d0030",
+        "0x26ffa0",
+        "0x477530"
+      ]
+    },
+    {
+      "name": "SV_FrameInternal",
+      "entry_va": "0x877530",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x877530",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x477530",
+          "size": 266,
+          "sha256": "33c32edd97950e92cd05ae4bdea5240174503a3cf1a371cbdb700824779227db"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x49a0",
+        "0x27db0",
+        "0xaeb40",
+        "0xbf700",
+        "0x106480",
+        "0x1fab60",
+        "0x26ffa0",
+        "0x477310",
+        "0x4774f0"
+      ]
+    },
+    {
+      "name": "SV_SendClientMessages",
+      "entry_va": "0x665c70",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x6681a0",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x265c70",
+          "size": 2263,
+          "sha256": "67eb483a8fdeea1e34cb7c2f3d1f940341d869df2c6ce30164781e606515a518"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x303b0",
+        "0x36820",
+        "0x3d9d0",
+        "0x49090",
+        "0xc1510",
+        "0xe3fa0",
+        "0x102ca0",
+        "0x149950",
+        "0x15a550",
+        "0x19e710",
+        "0x1c9050",
+        "0x1cac20",
+        "0x1e3310",
+        "0x20fc70",
+        "0x227380",
+        "0x23c630",
+        "0x23eb30",
+        "0x25e0e0",
+        "0x28d080",
+        "0x29fee0",
+        "0x2adc50",
+        "0x478d80",
+        "0x5cb010"
+      ]
+    },
+    {
+      "name": "SV_ExecuteClientMessage",
+      "entry_va": "0x58ae20",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x58ae20",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x18ae20",
+          "size": 622,
+          "sha256": "4857273767300c5582197ace96fc46bf773bb7fc2ff73e09cb1beea93da7b6c4"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x126c0",
+        "0x36820",
+        "0x55110",
+        "0x71d70",
+        "0xa1940",
+        "0xa6400",
+        "0xe3fa0",
+        "0x1439a0",
+        "0x14b6a0",
+        "0x174480",
+        "0x19e710",
+        "0x1a0dc0",
+        "0x1faf00",
+        "0x20fc70",
+        "0x25e0e0",
+        "0x275d20",
+        "0x27c300",
+        "0x28d080",
+        "0x476d50"
+      ]
+    },
+    {
+      "name": "G_RunFrame",
+      "entry_va": "0x5c9ea0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x696410",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x1c9ea0",
+          "size": 399,
+          "sha256": "400ba26887ddd0b14f98947f4a2717c0e35a9bef3851056ee8126dab06d7cdaa"
+        },
+        {
+          "rva": "0x1ca030",
+          "size": 477,
+          "sha256": "7cd140837ef98c4c19f2617dfd787584afd5ac836adf28e0741dc37e64d990e8"
+        },
+        {
+          "rva": "0x1ca210",
+          "size": 394,
+          "sha256": "4ac498cc27a7151fd71bf16f2fb7aa007e2f4d8df3d84af7ebd2a36ae45ce6ae"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x1c70",
+        "0x126c0",
+        "0x1c180",
+        "0x2f970",
+        "0x36d00",
+        "0x58d30",
+        "0x5b680",
+        "0x6b680",
+        "0x8f620",
+        "0x9fa50",
+        "0xb6aa0",
+        "0xb7180",
+        "0xc2040",
+        "0xc6c60",
+        "0xc77a0",
+        "0xd6b30",
+        "0xebb30",
+        "0xf2180",
+        "0x102ca0",
+        "0x112370",
+        "0x1410e0",
+        "0x145310",
+        "0x151960",
+        "0x154e40",
+        "0x17ad40",
+        "0x1985c0",
+        "0x19f5e0",
+        "0x1ad8c0",
+        "0x1b3400",
+        "0x224c70",
+        "0x239d50",
+        "0x256b90",
+        "0x2591b0",
+        "0x268070",
+        "0x28cd60",
+        "0x294e30",
+        "0x2bea70",
+        "0x434980",
+        "0x434b80",
+        "0x434bf0",
+        "0x434de0",
+        "0x5ca590"
+      ]
+    },
+    {
+      "name": "G_RunFrameForEntity",
+      "entry_va": "0x834bf0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x834bf0",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x434bf0",
+          "size": 496,
+          "sha256": "376167b5df1146608463135f36d3b2a4550b431e7e8a01db64d12f2b0dbceb29"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x31710",
+        "0x417b0",
+        "0x58d30",
+        "0xb7690",
+        "0xcbbc0",
+        "0xee050",
+        "0x1073c0",
+        "0x1493c0",
+        "0x17eb70",
+        "0x1a1670",
+        "0x241c40",
+        "0x434bf0"
+      ]
+    },
+    {
+      "name": "FireWeapon",
+      "entry_va": "0x484380",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x6490e0",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x84380",
+          "size": 565,
+          "sha256": "9e82d18784145b06cb2a7d34befb1ce13fd10bca6839cf5eb5c36b56f46e9ccd"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x14c20",
+        "0x58d30",
+        "0x7de70",
+        "0xb3a80",
+        "0xe9e40",
+        "0xffb70",
+        "0x124130",
+        "0x129ff0",
+        "0x153510",
+        "0x166630",
+        "0x1f52e0",
+        "0x227380",
+        "0x28b8c0",
+        "0x2ae180"
+      ]
+    },
+    {
+      "name": "CG_FireWeapon",
+      "entry_va": "0x403750",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x5080d0",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x3750",
+          "size": 868,
+          "sha256": "ecf3936a95c600426b56b045ebb72747e950396b0572e09caf7764f30e0fe1e0"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x9890",
+        "0x645f0",
+        "0x7b530",
+        "0x83c30",
+        "0x8f620",
+        "0xb8fc0",
+        "0xd1220",
+        "0xe9890",
+        "0x101ff0",
+        "0x119480",
+        "0x129ff0",
+        "0x153510",
+        "0x160590",
+        "0x1d0680",
+        "0x1d9430",
+        "0x1f3680",
+        "0x214410",
+        "0x227380",
+        "0x2def50",
+        "0x3fe8f0",
+        "0x3ff660"
+      ]
+    },
+    {
+      "name": "G_Damage",
+      "entry_va": "0x548370",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x548370",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x148370",
+          "size": 818,
+          "sha256": "3732e7393a61cb85da813700c939bc7d256ad282b5e744422ab8a8fd95e5862e"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x87c0",
+        "0xe430",
+        "0x126c0",
+        "0x58d30",
+        "0xeffd0",
+        "0x136950",
+        "0x156f80",
+        "0x1f52e0",
+        "0x219480",
+        "0x22d650",
+        "0x230fa0",
+        "0x268070",
+        "0x42f4f0"
+      ]
+    },
+    {
+      "name": "G_DamageClient",
+      "entry_va": "0x619480",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x89b730",
+      "historical_candidate_rejected": true,
+      "code": [
+        {
+          "rva": "0x219480",
+          "size": 328,
+          "sha256": "15ad2c89c7abe6de067069b5d74e43a71be17da45ed2f7fbce4bb8a7cab79666"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x63810",
+        "0xe1220",
+        "0x122160",
+        "0x1fe330",
+        "0x42f4f0",
+        "0x5cc210"
+      ]
+    },
+    {
+      "name": "CG_EntityEvent",
+      "entry_va": "0x5a8ea0",
+      "mapping_status": "unverified",
+      "review_status": "pending_human_review",
+      "execution_status": "unverified",
+      "historical_bindiff_candidate_va": "0x5a8ea0",
+      "historical_candidate_rejected": false,
+      "code": [
+        {
+          "rva": "0x1a8ea0",
+          "size": 12929,
+          "sha256": "51b8ec43637822f72a044fab2813ae44f64a3c02e06dcb2a4a76cca20f6f617b"
+        }
+      ],
+      "dependency_callee_rvas": [
+        "0x3750",
+        "0x5000",
+        "0x6750",
+        "0xb210",
+        "0x126c0",
+        "0x1c070",
+        "0x3c870",
+        "0x65970",
+        "0x68200",
+        "0x6f030",
+        "0x70270",
+        "0x734d0",
+        "0x76c70",
+        "0x7b530",
+        "0x83c30",
+        "0x8f620",
+        "0x940c0",
+        "0x9f830",
+        "0xa30c0",
+        "0xb8fc0",
+        "0xc8b00",
+        "0xc9360",
+        "0xca750",
+        "0xd1220",
+        "0xdaa50",
+        "0xe3fa0",
+        "0xecb10",
+        "0xf2700",
+        "0xfc080",
+        "0xfda80",
+        "0x107dc0",
+        "0x10b910",
+        "0x121e00",
+        "0x129ff0",
+        "0x1345c0",
+        "0x145ea0",
+        "0x146bb0",
+        "0x149880",
+        "0x14bc90",
+        "0x150c00",
+        "0x153510",
+        "0x160590",
+        "0x167360",
+        "0x169160",
+        "0x176b50",
+        "0x17bed0",
+        "0x186a50",
+        "0x188800",
+        "0x18b4d0",
+        "0x18b960",
+        "0x18ee20",
+        "0x193d50",
+        "0x1a60c0",
+        "0x1a6aa0",
+        "0x1cc0c0",
+        "0x1cde90",
+        "0x1ce7e0",
+        "0x1e9760",
+        "0x1f81e0",
+        "0x201a40",
+        "0x212b50",
+        "0x212c50",
+        "0x2150b0",
+        "0x215ea0",
+        "0x220760",
+        "0x226fd0",
+        "0x227380",
+        "0x22adf0",
+        "0x232a10",
+        "0x23d0c0",
+        "0x23f4f0",
+        "0x23fc10",
+        "0x24b250",
+        "0x2511a0",
+        "0x2517f0",
+        "0x2527e0",
+        "0x2578c0",
+        "0x25ebc0",
+        "0x2629d0",
+        "0x263470",
+        "0x26d510",
+        "0x2794e0",
+        "0x27d0b0",
+        "0x280690",
+        "0x283030",
+        "0x28c410",
+        "0x292000",
+        "0x2ac2a0",
+        "0x2b5a50",
+        "0x2b8640",
+        "0x2b8ff0",
+        "0x2b9300",
+        "0x2ded90",
+        "0x2fc110",
+        "0x2fc140",
+        "0x2fd680",
+        "0x3d1280",
+        "0x3d1650",
+        "0x3d1700",
+        "0x3d1850",
+        "0x3d18a0",
+        "0x3d1920",
+        "0x3d1940",
+        "0x3d19a0"
+      ]
+    }
+  ],
+  "blocked_mappings": [
+    {
+      "name": "CM_Trace",
+      "mapping_status": "unverified",
+      "rejected_candidates_va": [
+        "0x518880",
+        "0x4ca9e0"
+      ],
+      "reason": "First candidate is network login code; second is a sight-trace hypothesis with an incompatible output contract. No replacement identity established."
+    }
+  ],
+  "blocked_layout_checks": [
+    {
+      "name": "cg_s live client-info base",
+      "status": "blocked",
+      "expected_offset": "0x5f238",
+      "observed_wasm_offset": "0x5e178",
+      "native_check": "fails",
+      "wasm_check": "fails",
+      "check_source": "tools/re/damage-dispatch/original_cgame_layout.cpp",
+      "instruction_evidence": {
+        "rva": "0x3ceae7",
+        "size": 7,
+        "sha256": "45509858e3ca6b1ae37eeac8b31b5eafcfefe153a219c648b102e69ea5a2d89d"
+      },
+      "reason": "Enclosing cg_s layout is not reconstructed. Do not insert speculative padding or promote narrower network-layout passes to complete cg_s coverage."
+    }
+  ],
+  "data_tables": [
+    {
+      "name": "playerStateFields",
+      "count": 181,
+      "descriptor_size": 20,
+      "code": {
+        "rva": "0x6cd1e0",
+        "size": 3620,
+        "sha256": "c8152405583a429cdef56cf36269b319525068aeaa3447e3aaaec16246ace7d7"
+      },
+      "comparison_scope": "names, order, offsets, sizes, bits, hints"
+    },
+    {
+      "name": "clientStateFields",
+      "count": 51,
+      "descriptor_size": 20,
+      "code": {
+        "rva": "0x6ccde0",
+        "size": 1020,
+        "sha256": "edef909fa8520e63cebdc2d718dc559d6e4c52a309e0115a0c80408ea5a222e3"
+      },
+      "comparison_scope": "names, order, offsets, sizes, bits, hints"
+    },
+    {
+      "name": "client script fields",
+      "count": 43,
+      "descriptor_size": 28,
+      "code": {
+        "rva": "0x6c5878",
+        "size": 1204,
+        "sha256": "a8fd7b749caf2aa4794b45c4fe2125e53d2dacf6a1890c801f0af2754bda3dc0"
+      },
+      "comparison_scope": "42 named entries and terminator; numeric metadata only, accessor behavior unqualified"
+    }
+  ],
+  "layout_instruction_regions": [
+    {
+      "purpose": "original G_GetClientState client stride and state base",
+      "rva": "0x63810",
+      "size": 24,
+      "sha256": "178f533487ea20c74dcb51930cd5285bab3562b1cf464b8155f38940adb75353"
+    },
+    {
+      "purpose": "G_InitGame client stride registration immediate",
+      "rva": "0x1f7087",
+      "size": 5,
+      "sha256": "8670a715ca42d30d5f50e5a1add309c72e5b0153c918e521d7511003fc8de169"
+    },
+    {
+      "purpose": "G_Spawn client stride registration immediate",
+      "rva": "0x1ae619",
+      "size": 5,
+      "sha256": "8670a715ca42d30d5f50e5a1add309c72e5b0153c918e521d7511003fc8de169"
+    },
+    {
+      "purpose": "clientInfo clear size",
+      "rva": "0xa74d1",
+      "size": 5,
+      "sha256": "efc4ce892cc1378ff99174bbf571de19ffa54b9f43d5dc4957f5b16bc55c9041"
+    }
+  ],
+  "additional_source_scope": {
+    "src/game/actor_fields.cpp": "Update debug-only client-index divisor for restored structure size; whole original Cmd_AI_DisplayValue mapping remains unverified.",
+    "src/demo/demo_version.cpp": "Legacy field offsets follow restored in-memory members; old demo encodings retained. All legacy demo versions are not qualified.",
+    "src/demo/demo_playback.cpp": "Use restored playerState size for scratch storage.",
+    "src/server_mp/sv_snapshot_mp.cpp": "Use restored playerState size for copies.",
+    "tools/re/retool/emulator.py": "Check the complete original 0x26e8 playerState write set.",
+    "tools/re/retool/live.py": "Require complete original 0x26e8 snapshots; old truncated captures remain blocked.",
+    "tools/re/frida/pm_capture.js": "Capture complete original 0x26e8 playerState."
+  }
+}

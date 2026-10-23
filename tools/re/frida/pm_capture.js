@@ -8,7 +8,7 @@ const originalCode = Array.from(new Uint8Array(module.base.add(CONFIG.entry_rva)
 const deliver = new NativeCallback(pointer => {
   const words = [];
   for (let i = 0; i < 28; ++i) words.push(pointer.add(i * 4).readU32());
-  send({type: 'capture', words}, pointer.add(112).readByteArray(0x26a4 * 2 + 0x8c));
+  send({type: 'capture', words}, pointer.add(112).readByteArray(0x26e8 * 2 + 0x8c));
 }, 'void', ['pointer']);
 const cm = new CModule(`
 #include <gum/guminterceptor.h>
@@ -17,7 +17,7 @@ const cm = new CModule(`
 extern void deliver(void *);
 typedef struct {
   guint32 input[16], output[4], cw, mxcsr, regs[6];
-  guint8 before[0x26a4], after[0x26a4], pml[0x8c];
+  guint8 before[0x26e8], after[0x26e8], pml[0x8c];
 } Capture;
 static guint32 word(void * p) { guint32 v; memcpy(&v,p,4); return v; }
 void on_enter(GumInvocationContext * ic) {
@@ -40,12 +40,12 @@ void on_enter(GumInvocationContext * ic) {
   c->input[9] = word(pml + 0x24); c->input[10] = word(stop + 0x18); c->input[11] = 1;
   c->regs[0] = (guint32) ps; c->regs[1] = ctx->esp; c->regs[2] = ctx->ecx;
   c->regs[3] = ctx->edx; c->regs[4] = ctx->eax; c->regs[5] = ctx->eip;
-  memcpy(c->before, ps, 0x26a4); memcpy(c->pml, pml, 0x8c);
+  memcpy(c->before, ps, 0x26e8); memcpy(c->pml, pml, 0x8c);
 }
 void on_leave(GumInvocationContext * ic) {
   Capture * c = *((Capture **) gum_invocation_context_get_listener_invocation_data(ic, sizeof(Capture *)));
   guint8 * ps = (guint8 *) c->regs[0];
-  memcpy(c->after, ps, 0x26a4); memcpy(c->output, ps + 0x30, 12); c->output[3] = word(ps + 0xc);
+  memcpy(c->after, ps, 0x26e8); memcpy(c->output, ps + 0x30, 12); c->output[3] = word(ps + 0xc);
   deliver(c); g_free(c);
 }
 `, {deliver});

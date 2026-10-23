@@ -114,9 +114,9 @@ def verify_live(f, manifest_path, binary=None, wasm=False):
         if digest(snapshot) != row["snapshot_sha256"]:
             raise Blocked("Live snapshot checksum mismatch")
         data = snapshot.read_bytes()
-        if len(data) != 0x26A4 * 2 + 0x8C:
+        if len(data) != 0x26E8 * 2 + 0x8C:
             raise Blocked("Truncated live state")
-        before, after = bytearray(data[:0x26A4]), data[0x26A4:0x26A4 * 2]
+        before, after = bytearray(data[:0x26E8]), data[0x26E8:0x26E8 * 2]
         before[0x30:0x3C] = after[0x30:0x3C]
         if before != after:
             raise Blocked("Live function changed undeclared player-state bytes")

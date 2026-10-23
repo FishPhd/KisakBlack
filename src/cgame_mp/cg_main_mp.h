@@ -150,6 +150,7 @@ extern const dvar_s *cg_fovMin;
 extern const dvar_s *cg_fovExtraCam;
 extern const dvar_s *cg_fovCompMax;
 extern const dvar_s *cg_adsZoomToggleStyle;
+extern const dvar_s *cg_useWeaponBasedVariableZoom;
 extern const dvar_s *cg_viewVehicleInfluenceGunner;
 extern const dvar_s *cg_viewVehicleInfluenceGunnerFiring;
 extern const dvar_s *cg_draw2D;

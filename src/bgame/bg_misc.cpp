@@ -410,6 +410,13 @@ const dvar_s *player_breath_fire_delay;
 const dvar_s *player_breath_gasp_scale;
 const dvar_s *player_breath_hold_lerp;
 const dvar_s *player_breath_gasp_lerp;
+const dvar_s *player_aqs_time;
+const dvar_s *player_aqs_scale;
+const dvar_s *player_aqs_spread_multiplier;
+const dvar_s *player_aqs_spread_max;
+const dvar_s *player_aqs_sway_factor;
+const dvar_s *bg_aqs;
+const dvar_s *bg_aqsStyle;
 const dvar_s *player_breath_snd_lerp;
 const dvar_s *player_breath_snd_delay;
 const dvar_s *player_scopeExitOnDamage;
@@ -987,6 +994,13 @@ void __cdecl BG_RegisterDvars()
                                                             50.0,
                                                             0x180u,
                                                             "The interpolation rate for the target waver amplitude when gasping");
+    player_aqs_time = _Dvar_RegisterFloat("player_aqs_time", 0.25f, 0.0f, 30.0f, 0x80u, "");
+    player_aqs_scale = _Dvar_RegisterFloat("player_aqs_scale", 8.0f, 0.0f, 50.0f, 0x80u, "");
+    player_aqs_spread_multiplier = _Dvar_RegisterFloat("player_aqs_spread_multiplier", 0.0f, 0.0f, 255.0f, 0x80u, "");
+    player_aqs_spread_max = _Dvar_RegisterFloat("player_aqs_spread_max", 0.0f, 0.0f, 255.0f, 0x80u, "");
+    player_aqs_sway_factor = _Dvar_RegisterFloat("player_aqs_sway_factor", 40.0f, 0.0f, 255.0f, 0x80u, "");
+    bg_aqs = _Dvar_RegisterBool("bg_aqs", false, 0x80u, "");
+    bg_aqsStyle = _Dvar_RegisterInt("bg_aqsStyle", 2, 0, 2, 0x80u, "");
     player_breath_snd_lerp = _Dvar_RegisterFloat(
                                                          "player_breath_snd_lerp",
                                                          2.0,

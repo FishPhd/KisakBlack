@@ -2051,7 +2051,7 @@ void __cdecl Demo_ParseSnapshot(int localClientNum, msg_t *msg)
     int Bit; // eax
     const char *v9; // eax
     playerState_s result; // [esp+0h] [ebp-4D68h] BYREF
-    unsigned __int8 dst[9892]; // [esp+26ACh] [ebp-26BCh] BYREF
+    unsigned __int8 dst[sizeof(playerState_s)];
     clientActive_t *LocalClientGlobals; // [esp+4D50h] [ebp-18h]
     int v13; // [esp+4D54h] [ebp-14h]
     clientConnection_t *LocalClientConnection; // [esp+4D58h] [ebp-10h]

@@ -629,7 +629,19 @@ void __cdecl PM_UpdateScopeZoom(pmove_t *pm)
         && BG_UsingSniperScope(pm->ps)
         && BG_ADSFullyUp(pm->ps) )
     {
-        ++ps->adsZoomSelect;
+        // BlackOpsMP 0x5ede1b: remember variable zoom on the held weapon.
+        if ( cg_useWeaponBasedVariableZoom->current.enabled )
+        {
+            PlayerHeldWeapon *held = BG_GetHeldWeapon(ps, ps->weapon);
+            if ( !held )
+                return;
+            const int next = held->adsZoomSelect + 1;
+            held->adsZoomSelect = next % (cg_adsZoomToggleStyle->current.integer ? 3 : 4);
+        }
+        else
+        {
+            ++ps->adsZoomSelect;
+        }
         ps->adsZoomLatchState = 1;
         ps->adsZoomLatchTime = pm->cmd.serverTime;
         PM_AddEvent(ps, 0xBEu);
@@ -964,6 +976,21 @@ char __cdecl BG_IsQuickSwitch(unsigned int oldweapon, unsigned int newweapon, in
     return quick;
 }
 
+// BlackOpsMP 0x7bd940: the initial quick-scope penalty is added only while
+// the timer still equals its full configured duration.
+static float BG_GetQuickScopeSpread(const playerState_s *ps)
+{
+    if ( !bg_aqs->current.enabled
+        || ps->aimSpreadScale > player_aqs_spread_max->current.value
+        || ps->quickScopeScale <= 1.0f )
+        return 0.0f;
+    volatile float durationMs = player_aqs_time->current.value * 1000.0f;
+    if ( ps->quickScopeTimer != (int)durationMs )
+        return 0.0f;
+    volatile float amplitude = ps->quickScopeScale - 1.0f;
+    return amplitude * player_aqs_spread_multiplier->current.value;
+}
+
 void __cdecl PM_AdjustAimSpreadScale(pmove_t *pm, pml_t *pml)
 {
     float v2; // [esp+14h] [ebp-3Ch]
@@ -1020,13 +1047,14 @@ void __cdecl PM_AdjustAimSpreadScale(pmove_t *pm, pml_t *pml)
         else
         {
             decrease = wpnScale * pml->frametime;
-            if ( ps->fWeaponPosFrac == 1.0 )
+            if ( ps->fWeaponPosFrac == 1.0
+                && (!bg_aqs->current.enabled || !ps->quickScopeTimer) )
             {
                 increase = 0.0f;
             }
             else
             {
-                viewchange = 0.0f;
+                viewchange = BG_GetQuickScopeSpread(ps);
                 if ( weapDef->fHipSpreadTurnAdd != 0.0 )
                 {
                     for ( i = 0; i < 2; ++i )
@@ -1240,10 +1268,12 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
                 ps->weaponstate = WEAPON_SWIM_OUT;
                 ps->weaponTime = 1000;
             }
+            const float previousAdsFraction = ps->fWeaponPosFrac;
             PM_UpdateAimDownSightLerp(pm, pml);
             PM_UpdateSpinLerp(pm, pml);
             PM_UpdateScopeZoom(pm);
             PM_UpdateHoldBreath(pm, pml);
+            PM_UpdateQuickScope(pm, pml, previousAdsFraction);
             if ( ps->bRunLeftGun && !BG_CheckForUniversalActionDW(ps) )
             {
                 ps->weaponstateLeft = ps->weaponstate;
@@ -1512,6 +1542,49 @@ void __cdecl PM_UpdateHoldBreath(pmove_t *pm, pml_t *pml)
         PM_EndHoldBreath(ps);
         ps->holdBreathScale = 1.0f;
         ps->holdBreathTimer = 0;
+    }
+}
+
+// BlackOpsMP 0x7bf320; the original takes pm in EAX, then pml and the
+// pre-update ADS fraction on the stack. Keep each x87 arithmetic step explicit.
+void __cdecl PM_UpdateQuickScope(pmove_t *pm, pml_t *pml, float previousAdsFraction)
+{
+    playerState_s *ps = pm->ps;
+    const WeaponDef *weapDef = BG_GetWeaponDef(BG_GetViewmodelWeaponIndex(ps));
+    (void)BG_GetWeaponVariantDef(ps->weapon);
+    volatile float durationMs = player_aqs_time->current.value * 1000.0f;
+    const int duration = (int)durationMs;
+    if ( duration > 0
+        && (weapDef->overlayReticle
+            || weapDef->playerAnimType == BG_GetPlayerAnimTypeIndex(2)
+            || weapDef->playerAnimType == BG_GetPlayerAnimTypeIndex(1)) )
+    {
+        const float ads = ps->fWeaponPosFrac;
+        if ( previousAdsFraction > ads || ads < 0.001f )
+            ps->quickScopeTimer = 0;
+        else if ( ads < 1.0f )
+            ps->quickScopeTimer = duration;
+        else
+            ps->quickScopeTimer -= pml->msec;
+        if ( ps->quickScopeTimer < 0 )
+            ps->quickScopeTimer = 0;
+
+        volatile float ratio = (float)ps->quickScopeTimer / (float)duration;
+        volatile float amplitude = player_aqs_scale->current.value - 1.0f;
+        volatile float target = amplitude * ratio;
+        target = target + 1.0f;
+        target = target - 1.0f;
+        target = target * ads;
+        target = target + 1.0f;
+        ps->quickScopeScale = DiffTrack(target, ps->quickScopeScale,
+            player_breath_gasp_lerp->current.value, pml->frametime);
+        if ( ps->quickScopeScale < 1.0f )
+            ps->quickScopeScale = 1.0f;
+    }
+    else
+    {
+        ps->quickScopeTimer = 0;
+        ps->quickScopeScale = 1.0f;
     }
 }
 
@@ -5363,6 +5436,7 @@ char __cdecl BG_HoldWeapon(playerState_s *ps, unsigned int weaponIndex)
         *(unsigned int *)&v5->model = 0;
         v5->options.i = 0;
         v5->fuelTankTime = 0;
+        v5->adsZoomSelect = 0;
         *(unsigned int *)&v5->overHeating = 0;
         *(unsigned int *)&v5->blockWeaponPickup = 0;
         v5->weapon = weaponIndex;

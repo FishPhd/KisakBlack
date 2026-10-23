@@ -1360,6 +1360,8 @@ void __cdecl BG_CalculateViewMovement_IdleAngles(viewState_t *vs, float *angles)
     fTargScale *= vs->fLastIdleFactor;
     fTargScale *= ps->fWeaponPosFrac;
     fTargScale *= ps->holdBreathScale;
+    if (bg_aqs->current.enabled && bg_aqsStyle->current.integer == 1)
+        fTargScale *= ps->quickScopeScale;
 
     *vs->weapIdleTime += (int)(
         ps->holdBreathScale *
@@ -1370,7 +1372,12 @@ void __cdecl BG_CalculateViewMovement_IdleAngles(viewState_t *vs, float *angles)
     const int idleTime = *vs->weapIdleTime;
 
     angles[1] += fTargScale * sinf(idleTime * 0.0007f) * 0.01f;
+    if (bg_aqs->current.enabled && bg_aqsStyle->current.integer == 2)
+        angles[1] -= ((ps->quickScopeScale - 1.0f) * player_aqs_sway_factor->current.value)
+            * sinf(idleTime * 0.0007f) * 0.01f;
     angles[0] += fTargScale * sinf(idleTime * 0.0010f) * 0.01f;
+    if (bg_aqs->current.enabled && bg_aqsStyle->current.integer == 2)
+        angles[0] += ((ps->quickScopeScale - 1.0f) * player_aqs_sway_factor->current.value) * 0.01f;
 }
 
 void __cdecl BG_CalculateViewMovement_BobAngles(viewState_t *vs, float *angles)

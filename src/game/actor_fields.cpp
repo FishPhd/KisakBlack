@@ -1110,7 +1110,7 @@ LABEL_46:
                     "ent %i: %s = client %i\n",
                     entnum,
                     pField->name,
-                    (signed int)(*(unsigned int *)&pBase[pField->ofs] - (unsigned int)level.clients) / 10720);
+                    (signed int)(*(unsigned int *)&pBase[pField->ofs] - (unsigned int)level.clients) / (int)sizeof(gclient_s));
                 break;
             case F_PATHNODE:
                 pNode = *(pathnode_t **)&pBase[pField->ofs];

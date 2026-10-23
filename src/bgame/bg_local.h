@@ -426,7 +426,7 @@ enum OffhandPrimaryClass : __int32
 };
 
 
-struct __declspec(align(4)) PlayerHeldWeapon // sizeof=0x18
+struct __declspec(align(4)) PlayerHeldWeapon // sizeof=0x1C (BlackOpsMP snapshot stride)
 {                                                                             // XREF: playerState_s/r
         unsigned int weapon;
         unsigned __int8 model;
@@ -440,6 +440,7 @@ struct __declspec(align(4)) PlayerHeldWeapon // sizeof=0x18
                 float heatPercent;
                 int fuelTankTime;
         };
+        int adsZoomSelect;
         bool overHeating;
         bool needsRechamber;
         bool heldBefore;
@@ -536,7 +537,7 @@ struct objective_t // sizeof=0x30
         const char *alt_3D_text;
 };
 
-struct playerState_s // sizeof=0x26A4
+struct playerState_s // sizeof=0x26E8
 {                                                                             // XREF: .data:dummy_1/r
                                                                                 // .data:playerState_s g_defaultPlayerState/r ...
         int commandTime;                                        // XREF: Demo_SwitchPlayer(int,bool,int,bool)+151/r
@@ -674,6 +675,8 @@ struct playerState_s // sizeof=0x26A4
         float fWaistPitch;
         float holdBreathScale;
         int holdBreathTimer;
+        float quickScopeScale;
+        int quickScopeTimer;
         float moveSpeedScaleMultiplier;
         MantleState mantleState;
         int vehicleAnimStage;
@@ -728,7 +731,8 @@ struct playerState_s // sizeof=0x26A4
                 hudelem_s archival[31];
         } hud;
 };
-static_assert(sizeof(playerState_s) == 9892);
+static_assert(sizeof(PlayerHeldWeapon) == 0x1C);
+static_assert(sizeof(playerState_s) == 0x26E8);
 
 struct lerpFrame_t // sizeof=0x34
 {                                                                             // XREF: clientInfo_t/r
@@ -747,7 +751,7 @@ struct lerpFrame_t // sizeof=0x34
         int oldFrameSnapshotTime;
 };
 
-struct __declspec(align(4)) clientInfo_t // sizeof=0x5C8
+struct __declspec(align(4)) clientInfo_t // sizeof=0x5D0
 {                                                                             // XREF: bgs_t/r corpseInfo_t/r
         int infoValid;                                            // XREF: G_RunFrame(int)+906/r
         int nextValid;

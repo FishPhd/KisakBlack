@@ -805,9 +805,18 @@ double __cdecl CG_GetViewFov(int localClientNum)
             __debugbreak();
         }
         posLerp = cgameGlob->predictedPlayerState.fWeaponPosFrac;
+        int heldZoomSelect = 0;
+        if ( cg_useWeaponBasedVariableZoom->current.enabled )
+        {
+            const playerState_s *ps = &cgameGlob->predictedPlayerState;
+            const PlayerHeldWeapon *held = BG_GetHeldWeaponConst(ps, ps->weapon);
+            if ( held )
+                heldZoomSelect = held->adsZoomSelect;
+        }
         if ( cg_adsZoomToggleStyle->current.integer )
         {
-            v8 = cgameGlob->predictedPlayerState.adsZoomSelect % 3;
+            v8 = cg_useWeaponBasedVariableZoom->current.enabled
+                ? heldZoomSelect : cgameGlob->predictedPlayerState.adsZoomSelect % 3;
             if ( v8 == 1 )
             {
                 if ( (float)(weapVariantDef->fAdsZoomFov2 - viewFov) < 0.0 )
@@ -835,7 +844,8 @@ double __cdecl CG_GetViewFov(int localClientNum)
         }
         else
         {
-            v2 = cgameGlob->predictedPlayerState.adsZoomSelect % 4;
+            v2 = cg_useWeaponBasedVariableZoom->current.enabled
+                ? heldZoomSelect : cgameGlob->predictedPlayerState.adsZoomSelect % 4;
             if ( v2 )
             {
                 if ( v2 == 2 )

@@ -146,6 +146,7 @@ const dvar_s *cg_fovMin;
 const dvar_s *cg_fovExtraCam;
 const dvar_s *cg_fovCompMax;
 const dvar_s *cg_adsZoomToggleStyle;
+const dvar_s *cg_useWeaponBasedVariableZoom;
 const dvar_s *cg_viewVehicleInfluenceGunner;
 const dvar_s *cg_viewVehicleInfluenceGunnerFiring;
 const dvar_s *cg_draw2D;
@@ -536,6 +537,8 @@ void __cdecl CG_RegisterDvars()
                                                         1,
                                                         1u,
                                                         "Style of zoom toggle - 0=oscillate, 1=rotate");
+    cg_useWeaponBasedVariableZoom = _Dvar_RegisterBool(
+        "cg_useWeaponBasedVariableZoom", true, 0x80u, "");
     cg_viewVehicleInfluenceGunner = _Dvar_RegisterVec3(
                                                                         "cg_viewVehicleInfluenceGunner",
                                                                         (1.0),

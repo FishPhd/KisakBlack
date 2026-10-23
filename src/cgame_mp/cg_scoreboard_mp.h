@@ -38,7 +38,7 @@ enum scoreboardColumnType_t : __int32
     NUM_SB_TYPES = 0x12,
 };
 
-struct score_s // sizeof=0x2C
+struct score_s // sizeof=0x30
 {                                                                             // XREF: clientState_s/r
     int ping;
     int status_icon;
@@ -47,6 +47,7 @@ struct score_s // sizeof=0x2C
     int kills;
     int assists;
     int deaths;
+    int wagerWinnings;
     int scoreboardColumns[4];
 };
 

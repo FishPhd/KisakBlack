@@ -1471,7 +1471,9 @@ void __cdecl CG_UpdateClientDobjPartBits(centity_s *cent, unsigned int entnum, i
             else
             {
                 cgs = CG_GetLocalClientStaticGlobals(localClientNum);
-                ci = (clientInfo_t *)((char *)&cgs[-3] + 1480 * p_nextState->number - 3208);
+                // BlackOpsMP 0x7ceaf0..0x7ceb06: corpse entities begin at 32;
+                // client-info stride is 0x5d0 and corpseinfo begins at 0x17e0.
+                ci = &cgs->corpseinfo[p_nextState->number - 32];
             }
             DObjGetHidePartBits(obj, oldPartBits);
             if ( ci->hideWeapon && p_nextState->clientNum == entnum )

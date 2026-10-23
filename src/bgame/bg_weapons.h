@@ -984,6 +984,7 @@ int __cdecl PM_GetWeaponFireButton(unsigned int weapon);
 void __cdecl PM_Weapon_Idle(playerState_s *ps);
 void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml);
 void __cdecl PM_UpdateHoldBreath(pmove_t *pm, pml_t *pml);
+void __cdecl PM_UpdateQuickScope(pmove_t *pm, pml_t *pml, float previousAdsFraction);
 void __cdecl PM_StartHoldBreath(playerState_s *ps);
 void __cdecl PM_EndHoldBreath(playerState_s *ps);
 int __cdecl PM_Weapon_CheckForRechamber(playerState_s *ps, int delayedAction);

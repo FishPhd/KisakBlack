@@ -72,7 +72,7 @@ class Emulator:
                 allowed += [(DATA + 0x1000, DATA + 0x1124), (DATA + 0x1200, DATA + 0x1230),
                             (DATA + 0x1300, DATA + 0x130c), (DATA + 0x2000, DATA + 0x8060)]
             if self.f["name"] == "PM_Accelerate":
-                allowed += [(DATA + 0x1000, DATA + 0x1000 + 0x26A4),
+                allowed += [(DATA + 0x1000, DATA + 0x1000 + 0x26E8),
                             (DATA + 0x200, DATA + 0x200 + 0x8C), (DATA + 0x300, DATA + 0x320)]
         if not any(start <= address and address + size <= end for start, end in allowed):
             self._fail(f"Undeclared {'write' if write else 'read'} {address:#x}+{size}")
@@ -135,7 +135,7 @@ class Emulator:
             m.mem_write(SP + 4, struct.pack("<5I", DATA + 0x1000, DATA + 0x1800,
                                          case[2], case[1], DATA + 0x100))
         elif name == "PM_Accelerate":
-            m.mem_write(DATA + 0x1000, bytes(0x26A4))
+            m.mem_write(DATA + 0x1000, bytes(0x26E8))
             m.mem_write(DATA + 0x100C, struct.pack("<I", case[0]))
             m.mem_write(DATA + 0x1030, struct.pack("<3I", *case[1:4]))
             m.mem_write(DATA, struct.pack("<3I", *case[4:7]))

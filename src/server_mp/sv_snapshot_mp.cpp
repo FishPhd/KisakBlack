@@ -1725,7 +1725,7 @@ int __cdecl SV_GetArchivedClientInfo(
         *otherFlags = v14->ps.otherFlags;
         if (ps)
         {
-            Com_Memcpy(ps, &v14->ps, 9892);
+            Com_Memcpy(ps, &v14->ps, sizeof(playerState_s));
             if (ps->commandTime)
                 ps->commandTime += v13;
             if (ps->pm_time)
@@ -2152,7 +2152,7 @@ void __cdecl SV_BuildClientSnapshot(client_t *client)
                 v23 = v5;
                 dst = (unsigned __int8 *)v7;
                 v1 = (unsigned __int8 *)SV_GameClientNum(clientNum);
-                memcpy(dst, v1, 0x26A4u);
+                memcpy(dst, v1, sizeof(playerState_s));
                 clientNum = dst[304];
                 position[0] = *((float *)dst + 9);
                 position[1] = *((float *)dst + 10);

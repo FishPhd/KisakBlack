@@ -494,6 +494,14 @@ void __cdecl G_DamageClient(
         {
             __debugbreak();
         }
+        // BlackOpsMP 0x61950b..0x61953d: Last Stand's protection window
+        // blocks non-melee damage. The boundary is strictly greater-than;
+        // damage is allowed at the stored timestamp itself.
+        if ( targ->client->lastStand && mod != 7
+            && G_GetClientState(targ->s.number)->lastStandStartTime > level.time )
+        {
+            return;
+        }
         if ( mod != 7 )
         {
             v12 = (float)damage;

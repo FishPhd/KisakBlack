@@ -11,6 +11,7 @@
 #include "sv_msg_write.h"
 #include <bgame/bg_misc.h>
 #include <demo/demo_profile.h>
+#include <demo/demo_version.h>
 #include <client_mp/cl_parse_mp.h>
 #include <win32/win_shared.h>
 #include <client/client.h>
@@ -1923,29 +1924,22 @@ const NetField eventEntityStateFields[69] =
   { "partBits[4]", 172, 4, 32, 1u, "32", "NEVER_CHANGES" }
 };
 
-const int numClientStateFields = 50;
-const NetField clientStateFields[50] =
+const int numClientStateFields = 51;
+// BlackOpsMP table at VA 0xaccde0; field order and wire encodings are original.
+const NetField clientStateFields[51] =
 {
   { "score.status_icon", 164, 4, 3, 0u, "STATUS_ICON_BITS", "0" },
   { "score.place", 168, 4, 6, 0u, "CLIENT_BITS + 1", "0" },
   { "score.score", 172, 4, -16, 0u, "SCORE_BITS", "0" },
   { "score.deaths", 184, 4, 10, 0u, "ASSIST_BITS", "0" },
-  { "score.scoreboardColumns[1]", 192, 4, 10, 0u, "ASSIST_BITS", "0" },
+  { "score.scoreboardColumns[1]", 196, 4, 10, 0u, "ASSIST_BITS", "0" },
   { "score.kills", 176, 4, 10, 0u, "ASSIST_BITS", "0" },
-  { "score.scoreboardColumns[0]", 188, 4, 10, 0u, "ASSIST_BITS", "0" },
+  { "score.scoreboardColumns[0]", 192, 4, 10, 0u, "ASSIST_BITS", "0" },
   { "modelindex", 12, 4, 9, 0u, "MODEL_BITS", "0" },
   { "attachModelIndex[0]", 16, 4, 9, 0u, "MODEL_BITS", "0" },
   { "attachTagIndex[1]", 44, 4, 5, 0u, "TAG_BITS", "0" },
   { "attachModelIndex[1]", 20, 4, 9, 0u, "MODEL_BITS", "0" },
-  {
-    "clientUIVisibilityFlags",
-    204,
-    4,
-    4,
-    0u,
-    "CLIENT_HUD_VISIBILITY_BITS",
-    "0"
-  },
+  { "clientUIVisibilityFlags", 208, 4, 4, 0u, "CLIENT_HUD_VISIBILITY_BITS", "0" },
   { "score.assists", 180, 4, 10, 0u, "ASSIST_BITS", "0" },
   { "rank", 100, 4, 8, 0u, "RANK_BITS", "0" },
   { "team", 4, 4, 2, 0u, "2", "0" },
@@ -1958,8 +1952,8 @@ const NetField clientStateFields[50] =
   { "clanAbbrev[0]", 136, 4, 32, 0u, "32", "0" },
   { "name[8]", 72, 4, 32, 0u, "32", "0" },
   { "name[12]", 76, 4, 32, 0u, "32", "0" },
-  { "score.scoreboardColumns[2]", 196, 4, 10, 0u, "ASSIST_BITS", "0" },
-  { "score.scoreboardColumns[3]", 200, 4, 10, 0u, "ASSIST_BITS", "0" },
+  { "score.scoreboardColumns[2]", 200, 4, 10, 0u, "ASSIST_BITS", "0" },
+  { "score.scoreboardColumns[3]", 204, 4, 10, 0u, "ASSIST_BITS", "0" },
   { "xuid32[0]", 120, 4, 32, 0u, "32", "0" },
   { "prestige", 104, 4, 8, 0u, "PRESTIGE_BITS", "0" },
   { "ffaTeam", 8, 4, 2, 0u, "2", "0" },
@@ -1983,111 +1977,41 @@ const NetField clientStateFields[50] =
   { "attachModelIndex[5]", 36, 4, 9, 0u, "MODEL_BITS", "0" },
   { "lastDamageTime", 108, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
   { "lastStandStartTime", 112, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
-  { "score.ping", 160, 4, 10, 0u, "PING_BITS", "0" }
+  { "score.ping", 160, 4, 10, 0u, "PING_BITS", "0" },
+  { "score.wagerWinnings", 188, 4, 32, 0u, "32", "0" }
 };
 
 
-const int numPlayerStateFields = 179;
-const NetField playerStateFields[179] =
+const int numPlayerStateFields = 181;
+// BlackOpsMP table at VA 0xacd1e0; field order and wire encodings are original.
+const NetField playerStateFields[181] =
 {
   { "commandTime", 0, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
   { "viewangles[1]", 388, 4, -87, 0u, "MSG_FIELD_VIEWANGLES", "0" },
   { "viewangles[0]", 384, 4, -87, 0u, "MSG_FIELD_VIEWANGLES", "0" },
   { "viewangles[2]", 392, 4, -87, 0u, "MSG_FIELD_VIEWANGLES", "0" },
-  {
-    "origin[0]",
-    36,
-    4,
-    -88,
-    3u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "CLIENT_PREDICTED"
-  },
-  {
-    "origin[1]",
-    40,
-    4,
-    -88,
-    3u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "CLIENT_PREDICTED"
-  },
+  { "origin[0]", 36, 4, -88, 3u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "CLIENT_PREDICTED" },
+  { "origin[1]", 40, 4, -88, 3u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "CLIENT_PREDICTED" },
   { "bobCycle", 8, 4, 8, 3u, "8", "CLIENT_PREDICTED" },
-  {
-    "velocity[1]",
-    52,
-    4,
-    -88,
-    3u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "CLIENT_PREDICTED"
-  },
-  {
-    "velocity[0]",
-    48,
-    4,
-    -88,
-    3u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "CLIENT_PREDICTED"
-  },
-  { "vehicleType", 1096, 4, 3, 0u, "VEHICLE_TYPES_BITS", "0" },
+  { "velocity[1]", 52, 4, -88, 3u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "CLIENT_PREDICTED" },
+  { "velocity[0]", 48, 4, -88, 3u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "CLIENT_PREDICTED" },
+  { "vehicleType", 1156, 4, 3, 0u, "VEHICLE_TYPES_BITS", "0" },
   { "movementDir", 220, 4, -8, 3u, "-8", "CLIENT_PREDICTED" },
-  {
-    "predictableEventSequence",
-    232,
-    2,
-    -59,
-    0u,
-    "MSG_FIELD_EVENTSEQUENCE",
-    "0"
-  },
-  {
-    "predictableEventSequenceOld",
-    234,
-    2,
-    -59,
-    0u,
-    "MSG_FIELD_EVENTSEQUENCE",
-    "0"
-  },
+  { "predictableEventSequence", 232, 2, -59, 0u, "MSG_FIELD_EVENTSEQUENCE", "0" },
+  { "predictableEventSequenceOld", 234, 2, -59, 0u, "MSG_FIELD_EVENTSEQUENCE", "0" },
   { "legsAnim", 188, 2, 11, 0u, "ANIM_BITS", "0" },
-  {
-    "origin[2]",
-    44,
-    4,
-    -88,
-    3u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "CLIENT_PREDICTED"
-  },
+  { "origin[2]", 44, 4, -88, 3u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "CLIENT_PREDICTED" },
   { "weaponTime", 60, 4, -16, 0u, "-16", "0" },
   { "weaponTimeLeft", 68, 4, -16, 0u, "-16", "0" },
-  {
-    "weaponIdleTime",
-    76,
-    4,
-    -71,
-    3u,
-    "MSG_FIELD_WEAPON_IDLE_TIME",
-    "CLIENT_PREDICTED"
-  },
-  { "aimSpreadScale", 1308, 4, -106, 0u, "MSG_FIELD_AIM_SPREAD_SCALE", "0" },
+  { "weaponIdleTime", 76, 4, -71, 3u, "MSG_FIELD_WEAPON_IDLE_TIME", "CLIENT_PREDICTED" },
+  { "aimSpreadScale", 1376, 4, -106, 0u, "MSG_FIELD_AIM_SPREAD_SCALE", "0" },
   { "torsoTimer", 184, 4, 16, 0u, "16", "0" },
   { "pm_flags", 12, 4, 25, 0u, "PMF_BIT_COUNT", "0" },
-  { "weapAnim", 1300, 4, 11, 0u, "ANIM_BITS", "0" },
-  { "weapAnimLeft", 1304, 4, 11, 0u, "ANIM_BITS", "0" },
+  { "weapAnim", 1368, 4, 11, 0u, "ANIM_BITS", "0" },
+  { "weapAnimLeft", 1372, 4, 11, 0u, "ANIM_BITS", "0" },
   { "weaponstate", 344, 4, 7, 0u, "WEAPON_STATE_BITS", "0" },
   { "weaponstateLeft", 348, 4, 7, 0u, "WEAPON_STATE_BITS", "0" },
-  {
-    "velocity[2]",
-    56,
-    4,
-    -88,
-    3u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "CLIENT_PREDICTED"
-  },
+  { "velocity[2]", 56, 4, -88, 3u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "CLIENT_PREDICTED" },
   { "viewAngleClampBase[1]", 420, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "viewAngleClampBase[0]", 416, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "predictableEventParms[0]", 252, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
@@ -2098,24 +2022,8 @@ const NetField playerStateFields[179] =
   { "predictableEvents[0]", 236, 4, -94, 0u, "MSG_FIELD_EVENT", "0" },
   { "predictableEventParms[2]", 260, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
   { "predictableEventParms[3]", 264, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
-  {
-    "unpredictableEventSequence",
-    268,
-    2,
-    -59,
-    0u,
-    "MSG_FIELD_EVENTSEQUENCE",
-    "0"
-  },
-  {
-    "unpredictableEventSequenceOld",
-    270,
-    2,
-    -59,
-    0u,
-    "MSG_FIELD_EVENTSEQUENCE",
-    "0"
-  },
+  { "unpredictableEventSequence", 268, 2, -59, 0u, "MSG_FIELD_EVENTSEQUENCE", "0" },
+  { "unpredictableEventSequenceOld", 270, 2, -59, 0u, "MSG_FIELD_EVENTSEQUENCE", "0" },
   { "unpredictableEventParms[0]", 288, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
   { "unpredictableEventParms[1]", 292, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
   { "unpredictableEvents[3]", 284, 4, -94, 0u, "MSG_FIELD_EVENT", "0" },
@@ -2125,24 +2033,17 @@ const NetField playerStateFields[179] =
   { "unpredictableEventParms[2]", 296, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
   { "unpredictableEventParms[3]", 300, 4, -93, 0u, "MSG_FIELD_EVENTPARAM", "0" },
   { "torsoAnim", 190, 2, 11, 0u, "ANIM_BITS", "0" },
-  {
-    "holdBreathScale",
-    1192,
-    4,
-    -88,
-    0u,
-    "MSG_FIELD_FLOAT_RARELYZERO_NONINT",
-    "0"
-  },
+  { "holdBreathScale", 1252, 4, -88, 0u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "0" },
+  { "quickScopeScale", 1260, 4, -88, 0u, "MSG_FIELD_FLOAT_RARELYZERO_NONINT", "0" },
   { "eFlags", 224, 4, -98, 0u, "MSG_FIELD_EFLAGS", "0" },
   { "viewHeightCurrent", 400, 4, -107, 0u, "MSG_FIELD_VIEW_HEIGHT", "0" },
   { "fWeaponPosFrac", 360, 4, -80, 0u, "MSG_FIELD_0TO1_P3", "0" },
   { "moveType", 176, 4, 5, 0u, "ANIM_MOVETYPE_BITS", "0" },
   { "legsTimer", 180, 4, 16, 0u, "16", "0" },
   { "viewHeightTarget", 396, 4, -8, 0u, "-8", "0" },
-  { "sprintState.lastSprintStart", 1160, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
-  { "sprintState.lastSprintEnd", 1164, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
-  { "lastDtpEnd", 1180, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
+  { "sprintState.lastSprintStart", 1220, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
+  { "sprintState.lastSprintEnd", 1224, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
+  { "lastDtpEnd", 1240, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
   { "weapon", 324, 2, 11, 0u, "MAX_WEAPONS_BITS", "0" },
   { "stowedWeapon", 332, 4, 11, 0u, "MAX_WEAPONS_BITS", "0" },
   { "stowedWeaponCamo", 336, 1, 6, 0u, "RENDER_OPTIONS_CAMO_BITS", "0" },
@@ -2150,33 +2051,33 @@ const NetField playerStateFields[179] =
   { "meleeWeapon", 340, 4, 11, 0u, "MAX_WEAPONS_BITS", "0" },
   { "renderOptions", 320, 4, 32, 0u, "MAX_RENDER_OPTIONS_BITS", "0" },
   { "weaponDelay", 64, 4, -16, 0u, "-16", "0" },
-  { "sprintState.sprintStartMaxLength", 1168, 4, 14, 0u, "14", "0" },
-  { "sprintState.sprintDuration", 1172, 4, 14, 0u, "14", "0" },
-  { "sprintState.sprintCooldown", 1176, 4, 14, 0u, "14", "0" },
+  { "sprintState.sprintStartMaxLength", 1228, 4, 14, 0u, "14", "0" },
+  { "sprintState.sprintDuration", 1232, 4, 14, 0u, "14", "0" },
+  { "sprintState.sprintCooldown", 1236, 4, 14, 0u, "14", "0" },
   { "weapFlags", 16, 4, 24, 0u, "PWF_BIT_COUNT", "0" },
-  { "weapLockFlags", 1248, 4, 6, 0u, "WEAPONLOCKFLAG_BITS", "0" },
+  { "weapLockFlags", 1316, 4, 6, 0u, "WEAPONLOCKFLAG_BITS", "0" },
   { "groundEntityNum", 144, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
   { "damageTimer", 200, 4, 10, 0u, "10", "0" },
   { "delta_angles[1]", 136, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
   { "offHandIndex", 308, 4, 11, 0u, "MAX_WEAPONS_BITS", "0" },
   { "pm_time", 24, 4, -16, 0u, "-16", "0" },
   { "otherFlags", 20, 4, 6, 0u, "POF_BIT_COUNT", "0" },
-  { "moveSpeedScaleMultiplier", 1200, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "perks[0]", 1256, 4, 32, 0u, "PERK0_BITS", "0" },
-  { "perks[1]", 1260, 4, 32, 0u, "PERK1_BITS", "0" },
-  { "visionSetLerpRatio", 1384, 4, -80, 0u, "MSG_FIELD_0TO1_P3", "0" },
-  { "poisoned", 1388, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
-  { "killCamEntity", 2940, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
-  { "killCamTargetEntity", 2944, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
+  { "moveSpeedScaleMultiplier", 1268, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "perks[0]", 1324, 4, 32, 0u, "PERK0_BITS", "0" },
+  { "perks[1]", 1328, 4, 32, 0u, "PERK1_BITS", "0" },
+  { "visionSetLerpRatio", 1452, 4, -80, 0u, "MSG_FIELD_0TO1_P3", "0" },
+  { "poisoned", 1456, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
+  { "killCamEntity", 3008, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
+  { "killCamTargetEntity", 3012, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
   { "throwBackGrenadeOwner", 84, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
-  { "actionSlotType[2]", 1272, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
+  { "actionSlotType[2]", 1340, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
   { "delta_angles[0]", 132, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
   { "speed", 128, 4, 16, 0u, "16", "0" },
-  { "viewlocked_entNum", 1088, 2, 16, 0u, "16", "0" },
+  { "viewlocked_entNum", 1148, 2, 16, 0u, "16", "0" },
   { "gravity", 120, 4, 16, 0u, "16", "0" },
-  { "actionSlotType[0]", 1264, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
-  { "dofNearBlur", 1340, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "dofFarBlur", 1344, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "actionSlotType[0]", 1332, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
+  { "dofNearBlur", 1408, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "dofFarBlur", 1412, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "eFlags2", 228, 4, 32, 0u, "32", "0" },
   { "clientNum", 304, 1, 8, 0u, "8", "0" },
   { "corpseIndex", 216, 4, 3, 0u, "CLIENT_CORPSE_INDEX_BITS", "0" },
@@ -2192,127 +2093,80 @@ const NetField playerStateFields[179] =
   { "weaponShotCountLeft", 356, 4, 3, 0u, "PLAYER_WEAPONSHOTCOUNT_BITS", "0" },
   { "stackFireCount", 432, 4, 3, 0u, "PLAYER_WEAPONSHOTCOUNT_BITS", "0" },
   { "viewHeightLerpDown", 412, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
-  { "cursorHint", 1120, 4, 11, 0u, "CURSOR_HINT_BITS", "0" },
-  { "cursorHintString", 1124, 4, -8, 0u, "-8", "0" },
-  { "cursorHintEntIndex", 1128, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
+  { "cursorHint", 1180, 4, 11, 0u, "CURSOR_HINT_BITS", "0" },
+  { "cursorHintString", 1184, 4, -8, 0u, "-8", "0" },
+  { "cursorHintEntIndex", 1188, 4, 10, 0u, "GENTITYNUM_BITS", "0" },
   { "viewHeightLerpTime", 404, 4, 32, 0u, "32", "0" },
   { "offhandSecondary", 312, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
   { "offhandPrimary", 316, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
-  { "spyplaneTypeEnabled", 1136, 4, 2, 0u, "2", "0" },
-  { "satelliteTypeEnabled", 1140, 4, 2, 0u, "2", "0" },
+  { "spyplaneTypeEnabled", 1196, 4, 2, 0u, "2", "0" },
+  { "satelliteTypeEnabled", 1200, 4, 2, 0u, "2", "0" },
   { "pm_type", 4, 4, 8, 0u, "8", "0" },
-  { "fTorsoPitch", 1184, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "holdBreathTimer", 1196, 4, 16, 0u, "16", "0" },
-  { "actionSlotParam[2]", 1288, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
+  { "fTorsoPitch", 1244, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "holdBreathTimer", 1256, 4, 16, 0u, "16", "0" },
+  { "quickScopeTimer", 1264, 4, 16, 0u, "16", "0" },
+  { "actionSlotParam[2]", 1356, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
   { "jumpTime", 164, 4, 32, 0u, "32", "0" },
   { "slideTime", 172, 4, 32, 0u, "32", "0" },
-  { "mantleState.flags", 1216, 4, 12, 0u, "MANTLE_FLAG_BITS", "0" },
-  { "fWaistPitch", 1188, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "mantleState.flags", 1284, 4, 12, 0u, "MANTLE_FLAG_BITS", "0" },
+  { "fWaistPitch", 1248, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "grenadeTimeLeft", 80, 4, -16, 0u, "-16", "0" },
-  { "proneDirection", 1072, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "mantleState.timer", 1208, 4, 32, 0u, "32", "0" },
+  { "proneDirection", 1132, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "mantleState.timer", 1276, 4, 32, 0u, "32", "0" },
   { "damageCount", 448, 4, 7, 0u, "7", "0" },
-  { "shellshockTime", 1316, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
-  { "shellshockDuration", 1320, 4, 16, 2u, "16", "ALWAYS_CHANGES" },
-  {
-    "sprintState.sprintButtonUpRequired",
-    1152,
-    4,
-    1,
-    2u,
-    "1",
-    "ALWAYS_CHANGES"
-  },
-  { "shellshockIndex", 1312, 4, 4, 0u, "4", "0" },
-  { "proneTorsoPitch", 1080, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "sprintState.sprintDelay", 1156, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
-  { "actionSlotParam[3]", 1292, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
-  { "actionSlotType[3]", 1276, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
-  { "proneDirectionPitch", 1076, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "shellshockTime", 1384, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
+  { "shellshockDuration", 1388, 4, 16, 2u, "16", "ALWAYS_CHANGES" },
+  { "sprintState.sprintButtonUpRequired", 1212, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
+  { "shellshockIndex", 1380, 4, 4, 0u, "4", "0" },
+  { "proneTorsoPitch", 1140, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "sprintState.sprintDelay", 1216, 4, 1, 2u, "1", "ALWAYS_CHANGES" },
+  { "actionSlotParam[3]", 1360, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
+  { "actionSlotType[3]", 1344, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
+  { "proneDirectionPitch", 1136, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "jumpOriginZ", 168, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "mantleState.yaw", 1204, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "mantleState.transIndex", 1212, 4, 4, 0u, "MANTLE_TRANS_BITS", "0" },
+  { "mantleState.yaw", 1272, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "mantleState.transIndex", 1280, 4, 4, 0u, "MANTLE_TRANS_BITS", "0" },
   { "throwBackGrenadeTimeLeft", 88, 4, -16, 0u, "-16", "0" },
   { "foliageSoundTime", 116, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
   { "vLadderVec[0]", 152, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "viewlocked", 1084, 4, 2, 0u, "MAX_BITS_PLAYERVIEWLOCK", "0" },
-  { "deltaTime", 2936, 4, 32, 0u, "32", "0" },
-  { "linkAngles[1]", 1112, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
+  { "viewlocked", 1144, 4, 2, 0u, "MAX_BITS_PLAYERVIEWLOCK", "0" },
+  { "deltaTime", 3004, 4, 32, 0u, "32", "0" },
+  { "linkAngles[1]", 1172, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
   { "viewAngleClampRange[1]", 428, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "viewAngleClampRange[0]", 424, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "vLadderVec[1]", 156, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  {
-    "locationSelectionInfo",
-    1148,
-    4,
-    8,
-    0u,
-    "LOC_SEL_MTL_BITS + LOC_SEL_RADIUS_BITS",
-    "0"
-  },
-  { "locationSelectionType", 1144, 4, 3, 0u, "3", "0" },
-  { "meleeChargeTime", 1244, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
-  { "meleeChargeYaw", 1236, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
-  { "meleeChargeDist", 1240, 4, 8, 0u, "8", "0" },
-  { "iCompassPlayerInfo", 1132, 4, 32, 0u, "32", "0" },
-  { "actionSlotType[1]", 1268, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
+  { "locationSelectionInfo", 1208, 4, 8, 0u, "LOC_SEL_MTL_BITS + LOC_SEL_RADIUS_BITS", "0" },
+  { "locationSelectionType", 1204, 4, 3, 0u, "3", "0" },
+  { "meleeChargeTime", 1312, 4, -97, 0u, "MSG_FIELD_TIME", "0" },
+  { "meleeChargeYaw", 1304, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
+  { "meleeChargeDist", 1308, 4, 8, 0u, "8", "0" },
+  { "iCompassPlayerInfo", 1192, 4, 32, 0u, "32", "0" },
+  { "actionSlotType[1]", 1336, 4, 2, 0u, "MAX_BITS_ACTIONSLOTTYPE", "0" },
   { "vLadderVec[2]", 160, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "weaponRestrictKickTime", 92, 4, -16, 0u, "-16", "0" },
   { "delta_angles[2]", 140, 4, -100, 0u, "MSG_FIELD_ANGLE2SHORT", "0" },
   { "spreadOverride", 368, 4, 6, 0u, "PLAYER_SPREAD_OVERRIDE_BITS", "0" },
-  {
-    "spreadOverrideState",
-    372,
-    4,
-    2,
-    0u,
-    "PLAYER_SPREAD_OVERRIDE_STATE_BITS",
-    "0"
-  },
-  { "actionSlotParam[0]", 1280, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
-  { "actionSlotParam[1]", 1284, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
-  { "dofNearStart", 1324, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "dofNearEnd", 1328, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "dofFarStart", 1332, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "dofFarEnd", 1336, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "dofViewmodelStart", 1348, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "dofViewmodelEnd", 1352, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "scriptedAnim", 1228, 4, 32, 0u, "32", "0" },
-  { "adsZoomSelect", 1368, 4, 32, 0u, "32", "0" },
-  { "adsZoomLatchState", 1376, 1, 1, 0u, "1", "0" },
+  { "spreadOverrideState", 372, 4, 2, 0u, "PLAYER_SPREAD_OVERRIDE_STATE_BITS", "0" },
+  { "actionSlotParam[0]", 1348, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
+  { "actionSlotParam[1]", 1352, 4, 11, 0u, "MAX_BITS_ACTIONSLOTPARAM", "0" },
+  { "dofNearStart", 1392, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "dofNearEnd", 1396, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "dofFarStart", 1400, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "dofFarEnd", 1404, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "dofViewmodelStart", 1416, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "dofViewmodelEnd", 1420, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
+  { "scriptedAnim", 1296, 4, 32, 0u, "32", "0" },
+  { "adsZoomSelect", 1436, 4, 32, 0u, "32", "0" },
+  { "adsZoomLatchState", 1444, 1, 1, 0u, "1", "0" },
   { "leanf", 124, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
-  { "vehiclePos", 1092, 4, 4, 0u, "MAX_VEHICLE_SEAT_BITS", "0" },
-  {
-    "artilleryInboundIconLocation",
-    1380,
-    4,
-    19,
-    0u,
-    "ARTILLERY_LOCATION_MESSAGE_BITS",
-    "0"
-  },
+  { "vehiclePos", 1152, 4, 4, 0u, "MAX_VEHICLE_SEAT_BITS", "0" },
+  { "artilleryInboundIconLocation", 1448, 4, 19, 0u, "ARTILLERY_LOCATION_MESSAGE_BITS", "0" },
   { "weaponSpinLerp", 376, 4, 0, 0u, "MSG_FIELD_FLOAT", "0" },
   { "lastStandPrevWeapon", 326, 2, 11, 0u, "MAX_WEAPONS_BITS", "0" },
   { "adsDelayTime", 364, 4, 32, 1u, "32", "NEVER_CHANGES" },
-  { "vehicleAnimBoneIndex", 1100, 4, 8, 1u, "MAX_BONE_BITS", "NEVER_CHANGES" },
-  {
-    "vehicleAnimStage",
-    1220,
-    4,
-    4,
-    1u,
-    "VEHICLE_ANIM_STAGE_BITS",
-    "NEVER_CHANGES"
-  },
-  {
-    "vehicleEntryPoint",
-    1224,
-    4,
-    3,
-    1u,
-    "VEHICLE_ENTRY_POINT_BITS",
-    "NEVER_CHANGES"
-  }
+  { "vehicleAnimBoneIndex", 1160, 4, 8, 1u, "MAX_BONE_BITS", "NEVER_CHANGES" },
+  { "vehicleAnimStage", 1288, 4, 4, 1u, "VEHICLE_ANIM_STAGE_BITS", "NEVER_CHANGES" },
+  { "vehicleEntryPoint", 1292, 4, 3, 1u, "VEHICLE_ENTRY_POINT_BITS", "NEVER_CHANGES" }
 };
 
 
@@ -4803,7 +4657,7 @@ void __cdecl MSG_ReadDeltaPlayerstate(
     int lc; // [esp+54h] [ebp-26CCh]
     NetField *array; // [esp+58h] [ebp-26C8h]
     float *v47; // [esp+5Ch] [ebp-26C4h]
-    unsigned __int8 dst[9896]; // [esp+60h] [ebp-26C0h] BYREF
+    unsigned __int8 dst[sizeof(playerState_s)]; // [esp+60h] [ebp-26C0h] BYREF
     int Bits; // [esp+2708h] [ebp-18h]
     float *v50; // [esp+270Ch] [ebp-14h]
     BOOL v51; // [esp+2710h] [ebp-10h]
@@ -5036,6 +4890,10 @@ void __cdecl MSG_ReadDeltaPlayerstate(
                         to->heldWeapons[i].options.i = MSG_ReadBits(msg, 32);
                     if (MSG_ReadBit(msg))
                         to->heldWeapons[i].fuelTankTime = MSG_ReadBits(msg, 32);
+                    // BlackOpsMP 0x56de26..0x56de96: added in demo version 3;
+                    // live snapshots always include the per-weapon zoom delta.
+                    if (Demo_IsVersionAtLeast(3) && MSG_ReadBit(msg))
+                        to->heldWeapons[i].adsZoomSelect = MSG_ReadBits(msg, 3);
                     to->heldWeapons[i].overHeating = MSG_ReadBit(msg) != 0;
                     to->heldWeapons[i].needsRechamber = MSG_ReadBit(msg) != 0;
                     to->heldWeapons[i].heldBefore = MSG_ReadBit(msg) != 0;
