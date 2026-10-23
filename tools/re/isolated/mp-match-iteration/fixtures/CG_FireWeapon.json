@@ -1,0 +1,28 @@
+{
+  "name": "CG_FireWeapon",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 34.18666142570433,
+  "confidence": 0.6539309937088769,
+  "original_address": 5275856,
+  "original_bytes": 1148,
+  "original_name": "FUN_005080d0",
+  "first_instructions": [
+    "005080d0  sub esp, 0x88",
+    "005080d6  push ebp",
+    "005080d7  mov ebp, dword ptr [0xd4f178]",
+    "005080dd  push esi",
+    "005080de  lea esi, [ebp + 0x4069c]",
+    "005080e4  push esi",
+    "005080e5  push ebp",
+    "005080e6  call 0x4710a0",
+    "005080eb  add esp, 8",
+    "005080ee  test al, al",
+    "005080f0  je 0x508543",
+    "005080f6  push ebx"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

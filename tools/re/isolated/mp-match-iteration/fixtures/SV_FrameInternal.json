@@ -1,0 +1,28 @@
+{
+  "name": "SV_FrameInternal",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 42.24424711543656,
+  "confidence": 0.6491681249887726,
+  "original_address": 8877360,
+  "original_bytes": 266,
+  "original_name": "FUN_00877530",
+  "first_instructions": [
+    "00877530  mov ecx, dword ptr [0x3759a68]",
+    "00877536  mov eax, 0x3e8",
+    "0087753b  cdq ",
+    "0087753c  idiv dword ptr [ecx + 0x18]",
+    "0087753f  push esi",
+    "00877540  mov esi, eax",
+    "00877542  mov eax, dword ptr [0x36bd418]",
+    "00877547  add eax, dword ptr [esp + 8]",
+    "0087754b  cmp eax, esi",
+    "0087754d  mov dword ptr [0x36bd418], eax",
+    "00877552  jl 0x877638",
+    "00877558  call 0x877310"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

@@ -1,0 +1,11 @@
+{
+  "name": "PM_Accelerate",
+  "mapping_status": "verified",
+  "verification": "pass",
+  "cases": 292,
+  "agreement_percent": 100.0,
+  "capture_id": "6a5f0e63bbfd9fd07d5fdd4ddf5aa9940b81add7450aa670350c1cef1e71d65a",
+  "report": "D:\\GitHub\\KisakBlack\\build-re\\reports\\run-1792472330415480400.json",
+  "fixture": "tools/re/regressions/movement.json",
+  "note": "Existing catalog unit. Expected bits were not regenerated. The eight-step fixture now matches."
+}

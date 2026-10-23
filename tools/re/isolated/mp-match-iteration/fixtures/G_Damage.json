@@ -1,0 +1,28 @@
+{
+  "name": "G_Damage",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "matched",
+  "similarity_percent": 38.89816566647691,
+  "confidence": 0.7949887581434377,
+  "original_address": 5538672,
+  "original_bytes": 818,
+  "original_name": "FUN_00548370",
+  "first_instructions": [
+    "00548370  sub esp, 0xc",
+    "00548373  push esi",
+    "00548374  mov esi, dword ptr [esp + 0x14]",
+    "00548378  cmp dword ptr [esi + 0x144], 0",
+    "0054837f  je 0x5483c1",
+    "00548381  mov eax, dword ptr [esp + 0x44]",
+    "00548385  mov ecx, dword ptr [esp + 0x38]",
+    "00548389  mov edx, dword ptr [esp + 0x34]",
+    "0054838d  push eax",
+    "0054838e  mov eax, dword ptr [esp + 0x34]",
+    "00548392  push ecx",
+    "00548393  mov ecx, dword ptr [esp + 0x34]"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

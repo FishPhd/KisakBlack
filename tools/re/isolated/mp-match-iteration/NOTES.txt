@@ -1,0 +1,15 @@
+Generated caches and latest-watch.json are preserved under ignored
+build-re/isolated/mp-match-iteration/, separately from these source files.
+Historical paths and results below describe the original experiment.
+
+This folder is the mp-match-iteration experiment. Delete the folder to drop
+its drafts, repair cache, watch list, and driver. MANIFEST.txt names the only
+edit outside the folder.
+
+BinDiff scores from iterate.ps1 are structural guesses. A quick run skips
+Ghidra's decompiler-switch pass on a candidate that has no completed export.
+That score is for iteration. The recorded whole-EXE score stays a full analysis
+from tools/re/re.ps1 binary-diff.
+
+The per-function edit loop remains tools/re/re.ps1 verify. This driver is the
+check after a desktop-release rebuild.

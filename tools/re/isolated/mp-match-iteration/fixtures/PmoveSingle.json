@@ -1,0 +1,28 @@
+{
+  "name": "PmoveSingle",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 24.083321494891784,
+  "confidence": 0.6302602229177513,
+  "original_address": 8202992,
+  "original_bytes": 718,
+  "original_name": "FUN_007d2af0",
+  "first_instructions": [
+    "007d2af0  sub esp, 0xc",
+    "007d2af3  push ebx",
+    "007d2af4  mov ebx, dword ptr [esp + 0x18]",
+    "007d2af8  push ebp",
+    "007d2af9  mov ebp, dword ptr [esp + 0x18]",
+    "007d2afd  push esi",
+    "007d2afe  mov esi, eax",
+    "007d2b00  mov eax, ebp",
+    "007d2b02  shl eax, 4",
+    "007d2b05  sub eax, ebp",
+    "007d2b07  lea ecx, [eax*8 + 0x23c65f0]",
+    "007d2b0e  movzx eax, byte ptr [ebx + 0x65]"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

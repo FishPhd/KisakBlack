@@ -1,0 +1,28 @@
+{
+  "name": "G_RunFrameForEntity",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "matched",
+  "similarity_percent": 92.52344502450497,
+  "confidence": 0.9820137900379085,
+  "original_address": 8604656,
+  "original_bytes": 496,
+  "original_name": "FUN_00834bf0",
+  "first_instructions": [
+    "00834bf0  mov eax, dword ptr [0x3443f48]",
+    "00834bf5  push esi",
+    "00834bf6  mov esi, dword ptr [esp + 8]",
+    "00834bfa  cmp dword ptr [esi + 0x188], eax",
+    "00834c00  je 0x834dde",
+    "00834c06  mov dword ptr [esi + 0x188], eax",
+    "00834c0c  mov eax, dword ptr [esi + 0x280]",
+    "00834c12  test eax, eax",
+    "00834c14  je 0x834c21",
+    "00834c16  mov eax, dword ptr [eax]",
+    "00834c18  push eax",
+    "00834c19  call 0x834bf0"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

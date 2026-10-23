@@ -1,0 +1,28 @@
+{
+  "name": "CG_PredictPlayerState_Internal",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 21.124592652135657,
+  "confidence": 0.3251598961434759,
+  "original_address": 5090096,
+  "original_bytes": 2208,
+  "original_name": "FUN_004dab30",
+  "first_instructions": [
+    "004dab30  push ebp",
+    "004dab31  mov ebp, esp",
+    "004dab33  and esp, 0xfffffff8",
+    "004dab36  sub esp, 0x7c",
+    "004dab39  push ebx",
+    "004dab3a  push esi",
+    "004dab3b  or esi, 0xffffffff",
+    "004dab3e  xor bl, bl",
+    "004dab40  cmp dword ptr [ebp + 0xc], 0",
+    "004dab44  push edi",
+    "004dab45  mov dword ptr [esp + 0xc], esi",
+    "004dab49  jne 0x4dacab"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

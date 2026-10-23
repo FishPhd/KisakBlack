@@ -1,0 +1,35 @@
+Accuracy log, 2026-10-19
+
+Rebuilt build-release/KisakBlack.exe after the PM_Accelerate single-precision fix, then ran
+tools/re/isolated/mp-match-iteration/iterate.ps1 (full Ghidra analysis, not --quick).
+
+Behavioral check, installed BlackOpsMP.exe, same expected bits:
+  before: tools/re/regressions/movement.json recorded one failing eight-step case
+          (expected 1127573760, C++ produced 1127573758)
+  after:  tools/re/re.ps1 verify --function PM_Accelerate
+          292/292 matched, agreement 100%
+          report: build-re/reports/run-1792472330415480400.json
+          reproduce of tools/re/regressions/movement.json: pass
+
+Whole-EXE structural score (confidence >= 0.7). This is not behavioral accuracy.
+
+  before: build-re/binary-diff/reports/run-1792472671836552900
+          overall similarity          14.27686808625953%
+          byte coverage               20.500007809443762%
+          similarity inside matches   69.64323242688029%
+          accepted matches            4907
+
+  after:  build-re/binary-diff/reports/run-1792474087909659100/report.html
+          overall similarity          14.352205301870235%   (+0.0753 points)
+          byte coverage               20.67957053144536%    (+0.1796 points)
+          similarity inside matches   69.40282091471033%    (-0.2404 points)
+          accepted matches            4893                  (-14)
+
+The headline rose by 0.075 points. The count of accepted matches fell by 14, and
+similarity inside the accepted matches fell. Recompiling the executable changed
+many functions, not only PM_Accelerate.
+
+BinDiff still does not attach the name PM_Accelerate to the verified original
+function at VA 0x7b0e30 (378 bytes). Both runs pair that name with a 199-byte
+function at VA 0x7fc140, confidence 0.029. Before: 1.255% similar. After: 0.959%
+similar. The 100% behavioral result is the accuracy increase for that function.

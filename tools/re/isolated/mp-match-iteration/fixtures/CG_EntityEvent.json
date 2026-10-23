@@ -1,0 +1,28 @@
+{
+  "name": "CG_EntityEvent",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 39.20635555412197,
+  "confidence": 0.6159095915435135,
+  "original_address": 5934752,
+  "original_bytes": 12929,
+  "original_name": "FUN_005a8ea0",
+  "first_instructions": [
+    "005a8ea0  sub esp, 0xac",
+    "005a8ea6  push edi",
+    "005a8ea7  mov edi, dword ptr [esp + 0xbc]",
+    "005a8eae  test edi, edi",
+    "005a8eb0  jne 0x5a8ed8",
+    "005a8eb2  mov eax, dword ptr [0xd523d4]",
+    "005a8eb7  cmp byte ptr [eax + 0x18], 0",
+    "005a8ebb  je 0x5ac119",
+    "005a8ec1  push 0xa364f4",
+    "005a8ec6  push 0x15",
+    "005a8ec8  call 0x4126c0",
+    "005a8ecd  add esp, 8"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

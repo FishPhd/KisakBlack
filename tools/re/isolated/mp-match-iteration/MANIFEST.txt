@@ -1,0 +1,30 @@
+Generated caches and latest-watch.json are preserved under ignored
+build-re/isolated/mp-match-iteration/, separately from these source files.
+Historical paths and results below describe the original experiment.
+
+mp-match-iteration isolation manifest
+
+Delete tools/re/isolated/mp-match-iteration/ to remove every file this plan added.
+Generated caches inside this folder (repair-cache/, quick-exports/, quick-staging/,
+latest-watch.json) go with it. latest-watch.json from the cached rerun is
+build-re/binary-diff/reports/run-1792472671836552900.
+
+Files in this folder:
+- MANIFEST.txt
+- NOTES.txt
+- watchlist.txt
+- iterate.ps1
+- iterate.py
+- DisableDecompilerSwitch.java
+- drafts.json
+- fixtures/*.json
+
+Edits outside this folder:
+- src/bgame/bg_pmove.cpp function PM_Accelerate
+  The flag-8 length path now rounds each original single-precision step.
+  Revert that function body to drop the experiment's production change.
+  Verification: tools/re/re.ps1 verify --function PM_Accelerate
+  Report: build-re/reports/run-1792472330415480400.json
+  292/292 cases passed. tools/re/regressions/movement.json was not edited.
+
+No other production or tooling file was modified.

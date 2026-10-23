@@ -1,0 +1,28 @@
+{
+  "name": "SV_SendClientMessages",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 9.289203934813543,
+  "confidence": 0.320821300824607,
+  "original_address": 6717856,
+  "original_bytes": 362,
+  "original_name": "FUN_006681a0",
+  "first_instructions": [
+    "006681a0  sub esp, 0x18",
+    "006681a3  push esi",
+    "006681a4  push edi",
+    "006681a5  push 0",
+    "006681a7  call 0x50b490",
+    "006681ac  push 0",
+    "006681ae  call 0x52bad0",
+    "006681b3  mov esi, eax",
+    "006681b5  call 0x61a190",
+    "006681ba  push 1",
+    "006681bc  push 0",
+    "006681be  call 0x5248e0"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}

@@ -1,0 +1,28 @@
+{
+  "name": "MSG_ReadDeltaPlayerstate",
+  "mapping_status": "blocked",
+  "blocked_reason": "BinDiff candidate name is not a verified mapping. No emulator adapter exists, and this experiment must not edit tools/re. Execution is blocked until the ABI and callees are bound.",
+  "bindiff_status": "low_confidence",
+  "similarity_percent": 44.03802174658904,
+  "confidence": 0.5834963222620366,
+  "original_address": 5690880,
+  "original_bytes": 3368,
+  "original_name": "FUN_0056d600",
+  "first_instructions": [
+    "0056d600  mov eax, 0x2700",
+    "0056d605  call 0x9cb690",
+    "0056d60a  push ebx",
+    "0056d60b  mov ebx, dword ptr [esp + 0x2714]",
+    "0056d612  push ebp",
+    "0056d613  push esi",
+    "0056d614  push edi",
+    "0056d615  test ebx, ebx",
+    "0056d617  jne 0x56d636",
+    "0056d619  lea ebx, [esp + 0x28]",
+    "0056d61d  push 0x26e8",
+    "0056d622  mov eax, ebx"
+  ],
+  "verification": "blocked",
+  "expected_u32": null,
+  "note": "No expected bits are recorded. A BinDiff name is not original execution."
+}
