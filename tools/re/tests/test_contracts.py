@@ -8,8 +8,8 @@ import unittest
 from unittest.mock import patch
 
 from retool import core
-from retool.cases import corpus, encode, decode_results, validate_quickscope
-from retool.emulator import Emulator, DATA
+from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack
+from retool.emulator import Emulator, DATA, x87_double_words
 from retool.selection import definition
 from retool.verification import first_difference, load_capture
 from retool import native, verification
@@ -36,6 +36,21 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_x87_double_capture_preserves_bits_and_blocks_rounding(self):
+        self.assertEqual(x87_double_words(1 << 63, 16383), [0, 0x3ff00000, 0, 0])
+        self.assertEqual(x87_double_words((1 << 63) | (1 << 11), 16383), [1, 0x3ff00000, 0, 0])
+        self.assertEqual(x87_double_words(0, 0x8000), [0, 0x80000000, 0, 0])
+        for mantissa, exponent in ((1 << 63 | 1, 16383), (1 << 63, 0x7fff), (0, 1)):
+            with self.assertRaises(core.Blocked):
+                x87_double_words(mantissa, exponent)
+
+    def test_difftrack_replay_domain_is_explicit(self):
+        for case in corpus("DiffTrack"):
+            validate_difftrack(case)
+        for word in (0x7fc00001, 0x7f800000, 0x7f7fffff):
+            with self.assertRaises(ValueError):
+                validate_difftrack((word, 0, 0, 0))
+
     def test_selected_definition_excludes_control_flow_calls(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sample.cpp"

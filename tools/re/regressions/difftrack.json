@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Original native DiffTrack at 0x5603c0, replayed independently in Unicorn with PC=53",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1603c0",
+      "input_u32": [
+        981668463,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        3758096384,
+        1062232653,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical native mismatch before preserving float epsilon and x87 double sum; expected bits come from original native capture independently checked with Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1603c0",
+      "input_u32": [
+        1073741824,
+        1065353216,
+        1056964608,
+        1036831949,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        3439329280,
+        1072745676,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        3221225472,
+        1072745676,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical wasm mismatch before preserving float epsilon and x87 double sum; expected bits come from original native capture independently checked with Unicorn."
+    }
+  ]
+}

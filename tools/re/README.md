@@ -203,6 +203,14 @@ from a matching x86 developer environment. The compiler/profile is recorded;
 it does not establish the original build settings. A size-only ABI declaration
 is checked against the compiled production type in `weapon_adapter.cpp`.
 
+`DiffTrack` compares the complete original SSE/x87 routine with its extracted
+production definition over a bounded finite corpus. It observes all 64 bits of
+the double return, including precision lost by a float addition expression.
+The emulator reads the physical x87 stack top with PC=53 and converts its exact
+representation to double bits; unsupported precision/ranges block comparison.
+`regressions/difftrack.json` retains the original epsilon and return-precision
+mismatches and can be replayed with `reproduce` on native or `--wasm`.
+
 Intentional differences belong in scoped `exceptions` metadata with rationale,
 original behavior, and review status. The current comparator remains bitwise and
 does not suppress a mismatch because an exception exists. Whole-game emulation,

@@ -2,6 +2,15 @@
 #include <cstring>
 #include <cstdlib>
 
+void difftrack_call(bool original, void* entry, const unsigned* input, unsigned* output) {
+    float values[4]; std::memcpy(values, input, sizeof(values));
+    using Track = double (__cdecl *)(float, float, float, float);
+    auto track = original ? reinterpret_cast<Track>(entry) : DiffTrack;
+    const double result = track(values[0], values[1], values[2], values[3]);
+    std::memcpy(output, &result, sizeof(result));
+    if (std::memcmp(values, input, sizeof(values))) std::abort();
+}
+
 void bounds_call(bool original, void* entry, const unsigned* input, unsigned* output) {
     struct Guarded { unsigned left[4]; float bounds[6]; unsigned right[4]; } guard{};
     for (unsigned i = 0; i != 4; ++i) guard.left[i] = guard.right[i] = 0xa55a55aa;

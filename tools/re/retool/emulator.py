@@ -12,6 +12,21 @@ DATA = 0x71000000
 RETURN = 0x72000000
 
 
+def x87_double_words(mantissa, exponent):
+    """Read a finite x87 value already rounded by PC=53, without host FP math."""
+    sign = (exponent >> 15) << 63
+    if not mantissa:
+        if exponent & 0x7fff:
+            raise Blocked("Unsupported nonzero x87 exponent with zero mantissa")
+        bits = sign
+    else:
+        biased = (exponent & 0x7fff) - 16383 + 1023
+        if not 1 <= biased <= 2046 or not mantissa & (1 << 63) or mantissa & 0x7ff:
+            raise Blocked("Unsupported x87 result precision/range; no output rounding is synthesized")
+        bits = sign | (biased << 52) | ((mantissa >> 11) & ((1 << 52) - 1))
+    return [bits & 0xffffffff, bits >> 32, 0, 0]
+
+
 class Emulator:
     def __init__(self, f, pe):
         import unicorn as uc
@@ -95,7 +110,11 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "BG_GetQuickScopeSpread":
+        if name == "DiffTrack":
+            from .cases import validate_difftrack
+            validate_difftrack(case)
+            m.mem_write(SP + 4, struct.pack("<4I", *case[:4]))
+        elif name == "BG_GetQuickScopeSpread":
             from .cases import validate_quickscope
             validate_quickscope(case)
             state = bytearray(0x26e8)
@@ -186,6 +205,9 @@ class Emulator:
             raise Blocked(self.error)
         if m.reg_read(x.UC_X86_REG_EIP) != stop:
             raise Blocked("Instruction or time limit reached")
+        if name == "DiffTrack":
+            top = (m.reg_read(x.UC_X86_REG_FPSW) >> 11) & 7
+            return x87_double_words(*m.reg_read(getattr(x, "UC_X86_REG_FP" + str(top))))
         if name == "BG_GetQuickScopeSpread":
             return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
         if name == "G_GetClientSize":

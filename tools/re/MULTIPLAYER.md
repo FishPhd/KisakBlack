@@ -6,7 +6,7 @@ records instruction hashes, data-table locations, corrected historical BinDiff
 candidates, dependency notes, and the precise scope of the restorations.
 It is an evidence inventory, not a replacement execution catalog. Routines without
 original execution adapters remain unverified and pending mapping review.
-The ten existing pilots retain their narrower
+The eleven existing pilots retain their narrower
 contracts in `catalog.json`; their results do not qualify all multiplayer logic.
 
 Restored gaps:
@@ -57,12 +57,33 @@ Its isolated production function also matches **all six original x86 bytes**
 with the recorded MSVC 14.37 compiler and explicit profile. The size-only codegen
 binding is checked against the real production `gclient_s` declaration.
 
-The current ten units pass **7,372 cases per backend**. Extending the native
+The previous ten-unit observation passed **7,372 cases per backend**. Extending the native
 adapter required explicit new original captures; all eight previous input/output
 archives remain present and byte-identical. The comparison's deliberate
 wrong-code mutation is still detected. The separate archive-retention regression
 checks 64 size/wrap boundaries using production code; its expected circular
 distance contract comes from inspected instructions, not original execution.
+
+`DiffTrack`, used by the quick-scope update, now has its own complete-function
+oracle at `0x5603c0`. The original compares against float epsilon `0x3a83126f`,
+rounds each difference/multiply to float, then returns a double sum through x87.
+The previous C++ used a double epsilon and a float addition expression: **9 of
+474 native cases** and **54 of 474 Wasm cases** differed. Both historical failure
+inputs and original expected bits are preserved in `regressions/difftrack.json`.
+The corrected production function passes all 474 cases and both reproducers on
+native and Wasm. All **eleven units / 7,846 cases per backend** now pass, with
+the ten previous native input/output archives preserved byte for byte.
+
+This DiffTrack contract covers bounded finite inputs and all 64 return bits
+with x87 precision control 53. It excludes NaNs, infinities, larger arithmetic
+domains and other FP control modes, and does not claim literal instruction-byte
+identity. Its adapter rejects x87 outputs that would need synthetic rounding.
+
+The full quick-scope dependency chain still needs the original weapon-state
+numbering mapped: `BG_GetViewmodelWeaponIndex` at `0x6b94f0` checks offhand states
+21..26 and melee states 18..20, while the reconstructed code uses 20..25 and
+17..19. Changing enum values without mapping their consumers would not establish
+original behavior. This gap remains recorded as unverified.
 
 **All branch fixes are not yet qualified.** Only the contracts in `catalog.json`
 contribute to measured behavioral agreement. Snapshot/archive integration,

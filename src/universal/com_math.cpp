@@ -308,14 +308,15 @@ double __cdecl LinearTrackAngle(float tgt, float cur, float rate, float deltaTim
 
 double __cdecl DiffTrack(float tgt, float cur, float rate, float deltaTime)
 {
-    float step; // [esp+8h] [ebp-4h]
-
-    step = (float)(rate * (float)(tgt - cur)) * deltaTime;
-    if ( fabs(tgt - cur) <= 0.001 )
+    // BlackOpsMP 0x5603c0 rounds each SUBSS/MULSS to float, compares against
+    // the float epsilon, then adds the rounded step to cur in x87 PC=53.
+    volatile float difference = tgt - cur;
+    volatile float step = difference * rate;
+    step = step * deltaTime;
+    const float magnitude = fabsf(difference);
+    if ( !(magnitude > 0.001f) || fabsf(step) > magnitude )
         return tgt;
-    if ( fabs(step) <= fabs(tgt - cur) )
-        return cur + step;
-    return tgt;
+    return (double)step + (double)cur;
 }
 
 double __cdecl DiffTrackAngle(float tgt, float cur, float rate, float deltaTime)

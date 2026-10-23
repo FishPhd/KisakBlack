@@ -29,6 +29,7 @@ def generate(directory):
     paths = [(ROOT / "src/bgame/bg_pmove.cpp", "PM_Accelerate"),
              (ROOT / "src/universal/com_math.cpp", "Vec3Normalize"),
              (ROOT / "src/universal/com_math.cpp", "ExpandBoundsToWidth"),
+             (ROOT / "src/universal/com_math.cpp", "DiffTrack"),
              (ROOT / "src/EffectsCore/fx_draw.cpp", "FX_SetupVisualState"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTime"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTimeInFrame"),

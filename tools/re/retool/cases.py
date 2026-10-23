@@ -10,6 +10,19 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "DiffTrack":
+        def bits(v):
+            return struct.unpack("<I", struct.pack("<f", v))[0]
+        values = [tuple(map(bits, v)) for v in ((2, 1, .5, .1), (.001, 0, 0, 1))]
+        for target in (0, 0x80000000, 1, 0x80000001, 0x3a83126e, 0x3a83126f,
+                       0x3a831270, 0xba83126e, 0xba83126f, 0xba831270, bits(1), bits(-1)):
+            for current in (0., 1., -1.):
+                for rate, dt in ((0., 0.), (0., 1.), (.5, .1), (1., 1.), (2., 1.), (-1., .016)):
+                    values.append((target, bits(current), bits(rate), bits(dt)))
+        values += [tuple(map(bits, (rng.uniform(-1e6, 1e6), rng.uniform(-1e6, 1e6),
+                                  rng.uniform(-1e3, 1e3), rng.uniform(-100, 100))))
+                   for _ in range(random_count)]
+        return values
     if name == "G_GetClientSize":
         return [(0, 0, 0, 0)]
     if name == "BG_GetQuickScopeSpread":
@@ -129,6 +142,17 @@ def validate_quickscope(case):
         raise ValueError("Quick-scope adapter domain is finite state and dvar values")
     if not 0 <= floats[3] <= 30 or not 0 <= floats[2] <= 255 or not 0 <= floats[4] <= 255:
         raise ValueError("Quick-scope dvars exceed time [0,30] or spread settings [0,255]")
+
+
+def validate_difftrack(case):
+    if len(case) < 4:
+        raise ValueError("DiffTrack requires four input words")
+    for word, limit in zip(case[:4], (1e6, 1e6, 1e3, 100)):
+        if word & 0x7f800000 == 0x7f800000:
+            raise ValueError("DiffTrack replay requires finite inputs")
+        value = struct.unpack("<f", struct.pack("<I", word))[0]
+        if abs(value) > limit:
+            raise ValueError("DiffTrack input outside the bounded replay domain")
 
 
 def encode(cases, width=16):

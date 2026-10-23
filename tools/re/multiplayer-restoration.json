@@ -633,6 +633,41 @@
       "execution_status": "unverified",
       "review_status": "pending_human_review",
       "exceptions": []
+    },
+    {
+      "symbol": "DiffTrack",
+      "source": "src/universal/com_math.cpp",
+      "entry_va": "0x5603c0",
+      "code": [
+        {
+          "rva": "0x1603c0",
+          "size": 75,
+          "sha256": "0f99bbb3caa0d792061e20d54f2fa81823502b7070fa4e4c89b6e50af0a7bd4b"
+        }
+      ],
+      "abi_notes": "cdecl four float stack arguments; x87 ST0 double return. x87 PC=53 and MXCSR=0x1f80; observe all 64 return bits. No global state, calls or non-stack writes.",
+      "change_scope": "Preserve rounded SUBSS/MULSS steps, float epsilon 0x3a83126f and unordered branch directions, then form the x87-equivalent double sum.",
+      "dependencies": [],
+      "mapping_status": "verified",
+      "execution_status": "passes_recorded_native_and_wasm_corpus",
+      "review_status": "pending_human_review",
+      "exceptions": [],
+      "execution_evidence": {
+        "catalog_id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x1603c0",
+        "cases": 474,
+        "capture_id": "d4c61c182b310abaf36746efafe5adcd5160cf76039d0eabd3aa03e494371e7b",
+        "native_report": "build-re/reports/run-1792792522878772300.json",
+        "wasm_report": "build-re/reports/run-1792792553880058900.json",
+        "scope": "Complete no-call routine over bounded finite target/current +/-1e6, rate +/-1e3, deltaTime +/-100; covers float epsilon neighbors, zero, subnormals, overshoot and double-return precision. Excludes NaNs, infinities, unbounded arithmetic and other FP control modes."
+      },
+      "historical_mismatches": {
+        "native_cases": 9,
+        "wasm_cases": 54,
+        "corpus_cases": 474,
+        "regression_fixture": "tools/re/regressions/difftrack.json",
+        "expected_origin": "Native original instructions, independently replayed with Unicorn; no expected outputs regenerated from C++."
+      },
+      "literal_byte_identity": "not_qualified"
     }
   ],
   "historical_candidate_corrections": [
@@ -1704,12 +1739,29 @@
     "unit_coverage": "64 circular-distance boundary cases against the extracted production retention predicate, native x86 and wasm32. This does not establish original-execution equivalence."
   },
   "last_behavioral_observation": {
-    "units": 10,
-    "cases_per_backend": 7372,
-    "native_report": "build-re/reports/run-1792791429177373500.json",
-    "wasm_report": "build-re/reports/run-1792791482209534900.json",
+    "units": 11,
+    "cases_per_backend": 7846,
+    "native_report": "build-re/reports/run-1792792522878772300.json",
+    "wasm_report": "build-re/reports/run-1792792553880058900.json",
     "old_native_captures_preserved": true,
     "all_branch_fixes_qualified": false,
     "scope": "Recorded catalog units only; unverified restorations and intentional platform changes remain outside this percentage."
-  }
+  },
+  "dependency_gaps": [
+    {
+      "symbol": "BG_GetViewmodelWeaponIndex",
+      "source": "src/bgame/bg_weapons.cpp",
+      "entry_va": "0x6b94f0",
+      "code": [
+        {
+          "rva": "0x2b94f0",
+          "size": 116,
+          "sha256": "67dd7913d629ecabe95368853a556fc09baab8cfd3619289b80661b3b4a85e76"
+        }
+      ],
+      "status": "unverified_state_numbering",
+      "observation": "Original offhand range is [21,26], reconstructed C++ uses [20,25]. Original melee states are [18,20], reconstructed C++ uses [17,19]. Original weapon-state semantics and all consumers must be mapped before changing enum values.",
+      "effect": "Complete PM_UpdateQuickScope dependency-chain execution remains unqualified."
+    }
+  ]
 }

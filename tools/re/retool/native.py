@@ -9,7 +9,7 @@ from .cases import encode, decode_results
 
 KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4UnpackRgba": 3, "PM_Accelerate": 4,
          "FX_SetupVisualState": 5, "ExpandBoundsToWidth": 6, "FX_GetVelocityAtTime": 7,
-         "BG_GetQuickScopeSpread": 8, "G_GetClientSize": 9}
+         "BG_GetQuickScopeSpread": 8, "G_GetClientSize": 9, "DiffTrack": 10}
 
 
 def relocations(f, pe):
@@ -92,6 +92,10 @@ def execute(f, cases, original=False, binary=None, wasm=False, mutation=False, b
         from .cases import validate_quickscope
         for case in cases:
             validate_quickscope(case)
+    if f["name"] == "DiffTrack":
+        from .cases import validate_difftrack
+        for case in cases:
+            validate_difftrack(case)
     directory = WORK / ("mutation" if mutation else "wasm" if wasm else "native")
     runner = directory / ("re_runner.js" if wasm else "Release/re_runner.exe")
     if not runner.exists():
