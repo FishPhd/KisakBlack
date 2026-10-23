@@ -293,6 +293,161 @@
       "execution_status": "unverified",
       "review_status": "pending_human_review",
       "exceptions": []
+    },
+    {
+      "symbol": "AllocatePerLocalClientMemory",
+      "source": "src/client_mp/cl_main_mp.cpp",
+      "entry_va": "0x80a250",
+      "code": [
+        {
+          "rva": "0x40a250",
+          "size": 258,
+          "sha256": "51bb4a9afdb2a2f017313dab02fe693b8fc9823a0d9dfaf6e700ebd2de4f0b9b"
+        }
+      ],
+      "abi_notes": "Original custom calling convention and dependency memory adapter are not bound; this is instruction inspection only.",
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "dependencies": [
+        "Hunk_UserAlloc",
+        "compiled client and snapshot layouts",
+        "matching reservation routine"
+      ],
+      "change_scope": "Keep the existing portable dynamic client allocations; allocate, clear, and reserve sizeof(clientActive_t) and sizeof(clientConnection_t) per local client.",
+      "exceptions": [
+        {
+          "scope": "Keep the existing portable dynamic client allocations; allocate, clear, and reserve sizeof(clientActive_t) and sizeof(clientConnection_t) per local client.",
+          "rationale": "Player-state restoration expanded the active-client layout. The old literal allocation could overlap the adjacent connection state and corrupt command sequences.",
+          "original_behavior": "Original PC routine uses statically allocated active-client and connection globals, and delegates its other allocations to server/cgame/effects allocators.",
+          "review_status": "pending_human_review",
+          "comparison_effect": "No comparison is waived; no equivalence claim."
+        }
+      ]
+    },
+    {
+      "symbol": "CG_AllocateClientMemory",
+      "source": "src/cgame_mp/cg_main_mp.cpp",
+      "entry_va": "0x5c7b00",
+      "code": [
+        {
+          "rva": "0x1c7b00",
+          "size": 303,
+          "sha256": "07c81c0e6aa3ca3a0a0f3f5da220a127a400fefe6a94bc8c361f0187fb55aec6"
+        }
+      ],
+      "abi_notes": "Original custom calling convention and dependency memory adapter are not bound; this is instruction inspection only.",
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "dependencies": [
+        "Hunk_UserAlloc",
+        "compiled client and snapshot layouts",
+        "matching reservation routine"
+      ],
+      "change_scope": "Allocate cgArray and cgsArray using compiled sizeof, retaining existing other allocation sizes and alignments.",
+      "exceptions": [
+        {
+          "scope": "Allocate cgArray and cgsArray using compiled sizeof, retaining existing other allocation sizes and alignments.",
+          "rationale": "Avoid overlapping allocations after member restoration. Full cg_s equivalence is explicitly blocked by the retained layout guard.",
+          "original_behavior": "Original allocates cgArray at 0x71980 per local client and cgsArray at 0x31c8; IK storage is 0x1ce00 per client.",
+          "review_status": "pending_human_review",
+          "comparison_effect": "No comparison is waived; no equivalence claim."
+        }
+      ]
+    },
+    {
+      "symbol": "CG_AllocateClientMemory_SizeRequired",
+      "source": "src/cgame_mp/cg_main_mp.cpp",
+      "entry_va": "0x6292e0",
+      "code": [
+        {
+          "rva": "0x2292e0",
+          "size": 25,
+          "sha256": "782caf1fa5c48af324e265c664dd26a9263f6f3cd8c693b9ab73a4d50ac6ce99"
+        }
+      ],
+      "abi_notes": "Original custom calling convention and dependency memory adapter are not bound; this is instruction inspection only.",
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "dependencies": [
+        "Hunk_UserAlloc",
+        "compiled client and snapshot layouts",
+        "matching reservation routine"
+      ],
+      "change_scope": "Adjust the existing budget by the exact difference between compiled cg/cgs sizes and their former literal allocation sizes; preserve its existing ancillary reserve.",
+      "exceptions": [
+        {
+          "scope": "Adjust the existing budget by the exact difference between compiled cg/cgs sizes and their former literal allocation sizes; preserve its existing ancillary reserve.",
+          "rationale": "The reservation and allocation paths must use the same layouts; no speculative padding is inserted into game structures.",
+          "original_behavior": "Original budget covers the pinned build layouts used by CG_AllocateClientMemory, called from original 0x80a250.",
+          "review_status": "pending_human_review",
+          "comparison_effect": "No comparison is waived; no equivalence claim."
+        }
+      ]
+    },
+    {
+      "symbol": "SV_AllocateClientMemory",
+      "source": "src/server_mp/sv_init_mp.cpp",
+      "entry_va": "0x57a3e0",
+      "code": [
+        {
+          "rva": "0x17a3e0",
+          "size": 610,
+          "sha256": "b693f72887187c62019350f6db8fcc7f401abb2f899ca57c38f92345b351fdb0"
+        }
+      ],
+      "abi_notes": "Original custom calling convention and dependency memory adapter are not bound; this is instruction inspection only.",
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "dependencies": [
+        "Hunk_UserAlloc",
+        "compiled client and snapshot layouts",
+        "matching reservation routine"
+      ],
+      "change_scope": "Use compiled sizeof for clients, snapshot clients and cached clients, including clears; retain the existing portable 32-frame counts and 16 MiB archive capacity.",
+      "exceptions": [
+        {
+          "scope": "Use compiled sizeof for clients, snapshot clients and cached clients, including clears; retain the existing portable 32-frame counts and 16 MiB archive capacity.",
+          "rationale": "Prevent smaller literal allocations from overlapping adjacent server buffers. Existing capacity and enclosing-layout divergences remain unqualified; this change does not establish original allocation equivalence.",
+          "original_behavior": "Original uses client stride 0x7c2e8, 28 snapshot frames per client, client-state stride 0xd8, cached-client stride 0x27d0 and a 32 MiB archived snapshot buffer.",
+          "review_status": "pending_human_review",
+          "comparison_effect": "No comparison is waived; no equivalence claim."
+        }
+      ]
+    },
+    {
+      "symbol": "SV_AllocateClientMemory_SizeRequired",
+      "source": "src/server_mp/sv_init_mp.cpp",
+      "entry_va": "0x40e8b0",
+      "code": [
+        {
+          "rva": "0xe8b0",
+          "size": 73,
+          "sha256": "b1299b22c14f7fb185d049e2e3f05036a0e713c1640d105dacd444498eb1011e"
+        }
+      ],
+      "abi_notes": "Original custom calling convention and dependency memory adapter are not bound; this is instruction inspection only.",
+      "mapping_status": "unverified",
+      "execution_status": "unverified",
+      "review_status": "pending_human_review",
+      "dependencies": [
+        "Hunk_UserAlloc",
+        "compiled client and snapshot layouts",
+        "matching reservation routine"
+      ],
+      "change_scope": "Budget the compiled client, snapshot-client and cached-client sizes with exactly the capacities allocated by the current allocator.",
+      "exceptions": [
+        {
+          "scope": "Budget the compiled client, snapshot-client and cached-client sizes with exactly the capacities allocated by the current allocator.",
+          "rationale": "Keep reservation consistent with restored element sizes and retain existing ancillary/alignment allowances.",
+          "original_behavior": "Original sizes the original server buffers and is called before original 0x57a3e0.",
+          "review_status": "pending_human_review",
+          "comparison_effect": "No comparison is waived; no equivalence claim."
+        }
+      ]
     }
   ],
   "historical_candidate_corrections": [
@@ -1202,5 +1357,14 @@
     "tools/re/retool/emulator.py": "Check the complete original 0x26e8 playerState write set.",
     "tools/re/retool/live.py": "Require complete original 0x26e8 snapshots; old truncated captures remain blocked.",
     "tools/re/frida/pm_capture.js": "Capture complete original 0x26e8 playerState."
-  }
+  },
+  "platform_changes": [
+    {
+      "symbol": "Web_EnsurePartyMenu",
+      "source": "src/ui/ui_main.cpp",
+      "scope": "Restore the stock FourthFlyout Combat Training action in the browser flyout, extend its fade chain and background to four visible rows.",
+      "original_relationship": "Browser-only menu adaptation has no mapped original function; stock Combat Training scripts and first-use dialogs are retained.",
+      "coverage": "Browser runtime entry smoke test only; no original binary equivalence claim."
+    }
+  ]
 }

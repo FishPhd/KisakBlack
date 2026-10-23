@@ -2730,7 +2730,10 @@ void __cdecl AllocatePerLocalClientMemory(int maxLocalClients, int maxClients, u
     int mem_neededb; // [esp+0h] [ebp-4h]
 
     CL_FreePerLocalClientMemory();
-    mem_needed = 2449480 * maxLocalClients;
+    // The browser allocates these dynamically; the original PC build keeps
+    // them in globals (AllocatePerLocalClientMemory at 0x80a250). Reserve the
+    // compiled layouts, including restored player-state/snapshot members.
+    mem_needed = (sizeof(clientActive_t) + sizeof(clientConnection_t)) * maxLocalClients;
     if ( (flags & 1) == 0 )
         mem_needed += (int)SV_AllocateClientMemory_SizeRequired(maxLocalClients, maxClients);
     mem_neededa = mem_needed + CG_AllocateClientMemory_SizeRequired(maxLocalClients);
@@ -2747,14 +2750,14 @@ void __cdecl AllocatePerLocalClientMemory(int maxLocalClients, int maxClients, u
                                                         0,
                                                         "PerLocalClient Memory",
                                                         42);
-    clients = (clientActive_t *)Hunk_UserAlloc(perLocalClientMemHunk, 1728768 * maxLocalClients, 4, "clients");
+    clients = (clientActive_t *)Hunk_UserAlloc(perLocalClientMemHunk, sizeof(clientActive_t) * maxLocalClients, 4, "clients");
     clientConnections = (clientConnection_t *)Hunk_UserAlloc(
                                                                                             perLocalClientMemHunk,
-                                                                                            720712 * maxLocalClients,
+                                                                                            sizeof(clientConnection_t) * maxLocalClients,
                                                                                             4,
                                                                                             "clientConnections");
-    memset(clients, 0, 1728768 * maxLocalClients);
-    memset(clientConnections, 0, 720712 * maxLocalClients);
+    memset(clients, 0, sizeof(clientActive_t) * maxLocalClients);
+    memset(clientConnections, 0, sizeof(clientConnection_t) * maxLocalClients);
     memset(&cls.gameState, 0, sizeof(cls.gameState));
     cls.serverId = 0;
     if ( (flags & 1) == 0 )

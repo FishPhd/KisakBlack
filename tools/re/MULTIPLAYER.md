@@ -53,8 +53,31 @@ in `damage-dispatch/original_cgame_layout.cpp`; its failure is not included in
 the passing network/server-client contract. The enclosing `cg_s` members need
 mapping before that difference can be resolved. No padding has been invented.
 
+## Wasm Combat Training check (2026-10-23)
+
+The menu route PLAY → COMBAT TRAINING → START MATCH loaded Summit
+(`mp_mountain`) and reached class selection. The first run then failed with
+corrupt user-command timestamps and `EXE_ERR_NOT_RECEIVED`. Its local browser
+capture is retained under `build-web/combat-training-check/`.
+
+Client, cgame and server allocations still used literal sizes from before the
+layout restoration, allowing adjacent buffers to overlap. Allocation, clearing
+and reservation now use matching compiled structure sizes for the affected
+buffers. Their relationship to original PC storage and remaining layout/capacity
+differences is recorded in scoped `exceptions` in the evidence inventory; this
+memory-safety fix does not establish original allocation equivalence.
+
+After rebuilding, a fresh menu traversal selected SMG and spawned one human
+with 11 bots. Camera and movement responded (roughly 185 units of displacement),
+ADS reached 1.0, and attack input was issued. The connection remained active
+through another 14.8 seconds of server time. The complete retest browser log
+contained no invalid-command-time, missing-reliable-command or corrupt-network
+errors. Result/state JSON, build hashes and screenshots remain local under
+`build-web/combat-training-retest/`; the test used the normal training menu and
+retained its stock first-use introduction/difficulty dialogs.
+
 Remaining qualification work includes independent execution of the restored
 routines and their dependencies, an evidence-backed `CM_Trace` identity, legacy
-demo format coverage, and a final Wasm Combat Training pass covering entry,
-spawn, movement, firing, bot combat, death and respawn. No browser smoke test or
-successful compilation establishes byte-for-byte gameplay equivalence.
+demo format coverage, the full `cg_s` layout, and extended combat/death/respawn
+coverage. This entry/control smoke test and successful compilation do not
+establish byte-for-byte gameplay equivalence.
