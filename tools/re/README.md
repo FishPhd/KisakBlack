@@ -217,6 +217,14 @@ assets and table entries are checked for writes. Its raw-state coverage does
 not qualify the reconstructed enum, state transitions, other asset fields or
 the complete quick-scope dependency chain. Historical selector failures remain
 in `regressions/viewmodel-selector.json`.
+
+`PM_Weapon_FinishRechamber` executes the complete original finish routine and
+held-weapon lookup. The output contract records raw state/animation words and
+all 15 rechamber flags, while guarding every other player-state byte. Its cases
+cover slot and animation boundaries; caller state transitions remain outside
+coverage. The native loader supports index-only zero-displacement `LEA` as
+arithmetic; undeclared actual memory loads and nonzero absolute references remain
+blocked. Historical missing-clear failures are in `regressions/rechamber-finish.json`.
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

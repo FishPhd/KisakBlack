@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 project(KisakReferencePilot LANGUAGES CXX)
 get_filename_component(REPO "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 set(KISAK_RE_PACK_SOURCE "${REPO}/src/universal/com_pack.cpp" CACHE FILEPATH "Production source; overridden only by mutation self-test")
-add_executable(re_runner runner.cpp link_guards.cpp pm_adapter.cpp fx_adapter.cpp math_adapter.cpp weapon_adapter.cpp
+add_executable(re_runner runner.cpp link_guards.cpp pm_adapter.cpp fx_adapter.cpp math_adapter.cpp weapon_adapter.cpp rechamber_adapter.cpp
     "${KISAK_RE_PACK_SOURCE}" "${CMAKE_CURRENT_BINARY_DIR}/selected.cpp")
 target_include_directories(re_runner PRIVATE "${REPO}" "${REPO}/src" "${REPO}/src/libs" "${REPO}/src/universal")
 target_compile_features(re_runner PRIVATE cxx_std_20)

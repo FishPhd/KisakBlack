@@ -10,6 +10,20 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "PM_Weapon_FinishRechamber":
+        values = []
+        for slot in (0, 1, 8, 15):
+            for weapon in (0, 1, 65535):
+                for needs in (0, 0x7fff):
+                    for mode in (0, 8, 9, 10, 0xffffffff):
+                        for anim in (0, 0x400, 6, 0x406, 0xffffffff):
+                            for left_anim in (0, 0x400, 6):
+                                for left in (0, 1):
+                                    values.append((weapon, slot, needs, mode, anim, left_anim, left, 8))
+        values += [(rng.randrange(65536), rng.randrange(16), rng.randrange(0x8000),
+                    rng.getrandbits(32), rng.getrandbits(32), rng.getrandbits(32),
+                    rng.randrange(2), rng.getrandbits(32)) for _ in range(random_count)]
+        return values
     if name == "BG_GetViewmodelWeaponIndex":
         values = []
         for state in (*range(64), 0xffffffff, 0x80000000, 0x7fffffff):
@@ -144,6 +158,12 @@ def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
                            bits(rng.choice((0., 100., 300.))), rng.choice((1, 8)), 0, 0, 0, 0))
         return values
     raise ValueError(f"No corpus adapter: {name}")
+
+
+def validate_rechamber_finish(case):
+    if (len(case) < 8 or not 0 <= case[0] <= 65535 or not 0 <= case[1] <= 15 or
+            not 0 <= case[2] <= 0x7fff or case[6] not in (0, 1)):
+        raise ValueError("Rechamber finish requires eight words, uint16 weapon, slot 0..15, 15-bit needs mask and bool hand")
 
 
 def validate_viewmodel(case):

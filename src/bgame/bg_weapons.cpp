@@ -1677,6 +1677,7 @@ void __cdecl BG_PlayerWeaponSetNeedsRechamber(playerState_s *ps, unsigned int we
 void __cdecl PM_Weapon_FinishRechamber(playerState_s *ps)
 {
     PM_ContinueWeaponAnim(ps, 0, 0);
+    BG_PlayerWeaponSetNeedsRechamber(ps, ps->weapon, false);
     ps->weaponstate = WEAPON_READY;
 }
 

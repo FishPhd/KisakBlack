@@ -6,7 +6,7 @@ records instruction hashes, data-table locations, corrected historical BinDiff
 candidates, dependency notes, and the precise scope of the restorations.
 It is an evidence inventory, not a replacement execution catalog. Routines without
 original execution adapters remain unverified and pending mapping review.
-The twelve existing pilots retain their narrower
+The thirteen existing pilots retain their narrower
 contracts in `catalog.json`; their results do not qualify all multiplayer logic.
 
 Restored gaps:
@@ -90,7 +90,7 @@ The prior C++ differed on **96 of 4,544 cases** on both native and Wasm; six
 representative historical failures remain in `regressions/viewmodel-selector.json`.
 All selector cases and reproducers now match on both backends.
 
-All **twelve units / 12,390 cases per backend** pass. The eleven previous native
+That **twelve-unit / 12,390-case observation** passed. The eleven previous native
 input/output archives are preserved byte for byte, all 49 contract tests pass
 without skips, the deliberate wrong-code mutation is detected, and the native
 game compiles without a launch. Selector fixtures cover raw states 0..63 and
@@ -102,6 +102,33 @@ need independent mapping. The selector correction deliberately retains raw
 original values; it does not establish consistent original transitions through
 the whole weapon state machine. The full quick-scope update dependency chain
 also remains unqualified.
+
+## Rechamber completion correction (2026-10-24)
+
+The complete original `PM_Weapon_FinishRechamber` at `0x7bcd00` clears the
+current held weapon's `needsRechamber` flag after continuing its idle animation
+and before setting the weapon state to ready. The reconstructed function omitted
+that clear. Its new execution unit includes the original 15-slot lookup at
+`0x62cc80`; production offsets, entry stride and flag position are asserted.
+It observes the complete state/animation words and all 15 flags, with every
+other player-state byte checked for unexpected changes.
+
+The previous C++ differed on **1,010 of 3,856 cases** on both backends. The
+corrected routine matches every case, including missing weapons, first/middle/
+last slots, animation toggles, either hand and movement-type boundary 9. Six
+historical failures remain in `regressions/rechamber-finish.json`. All **thirteen
+units / 16,246 cases per backend** pass, all twelve prior native input/output
+archives remain byte-identical, and all 52 contract tests pass without skips.
+The deliberate wrong-code mutation is detected; the native game compiles without
+a launch. These observations establish agreement over the catalog corpus, not
+literal machine-byte identity or complete weapon-system equivalence.
+
+Original caller `PM_Weapon_CheckForRechamber` at `0x7bcd60` sets raw state **8**
+when its delayed bolt event fires while in state **7**, and finishes from 8.
+The reconstructed enum instead assigns 8 to `WEAPON_RELOADING_RIGHT`, omits this
+transition, and clears the held flag earlier in the caller. Those caller and
+enum differences remain unqualified and unchanged here. Renumbering all later
+states requires mapping their producers, dispatch and numeric consumers together.
 
 **All branch fixes are not yet qualified.** Only the contracts in `catalog.json`
 contribute to measured behavioral agreement. Snapshot/archive integration,

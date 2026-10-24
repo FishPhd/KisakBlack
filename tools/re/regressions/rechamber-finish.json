@@ -1,0 +1,218 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Complete original PM_Weapon_FinishRechamber at 0x7bcd00 and held-slot lookup at 0x62cc80",
+  "native_capture_id": "bfa5ac11d232080ce9106bd5cbc6b6aa04edcfb5379f6909fa3a8d0465d7d3fb",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "input_u32": [
+        1,
+        1,
+        32767,
+        0,
+        0,
+        0,
+        0,
+        8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        32766,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        32767,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical missing held-weapon needsRechamber clear; original native bits independently qualified by Unicorn. Includes first/middle/last slots and movement-type animation boundary."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "input_u32": [
+        1,
+        1,
+        32767,
+        9,
+        0,
+        0,
+        0,
+        8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        32766,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        32767,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical missing held-weapon needsRechamber clear; original native bits independently qualified by Unicorn. Includes first/middle/last slots and movement-type animation boundary."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "input_u32": [
+        1,
+        8,
+        32767,
+        0,
+        0,
+        0,
+        0,
+        8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        32639,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        32767,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical missing held-weapon needsRechamber clear; original native bits independently qualified by Unicorn. Includes first/middle/last slots and movement-type animation boundary."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "input_u32": [
+        1,
+        8,
+        32767,
+        9,
+        0,
+        0,
+        0,
+        8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        32639,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        32767,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical missing held-weapon needsRechamber clear; original native bits independently qualified by Unicorn. Includes first/middle/last slots and movement-type animation boundary."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "input_u32": [
+        1,
+        15,
+        32767,
+        0,
+        0,
+        0,
+        0,
+        8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        16383,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        32767,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical missing held-weapon needsRechamber clear; original native bits independently qualified by Unicorn. Includes first/middle/last slots and movement-type animation boundary."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "input_u32": [
+        1,
+        15,
+        32767,
+        9,
+        0,
+        0,
+        0,
+        8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        16383,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        32767,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical missing held-weapon needsRechamber clear; original native bits independently qualified by Unicorn. Includes first/middle/last slots and movement-type animation boundary."
+    }
+  ]
+}

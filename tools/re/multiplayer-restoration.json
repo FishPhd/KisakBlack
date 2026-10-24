@@ -1739,10 +1739,10 @@
     "unit_coverage": "64 circular-distance boundary cases against the extracted production retention predicate, native x86 and wasm32. This does not establish original-execution equivalence."
   },
   "last_behavioral_observation": {
-    "units": 12,
-    "cases_per_backend": 12390,
-    "native_report": "build-re/reports/run-1792859592771492400.json",
-    "wasm_report": "build-re/reports/run-1792859591203350200.json",
+    "units": 13,
+    "cases_per_backend": 16246,
+    "native_report": "build-re/reports/run-1792871530742889400.json",
+    "wasm_report": "build-re/reports/run-1792871531828502700.json",
     "old_native_captures_preserved": true,
     "all_branch_fixes_qualified": false,
     "scope": "Recorded catalog units only; unverified restorations and intentional platform changes remain outside this percentage."
@@ -1762,6 +1762,21 @@
       "status": "selector_execution_qualified_state_producers_unverified",
       "observation": "Original selector offhand range [21,26] and melee states [18,20] restored and qualified over 4544 cases on native x86 and wasm32, with the complete original weapon-definition getter. Prior source ranges [20,25]/[17,19] produced 96 mismatches per backend; six representative cases are preserved in regressions/viewmodel-selector.json. Reconstructed enum values, state producers and other consumers still require independent mapping before any global renumbering.",
       "effect": "Selector dependency is qualified within its catalog domain; full PM_UpdateQuickScope dependency-chain execution and weapon state transitions remain unqualified."
+    },
+    {
+      "symbol": "PM_Weapon_CheckForRechamber",
+      "source": "src/bgame/bg_weapons.cpp",
+      "entry_va": "0x7bcd60",
+      "code": [
+        {
+          "rva": "0x3bcd60",
+          "size": 423,
+          "sha256": "4e2e68fa507c4f21686cb8ed813dbaff8d33efb86c876d32bf45505996edd21f"
+        }
+      ],
+      "status": "instruction_evidence_only_caller_unqualified",
+      "observation": "Original state7 plus delayedAction enters state8, emits event0x22, and returns1 if weaponTime remains nonzero; completion tests state8 and calls0x7bcd00. It leaves needsRechamber set until completion. Reconstructed enum assigns8 to reloading-right, omits the state8 transition and clears needsRechamber before emitting the event. Original disassembly also blocks state8 while weaponTime is nonzero. No source changes to this caller or enum in this observation.",
+      "effect": "Missing post-bolt state and displaced later numeric consumers still require coordinated restoration and original execution coverage. The callee finish routine is separately qualified in catalog.json."
     }
   ],
   "viewmodel_selector_observation": {
@@ -1774,6 +1789,19 @@
     "wasm_report": "build-re/reports/run-1792859591203350200.json",
     "scope": "Complete selector plus original getter only; no literal-byte or state-machine equivalence claim.",
     "contract_tests": 49,
+    "skipped_tests": 0,
+    "wrong_code_mutation_detected": true
+  },
+  "rechamber_finish_observation": {
+    "catalog_unit": "PM_Weapon_FinishRechamber",
+    "cases_per_backend": 3856,
+    "before_mismatches_per_backend": 1010,
+    "after_mismatches_per_backend": 0,
+    "regression": "tools/re/regressions/rechamber-finish.json",
+    "native_report": "build-re/reports/run-1792871530742889400.json",
+    "wasm_report": "build-re/reports/run-1792871531828502700.json",
+    "scope": "Complete finish routine and held-slot lookup. State/animation and all 15 needs flags observed; all other player-state bytes guarded. Caller transitions and literal instruction-byte equivalence remain unqualified.",
+    "contract_tests": 52,
     "skipped_tests": 0,
     "wrong_code_mutation_detected": true
   }

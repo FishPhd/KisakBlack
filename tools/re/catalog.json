@@ -534,6 +534,59 @@
       "evidence": "VA 0x6b94f0..0x6b9563: weapFlags byte+0x10 bit2, signed state+0x158 range21..26 returns offhand+0x134; state18/19/20 calls 0x529ff0 (table0xc80258, variant+8). Nonzero bayonet+0x569 or use-as-melee+0x64c returns current uint16+0x144. Otherwise 18/19 returns melee+0x154 and20 returns current. All other states return current. ABI/data flow checked directly in original instructions; no heuristic names used as proof.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd00",
+      "name": "PM_Weapon_FinishRechamber",
+      "entry_rva": 3919104,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3919104,
+          "size": 92,
+          "sha256": "1399960da27584243d9c3049a097dda8667ceaf335ed86b76313c588cb3c3adb"
+        },
+        {
+          "rva": 2280576,
+          "size": 65,
+          "sha256": "37bc162795507919a272b24f8c4a42694c511d65e52353649da43ec2114e5c1a"
+        }
+      ],
+      "constants": [],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_FinishRechamber"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_PlayerWeaponSetNeedsRechamber"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_GetHeldWeapon"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_GetHeldWeaponSlot"
+        }
+      ],
+      "abi": "Custom ps pointer in ESI, void return. Complete cdecl held-weapon lookup at VA0x62cc80. Original animation continuation is inlined; no global dependencies.",
+      "output_words": 3,
+      "comparison": "bitwise",
+      "coverage": "Complete finish routine and 15-slot lookup over uint16 weapon indices, missing/first/middle/last held slots, arbitrary 15-bit boolean needs masks, signed movement types, animation bits, bool hand and raw initial weapon state. Outputs state, right-animation bits and all 15 needs flags; every other player-state byte must remain unchanged. No state-dispatch, asset, event or live-game coverage.",
+      "evidence": "VA0x7bcd00..0x7bcd5b: conditional continuation of right idle animation using both anim words and bRunLeftGun+0x61, suppressed for signed pm_type>=9. Calls 0x62cc80(ps, uint16 weapon+0x144), clears held+0x15 if present, then writes state+0x158=0. Getter scans 15 entries from ps+0x1d8 at stride0x1c and treats weapon0 as absent. Caller0x7bcd60 enters this completion from raw state8, set by delayed rechamber event while in7; source lacked the held flag clear.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }

@@ -77,6 +77,9 @@ class Emulator:
                 allowed.append((DATA + 0x100, DATA + 0x10c))
             if self.f["name"] == "PM_Accelerate":
                 allowed.append((DATA + 0x1030, DATA + 0x103C))
+            if self.f["name"] == "PM_Weapon_FinishRechamber":
+                allowed += [(DATA + 0x1158, DATA + 0x115c), (DATA + 0x1558, DATA + 0x155c)]
+                allowed += [(DATA + 0x11ed + i * 0x1c, DATA + 0x11ee + i * 0x1c) for i in range(15)]
         else:
             allowed += self.constants + [(DATA, DATA + 16), (DATA + 0x100, DATA + 0x110)]
             if self.f["name"] == "FX_SetupVisualState":
@@ -98,6 +101,10 @@ class Emulator:
                             (DATA + 0x1134, DATA + 0x1138), (DATA + 0x1144, DATA + 0x1146),
                             (DATA + 0x1154, DATA + 0x1158), (DATA + 0x4008, DATA + 0x400c),
                             (DATA + 0x5569, DATA + 0x556a), (DATA + 0x564c, DATA + 0x564d)]
+            if self.f["name"] == "PM_Weapon_FinishRechamber":
+                allowed += [(DATA + 0x1004, DATA + 0x1008), (DATA + 0x1061, DATA + 0x1062),
+                            (DATA + 0x1144, DATA + 0x1146), (DATA + 0x1558, DATA + 0x1560)]
+                allowed += [(DATA + 0x11d8 + i * 0x1c, DATA + 0x11dc + i * 0x1c) for i in range(15)]
         if not any(start <= address and address + size <= end for start, end in allowed):
             self._fail(f"Undeclared {'write' if write else 'read'} {address:#x}+{size}")
 
@@ -115,7 +122,21 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "BG_GetViewmodelWeaponIndex":
+        if name == "PM_Weapon_FinishRechamber":
+            from .cases import validate_rechamber_finish
+            validate_rechamber_finish(case)
+            state = bytearray(0x26e8)
+            struct.pack_into("<H", state, 0x144, case[0])
+            for offset, value in ((4, case[3]), (0x558, case[4]), (0x55c, case[5]), (0x158, case[7])):
+                struct.pack_into("<I", state, offset, value)
+            state[0x61] = case[6]
+            for i in range(15):
+                struct.pack_into("<I", state, 0x1d8 + i * 0x1c,
+                                 case[0] if case[1] == i + 1 else 0x10000 + i)
+                state[0x1ed + i * 0x1c] = (case[2] >> i) & 1
+            m.mem_write(DATA + 0x1000, bytes(state))
+            m.reg_write(x.UC_X86_REG_ESI, DATA + 0x1000)
+        elif name == "BG_GetViewmodelWeaponIndex":
             from .cases import validate_viewmodel
             validate_viewmodel(case)
             state = bytearray(0x26e8)
@@ -234,6 +255,10 @@ class Emulator:
             return x87_double_words(*m.reg_read(getattr(x, "UC_X86_REG_FP" + str(top))))
         if name == "BG_GetQuickScopeSpread":
             return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
+        if name == "PM_Weapon_FinishRechamber":
+            state = m.mem_read(DATA + 0x1000, 0x26e8)
+            return [struct.unpack_from("<I", state, 0x158)[0], struct.unpack_from("<I", state, 0x558)[0],
+                    sum(state[0x1ed + i * 0x1c] << i for i in range(15)), 0]
         if name in ("G_GetClientSize", "BG_GetViewmodelWeaponIndex"):
             return [m.reg_read(x.UC_X86_REG_EAX), 0, 0, 0]
         if name.startswith("FloatPack"):

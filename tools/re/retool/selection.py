@@ -37,6 +37,12 @@ def generate(directory):
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetQuickScopeSpread"),
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetViewmodelWeaponIndex"),
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_IsUseAsMeleeWeapon"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_StartWeaponAnim"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_ContinueWeaponAnim"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetHeldWeapon"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "BG_PlayerWeaponSetNeedsRechamber"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_FinishRechamber"),
+             (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponSlot"),
              (ROOT / "src/bgame/bg_weapons_def.cpp", "BG_GetWeaponDef"),
              (ROOT / "src/game_mp/g_main_mp.cpp", "G_GetClientSize")]
     header = '#include <bgame/bg_weapons_def.h>\n#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'

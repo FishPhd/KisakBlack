@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from retool import core
-from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack, validate_viewmodel
+from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack, validate_viewmodel, validate_rechamber_finish
 from retool.emulator import Emulator, DATA, x87_double_words
 from retool.selection import definition
 from retool.verification import first_difference, load_capture
@@ -36,6 +36,30 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_native_index_only_lea_is_not_an_absolute_memory_reference(self):
+        code = b"\x8d\x0c\xc5\x00\x00\x00\x00\xc3"  # lea ecx,[eax*8]; ret
+        self.assertEqual(native.relocations(program(code), TinyPE(code)), "")
+        load = b"\x8b\x0c\xc5\x00\x00\x00\x00\xc3"  # mov ecx,[eax*8]; ret
+        with self.assertRaisesRegex(core.Blocked, "Unsupported native absolute reference"):
+            native.relocations(program(load), TinyPE(load))
+
+    def test_rechamber_finish_replay_domain(self):
+        cases = corpus("PM_Weapon_FinishRechamber")
+        for case in cases:
+            validate_rechamber_finish(case)
+        self.assertTrue(set(range(16)) <= {c[1] for c in cases})
+        for index, invalid in ((0, 65536), (1, 16), (2, 0x8000), (6, 2)):
+            case = list(cases[0]); case[index] = invalid
+            with self.assertRaises(ValueError):
+                validate_rechamber_finish(case)
+
+    def test_rechamber_finish_rejects_adjacent_held_byte_write(self):
+        # Writing the neighboring weapon-model byte is not an allowed flag clear.
+        code = b"\xc6\x86\xec\x01\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "PM_Weapon_FinishRechamber"
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, TinyPE(code)).execute(corpus("PM_Weapon_FinishRechamber")[0])
+
     def test_viewmodel_domain_and_raw_state_boundaries(self):
         cases = corpus("BG_GetViewmodelWeaponIndex")
         for case in cases:

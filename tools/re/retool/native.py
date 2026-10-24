@@ -10,7 +10,7 @@ from .cases import encode, decode_results
 KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4UnpackRgba": 3, "PM_Accelerate": 4,
          "FX_SetupVisualState": 5, "ExpandBoundsToWidth": 6, "FX_GetVelocityAtTime": 7,
          "BG_GetQuickScopeSpread": 8, "G_GetClientSize": 9, "DiffTrack": 10,
-         "BG_GetViewmodelWeaponIndex": 11}
+         "BG_GetViewmodelWeaponIndex": 11, "PM_Weapon_FinishRechamber": 12}
 
 
 def relocations(f, pe):
@@ -28,6 +28,11 @@ def relocations(f, pe):
                 raise Blocked(f"Unsupported native indirect control flow at {ins.address:#x}")
             for operand in ins.operands:
                 if operand.type == CS_OP_MEM and not operand.mem.base:
+                    # LEA reg,[index*scale] computes an integer, with no memory
+                    # read or image address to relocate. Keep actual loads and
+                    # nonzero absolute displacements under the existing guard.
+                    if ins.mnemonic == "lea" and operand.mem.index and operand.mem.disp == 0:
+                        continue
                     rva = operand.mem.disp - base
                     if ins.disp_size != 4 or not any(r["rva"] <= rva and rva + operand.size <= r["rva"] + r["size"] for r in f.get("constants", []) + f.get("globals", [])):
                         raise Blocked(f"Unsupported native absolute reference at {ins.address:#x}")
@@ -89,6 +94,10 @@ def build(wasm=False, mutation=False):
 
 
 def execute(f, cases, original=False, binary=None, wasm=False, mutation=False, benchmark=False):
+    if f["name"] == "PM_Weapon_FinishRechamber":
+        from .cases import validate_rechamber_finish
+        for case in cases:
+            validate_rechamber_finish(case)
     if f["name"] == "BG_GetViewmodelWeaponIndex":
         from .cases import validate_viewmodel
         for case in cases:
