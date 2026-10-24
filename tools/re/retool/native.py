@@ -10,7 +10,8 @@ from .cases import encode, decode_results
 KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4UnpackRgba": 3, "PM_Accelerate": 4,
          "FX_SetupVisualState": 5, "ExpandBoundsToWidth": 6, "FX_GetVelocityAtTime": 7,
          "BG_GetQuickScopeSpread": 8, "G_GetClientSize": 9, "DiffTrack": 10,
-         "BG_GetViewmodelWeaponIndex": 11, "PM_Weapon_FinishRechamber": 12}
+         "BG_GetViewmodelWeaponIndex": 11, "PM_Weapon_FinishRechamber": 12,
+         "PM_Weapon_CheckForRechamber": 13, "PM_Weapon_OffHandEnd": 14}
 
 
 def relocations(f, pe):
@@ -94,6 +95,13 @@ def build(wasm=False, mutation=False):
 
 
 def execute(f, cases, original=False, binary=None, wasm=False, mutation=False, benchmark=False):
+    if f["name"] == "PM_Weapon_OffHandEnd":
+        from .offhand_replay import validate
+        for case in cases: validate(case)
+    if f["name"] == "PM_Weapon_CheckForRechamber":
+        from .cases import validate_rechamber_check
+        for case in cases:
+            validate_rechamber_check(case)
     if f["name"] == "PM_Weapon_FinishRechamber":
         from .cases import validate_rechamber_finish
         for case in cases:

@@ -1602,52 +1602,44 @@ void __cdecl PM_EndHoldBreath(playerState_s *ps)
 
 int __cdecl PM_Weapon_CheckForRechamber(playerState_s *ps, int delayedAction)
 {
-    const WeaponDef *weapDef; // [esp+18h] [ebp-4h]
-
-    weapDef = BG_GetWeaponDef(ps->weapon);
-    if ( ps->weaponstate >= 20 && ps->weaponstate <= 25 )
+    // Original MP raw states; the legacy enum's later values are not aligned yet.
+    constexpr weaponstate_t rechamberFinish = static_cast<weaponstate_t>(8);
+    const WeaponDef *weapDef = BG_GetWeaponDef(ps->weapon);
+    if ( ps->weaponstate >= 21 && ps->weaponstate <= 26 )
         return 0;
-    if ( ps->weaponstate >= 40 && ps->weaponstate <= 42 )
+    if ( ps->weaponstate >= 41 && ps->weaponstate <= 43 )
         return 0;
     if ( weapDef->bBoltAction && BG_PlayerWeaponNeedsRechambered(ps, ps->weapon) )
     {
-        if ( ps->weaponstate == 7 )
+        if ( ps->weaponstate == 7 && delayedAction )
         {
-            if ( delayedAction )
-            {
-                BG_PlayerWeaponSetNeedsRechamber(ps, ps->weapon, 0);
-                PM_AddEvent(ps, 0x22u);
-                if ( ps->weaponTime )
-                    return 1;
-            }
+            ps->weaponstate = rechamberFinish;
+            PM_AddEvent(ps, 0x22u);
+            if ( ps->weaponTime )
+                return 1;
         }
-        if ( !ps->weaponTime
-            || ps->weaponstate != 6
-            && ps->weaponstate != 7
-            && ps->weaponstate != 31
-            && ps->weaponstate != 17
-            && ps->weaponstate != 18
-            && ps->weaponstate != 19
-            && !ps->weaponDelay )
+        else if ( ps->weaponTime
+            && (ps->weaponstate == 6 || ps->weaponstate == 7
+                || ps->weaponstate == rechamberFinish || ps->weaponstate == 32
+                || ps->weaponstate == 18 || ps->weaponstate == 19
+                || ps->weaponstate == 20 || ps->weaponDelay) )
         {
-            if ( ps->weaponstate == 7 )
-            {
-                PM_Weapon_FinishRechamber(ps);
-            }
-            else if ( !ps->weaponstate )
-            {
-                if ( ps->fWeaponPosFrac <= 0.75 )
-                    PM_StartWeaponAnim(ps, 6, 0);
-                else
-                    PM_StartWeaponAnim(ps, 9, 0);
-                ps->weaponstate = WEAPON_RECHAMBERING;
-                ps->weaponTime = weapDef->iRechamberTime;
-                if ( weapDef->iRechamberBoltTime && weapDef->iRechamberBoltTime < weapDef->iRechamberTime )
-                    ps->weaponDelay = weapDef->iRechamberBoltTime;
-                else
-                    ps->weaponDelay = 1;
-                PM_AddEvent(ps, 0x21u);
-            }
+            return 0;
+        }
+        if ( ps->weaponstate == rechamberFinish )
+        {
+            PM_Weapon_FinishRechamber(ps);
+        }
+        else if ( !ps->weaponstate )
+        {
+            PM_StartWeaponAnim(ps, ps->fWeaponPosFrac > 0.75f ? 9 : 6, 0);
+            ps->weaponstate = WEAPON_RECHAMBERING;
+            ps->weaponTime = weapDef->iRechamberTime;
+            if ( weapDef->iRechamberBoltTime && weapDef->iRechamberBoltTime < weapDef->iRechamberTime )
+                ps->weaponDelay = weapDef->iRechamberBoltTime;
+            else
+                ps->weaponDelay = 1;
+            PM_AddEvent(ps, 0x21u);
         }
     }
     return 0;
@@ -4125,8 +4117,8 @@ void __cdecl PM_Weapon_OffHandEnd(playerState_s *ps)
     }
     ps->throwBackGrenadeTimeLeft = 0;
     ps->throwBackGrenadeOwner = 1023;
-    ps->weaponstate = WEAPON_OFFHAND_END;
-    ps->weapFlags &= ~2u;
+    ps->weaponstate = static_cast<weaponstate_t>(26); // Original MP offhand-end state.
+    ps->weapFlags &= ~0x20002u;
     ps->pm_flags &= ~0x200u;
 }
 

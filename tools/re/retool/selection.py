@@ -42,6 +42,9 @@ def generate(directory):
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetHeldWeapon"),
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_PlayerWeaponSetNeedsRechamber"),
              (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_FinishRechamber"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_CheckForRechamber"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "BG_PlayerWeaponNeedsRechambered"),
+             (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponConst"),
              (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponSlot"),
              (ROOT / "src/bgame/bg_weapons_def.cpp", "BG_GetWeaponDef"),
              (ROOT / "src/game_mp/g_main_mp.cpp", "G_GetClientSize")]
@@ -49,7 +52,11 @@ def generate(directory):
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)
+    from .event_selection import definitions as event_definitions
+    from .offhand_selection import definitions as offhand_definitions
     selected.write_text(header + "\n".join(definition(p, s) for p, s in paths) +
+                       event_definitions() +
+                       offhand_definitions() +
                        "\n".join(definition(fields, symbol, data=True) for symbol in arrays) +
                        definition(ROOT / "src/EffectsCore/fx_random.cpp", "fx_randomTable", data=True) +
                        '\nfloat re_quickscope_spread(const playerState_s* ps) { return BG_GetQuickScopeSpread(ps); }\n', encoding="utf-8")

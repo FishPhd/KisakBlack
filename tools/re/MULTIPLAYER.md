@@ -6,7 +6,7 @@ records instruction hashes, data-table locations, corrected historical BinDiff
 candidates, dependency notes, and the precise scope of the restorations.
 It is an evidence inventory, not a replacement execution catalog. Routines without
 original execution adapters remain unverified and pending mapping review.
-The thirteen existing pilots retain their narrower
+The fifteen existing pilots retain their narrower
 contracts in `catalog.json`; their results do not qualify all multiplayer logic.
 
 Restored gaps:
@@ -116,8 +116,8 @@ other player-state byte checked for unexpected changes.
 The previous C++ differed on **1,010 of 3,856 cases** on both backends. The
 corrected routine matches every case, including missing weapons, first/middle/
 last slots, animation toggles, either hand and movement-type boundary 9. Six
-historical failures remain in `regressions/rechamber-finish.json`. All **thirteen
-units / 16,246 cases per backend** pass, all twelve prior native input/output
+historical failures remain in `regressions/rechamber-finish.json`. That **thirteen-
+unit / 16,246-case observation** passed, all twelve prior native input/output
 archives remain byte-identical, and all 52 contract tests pass without skips.
 The deliberate wrong-code mutation is detected; the native game compiles without
 a launch. These observations establish agreement over the catalog corpus, not
@@ -125,10 +125,48 @@ literal machine-byte identity or complete weapon-system equivalence.
 
 Original caller `PM_Weapon_CheckForRechamber` at `0x7bcd60` sets raw state **8**
 when its delayed bolt event fires while in state **7**, and finishes from 8.
-The reconstructed enum instead assigns 8 to `WEAPON_RELOADING_RIGHT`, omits this
-transition, and clears the held flag earlier in the caller. Those caller and
-enum differences remain unqualified and unchanged here. Renumbering all later
-states requires mapping their producers, dispatch and numeric consumers together.
+The reconstructed enum instead assigns 8 to `WEAPON_RELOADING_RIGHT`. The caller
+differences described here are restored in the next entry; the enum remains
+unaligned. Renumbering all later states requires mapping their producers,
+dispatch and numeric consumers together.
+
+## Rechamber chain and offhand completion (2026-10-24)
+
+`PM_Weapon_CheckForRechamber` now preserves the original post-bolt state 8 and
+leaves `needsRechamber` set until completion. It emits the bolt event before
+returning with nonzero weapon time, completes from 8 when allowed, and uses the
+original offhand/DTP gates and timed-state exclusions. The complete original
+routine, finish routine, held lookup, weapon getter and event writer execute in
+both native and Unicorn reference paths. The actual production event template
+and real dvar/hash/lock code execute with a private empty dvar table; diagnostic
+logging and lock contention are outside this fixture domain and terminate if
+unexpectedly reached. No event behavior is supplied by a stand-in.
+
+The old source mismatched **76 of 2,944 observations**. Each of 1,472 fixtures
+has two output views covering the complete observed result: state/timers/right
+animation, then return/15 held flags/event sequence/selected event. All other
+player-state bytes and the asset/table fixtures are guarded. All 256 event
+sequence values are represented, including wrap at 255. Four historical
+failures are retained in `regressions/rechamber-check.json`.
+
+`PM_Weapon_OffHandEnd` now writes original raw state 26 and clears both
+`0x2` and `0x20000` from the weapon flags. Its full original getter/clip-empty/
+clip-lookup chain is included. The old source differed on **all 2,816 cases**;
+both compiled backends now match. This domain requires a nonzero current weapon
+and uint16 animation inputs, and covers either hand, dual wield, unlimited ammo,
+missing/first/middle/last clip entries and signed counts. Fixed original reset
+postconditions and every other state/asset byte are guarded. The weapon-zero
+source diagnostic path remains outside coverage. Sixteen historical failures
+are retained in `regressions/offhand-end.json`.
+
+All **fifteen units / 22,006 observations per backend** pass; the thirteen prior
+native input/output archives remain byte-identical. The native game compiles
+without launching. These scoped function results do not qualify their callers
+or the complete weapon state machine. Original central dispatch and low-ready
+instructions confirm the numbering gap continues through raw state 50; a review
+inventory found numeric consumers across 23 source files. The coordinated enum,
+dispatch and consumer migration remains pending, and these restored routines
+retain explicit original raw values in the meantime.
 
 **All branch fixes are not yet qualified.** Only the contracts in `catalog.json`
 contribute to measured behavioral agreement. Snapshot/archive integration,

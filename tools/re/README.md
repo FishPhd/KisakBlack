@@ -225,6 +225,16 @@ cover slot and animation boundaries; caller state transitions remain outside
 coverage. The native loader supports index-only zero-displacement `LEA` as
 arithmetic; undeclared actual memory loads and nonzero absolute references remain
 blocked. Historical missing-clear failures are in `regressions/rechamber-finish.json`.
+
+`PM_Weapon_CheckForRechamber` includes all original callees through predictable
+event insertion. Its production dependency path extracts the real event template,
+dvar lookup/hash and lock functions; the private empty dvar table makes the
+diagnostic setting absent. Reaching logging or a contended-lock wait blocks
+execution. Each fixture has two four-word views; only their pair observes the
+whole stated result, and a contract test enforces the pairing. `PM_Weapon_OffHandEnd`
+includes real weapon/clip dependencies with a declared nonzero-weapon domain.
+Both units guard unobserved player-state bytes and asset fixtures. They do not
+establish enum/dispatch integration or universal instruction-byte identity.
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

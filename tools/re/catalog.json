@@ -587,6 +587,233 @@
       "evidence": "VA0x7bcd00..0x7bcd5b: conditional continuation of right idle animation using both anim words and bRunLeftGun+0x61, suppressed for signed pm_type>=9. Calls 0x62cc80(ps, uint16 weapon+0x144), clears held+0x15 if present, then writes state+0x158=0. Getter scans 15 entries from ps+0x1d8 at stride0x1c and treats weapon0 as absent. Caller0x7bcd60 enters this completion from raw state8, set by delayed rechamber event while in7; source lacked the held flag clear.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd60",
+      "name": "PM_Weapon_CheckForRechamber",
+      "entry_rva": 3919200,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3919200,
+          "size": 423,
+          "sha256": "4e2e68fa507c4f21686cb8ed813dbaff8d33efb86c876d32bf45505996edd21f"
+        },
+        {
+          "rva": 3919104,
+          "size": 92,
+          "sha256": "1399960da27584243d9c3049a097dda8667ceaf335ed86b76313c588cb3c3adb"
+        },
+        {
+          "rva": 2280576,
+          "size": 65,
+          "sha256": "37bc162795507919a272b24f8c4a42694c511d65e52353649da43ec2114e5c1a"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 283680,
+          "size": 21,
+          "sha256": "f44fd62bb46c85346e97a8024ad05e1eab15374d9bafccf8525ce43b742be893"
+        },
+        {
+          "rva": 30368,
+          "size": 65,
+          "sha256": "f293212e5a485a7e1c19c291e28cafc7c72d60b9af0a144864c252d35ece4293"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6358232,
+          "size": 4,
+          "sha256": "9a8208635e00348ab64aac2b759e76391fd47089e9a749bbcec770d9eb5c6421"
+        }
+      ],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_CheckForRechamber"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_FinishRechamber"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_PlayerWeaponNeedsRechambered"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_GetHeldWeapon"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_PlayerWeaponSetNeedsRechamber"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_GetHeldWeaponConst"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_GetHeldWeaponSlot"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindMalleableVar_0"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Sys_UnlockRead"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindMalleableVar"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindVar"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_GetBool"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_StringToBool"
+        },
+        {
+          "path": "src/server_mp/sv_bot_mp.cpp",
+          "symbol": "Com_HashString"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "eventnames"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_AddEvent"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_AddPredictableEventToPlayerstate"
+        },
+        {
+          "path": "src/bgame/bg_pmove.cpp",
+          "symbol": "PM_AddEvent"
+        }
+      ],
+      "abi": "Custom ps in EAX, cdecl delayedAction on stack, int return EAX. Complete original dependencies: finish/held lookup/weapon getter/event wrapper/event writer. Private weapon table; production-only diagnostic lookup runs real dvar/hash/lock code with a private empty table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete check and declared original dependency chain, valid uint16 weapon indices below2048, 15-slot held flags, raw states, signed integer timers/durations, finite ADS[0,1], bool asset/hand, event sequence0..255. Each fixture runs two output views: state/time/delay/animation and return/all15needs flags/event sequence/selected event. Other state bytes, assets/table/dvar fixtures guarded; event parameters start0 and must stay0. Missing showevents fixture excludes diagnostic logging and contended locks. Does not qualify enum dispatch, unrelated consumers, live combat or every input combination.",
+      "evidence": "Original0x7bcd60: excludes offhand21..26 and DTP41..43; state7+delayed sets8 before event0x22, leaves held needs flag until finish, returns1 if time nonzero. Timed states6/7/8/32/18/19/20 cannot restart. State8 calls original finish, state0 starts7 with ADS-dependent anim6/9 and weapon-defined times, event0x21. State/flags/timer writes and original getter/event dependencies checked from instructions.",
+      "depends_on": [
+        "PM_Weapon_FinishRechamber"
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be200",
+      "name": "PM_Weapon_OffHandEnd",
+      "entry_rva": 3924480,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3924480,
+          "size": 217,
+          "sha256": "20c2f81f8c25d24376386230d4cdf88460bd2abe21981bc1b115586a24c19572"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 554080,
+          "size": 70,
+          "sha256": "3205402cadb66989dc20566d85ba0dd2bbe240762e31449bf13842e1bc367603"
+        },
+        {
+          "rva": 2248432,
+          "size": 58,
+          "sha256": "a5b5d24f4d8becf26045a0c12f4311ece5f30b2a191ee251d49b2a019d3a4b29"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_OffHandEnd"
+        },
+        {
+          "path": "src/bgame/bg_weapons_ammo.cpp",
+          "symbol": "PM_WeaponClipEmpty"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClip"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClipForWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponVariantDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom ps in ESI, void return; original getters/clip-empty/clip lookup cdecl. Private weapon table and two variant fixtures with real ammoInClip layout.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original offhand-end and all declared original dependencies over nonzero weapon1..2047, uint16 animations, arbitrary signed integer counts/times/pm_types, bool hand/dual/unlimited and disjoint clip slots. Outputs rawstate/flags/time/two packed16-bit animations. Fixed original postconditions require delay0, throwbackTime0, owner1023, pm_flags&~0x200; all other state/assets/table bytes guarded. Weapon0 diagnostic branch excluded; unsupported diagnostic functions terminate rather than fabricate values. Does not qualify global state enum, weapon0 source path or live combat.",
+      "evidence": "VA0x7be200..0x7be2d8: nonzero weapon obtains original def and clip-empty helper, selects raise animation26 if empty else24, optional left24, copies quickRaiseTime+0x408 and zeroes delay. ANDweapFlags,0xfffdfffd clears both0x2 and0x20000, ANDpm_flags,0xfffffdff, clears throwbackTime+0x58, owner+0x54=1023, state+0x158=26. Full clip path checks unlimitedAmmo+0x358, bRunLeftGun+0x61, dual index+0x594, variant clipIndex+0x4c and scans15 clip entries stride8.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }

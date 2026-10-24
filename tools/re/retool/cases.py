@@ -10,6 +10,42 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "PM_Weapon_OffHandEnd":
+        from .offhand_replay import corpus as offhand_corpus
+        return offhand_corpus(rng, random_count)
+    if name == "PM_Weapon_CheckForRechamber":
+        def bits(v):
+            return struct.unpack("<I", struct.pack("<f", v))[0]
+        values = []
+        def add(state=0, time=0, delay=0, delayed=0, slot=1, needs=0x7fff,
+                bolt=1, mode=0, ads=bits(.75), duration=100, bolt_time=50):
+            case = (1, slot, needs, state, time, delay, mode, 0x406, 6, 0,
+                    bolt, duration, bolt_time, ads, delayed, rng.randrange(256))
+            values.extend((case, (*case[:15], case[15] | 256)))
+        for state in (*range(52), 0xffffffff, 0x80000000, 0x7fffffff):
+            for time in (0, 10):
+                for delay in (0, 5):
+                    for delayed in (0, 1):
+                        for bolt in (0, 1):
+                            add(state, time, delay, delayed, bolt=bolt)
+        for state in (0, 7, 8):
+            for slot in (0, 1, 8, 15):
+                for needs in (0, 0x7fff):
+                    for time in (0, 1, 0xffffffff):
+                        for delayed in (0, 1, 0xffffffff):
+                            add(state, time, delayed=delayed, slot=slot, needs=needs)
+        for mode in (0, 8, 9, 0xffffffff):
+            for ads in (0, bits(.75) - 1, bits(.75), bits(.75) + 1, bits(1)):
+                for duration, bolt_time in ((0, 0), (100, 0), (100, 50), (100, 100), (100, 101), (100, 0xffffffff)):
+                    add(mode=mode, ads=ads, duration=duration, bolt_time=bolt_time)
+        for _ in range(random_count):
+            case = (rng.randrange(2048), rng.randrange(16), rng.randrange(0x8000),
+                    rng.choice((0, 7, 8, rng.getrandbits(32))), rng.getrandbits(32), rng.getrandbits(32),
+                    rng.getrandbits(32), rng.getrandbits(32), rng.getrandbits(32), rng.randrange(2),
+                    rng.randrange(2), rng.getrandbits(32), rng.getrandbits(32), bits(rng.uniform(0, 1)),
+                    rng.choice((0, 1, 0xffffffff)), rng.randrange(256))
+            values.extend((case, (*case[:15], case[15] | 256)))
+        return values
     if name == "PM_Weapon_FinishRechamber":
         values = []
         for slot in (0, 1, 8, 15):
@@ -158,6 +194,16 @@ def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
                            bits(rng.choice((0., 100., 300.))), rng.choice((1, 8)), 0, 0, 0, 0))
         return values
     raise ValueError(f"No corpus adapter: {name}")
+
+
+def validate_rechamber_check(case):
+    if (len(case) != 16 or not 0 <= case[0] < 2048 or not 0 <= case[1] <= 15 or
+            not 0 <= case[2] <= 0x7fff or case[9] not in (0, 1) or case[10] not in (0, 1) or
+            not 0 <= case[15] <= 0x1ff):
+        raise ValueError("Rechamber check requires 16 words, valid weapon/slot/mask, bool flags and byte event sequence plus output view")
+    ads = struct.unpack("<f", struct.pack("<I", case[13]))[0]
+    if not 0 <= ads <= 1:
+        raise ValueError("Rechamber check ADS input outside finite [0,1]")
 
 
 def validate_rechamber_finish(case):

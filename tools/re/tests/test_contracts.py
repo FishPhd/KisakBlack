@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from retool import core
-from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack, validate_viewmodel, validate_rechamber_finish
+from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack, validate_viewmodel, validate_rechamber_finish, validate_rechamber_check
 from retool.emulator import Emulator, DATA, x87_double_words
 from retool.selection import definition
 from retool.verification import first_difference, load_capture
@@ -36,6 +36,42 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_offhand_replay_rejects_unsupported_diagnostic_and_alias_domain(self):
+        from retool.offhand_replay import validate
+        cases = corpus("PM_Weapon_OffHandEnd")
+        for case in cases: validate(case)
+        for index, value in ((0, 0), (4, 65536), (6, 2), (12, cases[0][13])):
+            case = list(cases[0]); case[index] = value
+            with self.assertRaises(ValueError): validate(case)
+
+    def test_offhand_unobserved_movement_type_write_blocks(self):
+        code = b"\xc7\x46\x04\x00\x00\x00\x00\xc3"  # mov [esi+pm_type],0
+        f = program(code); f["name"] = "PM_Weapon_OffHandEnd"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(corpus("PM_Weapon_OffHandEnd")[0])
+
+    def test_rechamber_chain_views_and_domain(self):
+        cases = corpus("PM_Weapon_CheckForRechamber")
+        for first, second in zip(cases[::2], cases[1::2]):
+            validate_rechamber_check(first); validate_rechamber_check(second)
+            self.assertEqual(first[:15], second[:15])
+            self.assertEqual(first[15] | 256, second[15])
+        for index, invalid in ((0, 2048), (1, 16), (9, 2), (10, 2), (13, 0x7fc00001), (15, 512)):
+            case = list(cases[0]); case[index] = invalid
+            with self.assertRaises(ValueError): validate_rechamber_check(case)
+
+    def test_rechamber_chain_unobserved_write_blocks(self):
+        code = b"\xc7\x40\x0c\x00\x00\x00\x00\xc3"  # mov [eax+pm_flags],0
+        f = program(code); f["name"] = "PM_Weapon_CheckForRechamber"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(corpus("PM_Weapon_CheckForRechamber")[0])
+
     def test_native_index_only_lea_is_not_an_absolute_memory_reference(self):
         code = b"\x8d\x0c\xc5\x00\x00\x00\x00\xc3"  # lea ecx,[eax*8]; ret
         self.assertEqual(native.relocations(program(code), TinyPE(code)), "")

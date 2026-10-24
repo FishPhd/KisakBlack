@@ -67,6 +67,9 @@ class Emulator:
     def _memory(self, machine, access, address, size, value, _):
         write = access == self.uc.UC_MEM_WRITE
         allowed = [(SP - 0x1000, SP + 0x100)]
+        if self.f["name"] == "PM_Weapon_OffHandEnd":
+            from .offhand_replay import memory_ranges
+            allowed += memory_ranges(write)
         if write:
             allowed.append((DATA + 0x100, DATA + 0x100 + self.f["output_words"] * 4))
             if self.f["name"] == "FX_SetupVisualState":
@@ -79,6 +82,11 @@ class Emulator:
                 allowed.append((DATA + 0x1030, DATA + 0x103C))
             if self.f["name"] == "PM_Weapon_FinishRechamber":
                 allowed += [(DATA + 0x1158, DATA + 0x115c), (DATA + 0x1558, DATA + 0x155c)]
+                allowed += [(DATA + 0x11ed + i * 0x1c, DATA + 0x11ee + i * 0x1c) for i in range(15)]
+            if self.f["name"] == "PM_Weapon_CheckForRechamber":
+                allowed += [(DATA + 0x1158, DATA + 0x115c), (DATA + 0x1558, DATA + 0x155c),
+                            (DATA + 0x103c, DATA + 0x1044), (DATA + 0x10e8, DATA + 0x10ea),
+                            (DATA + 0x10ec, DATA + 0x110c)]
                 allowed += [(DATA + 0x11ed + i * 0x1c, DATA + 0x11ee + i * 0x1c) for i in range(15)]
         else:
             allowed += self.constants + [(DATA, DATA + 16), (DATA + 0x100, DATA + 0x110)]
@@ -105,6 +113,15 @@ class Emulator:
                 allowed += [(DATA + 0x1004, DATA + 0x1008), (DATA + 0x1061, DATA + 0x1062),
                             (DATA + 0x1144, DATA + 0x1146), (DATA + 0x1558, DATA + 0x1560)]
                 allowed += [(DATA + 0x11d8 + i * 0x1c, DATA + 0x11dc + i * 0x1c) for i in range(15)]
+            if self.f["name"] == "PM_Weapon_CheckForRechamber":
+                allowed += [(DATA + 0x1004, DATA + 0x1008), (DATA + 0x1061, DATA + 0x1062),
+                            (DATA + 0x1144, DATA + 0x1146), (DATA + 0x1158, DATA + 0x115c),
+                            (DATA + 0x1168, DATA + 0x116c), (DATA + 0x1558, DATA + 0x1560),
+                            (DATA + 0x103c, DATA + 0x1044), (DATA + 0x10e8, DATA + 0x10ea),
+                            (DATA + 0x4008, DATA + 0x400c), (DATA + 0x554f, DATA + 0x5550),
+                            (DATA + 0x53b4, DATA + 0x53bc)]
+                allowed += [(DATA + 0x11d8 + i * 0x1c, DATA + 0x11dc + i * 0x1c) for i in range(15)]
+                allowed += [(DATA + 0x11ed + i * 0x1c, DATA + 0x11ee + i * 0x1c) for i in range(15)]
         if not any(start <= address and address + size <= end for start, end in allowed):
             self._fail(f"Undeclared {'write' if write else 'read'} {address:#x}+{size}")
 
@@ -122,7 +139,36 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "PM_Weapon_FinishRechamber":
+        if name == "PM_Weapon_OffHandEnd":
+            from .offhand_replay import setup
+            setup(self, case)
+        elif name == "PM_Weapon_CheckForRechamber":
+            from .cases import validate_rechamber_check
+            validate_rechamber_check(case)
+            state = bytearray(0x26e8)
+            struct.pack_into("<H", state, 0x144, case[0])
+            for offset, value in ((0x158, case[3]), (0x3c, case[4]), (0x40, case[5]), (4, case[6]),
+                                  (0x558, case[7]), (0x55c, case[8]), (0x168, case[13])):
+                struct.pack_into("<I", state, offset, value)
+            state[0x61] = case[9]
+            struct.pack_into("<H", state, 0xe8, case[15] & 255)
+            struct.pack_into("<4I", state, 0xec, *([0x55] * 4))
+            for i in range(15):
+                struct.pack_into("<I", state, 0x1d8 + i * 0x1c,
+                                 case[0] if case[1] == i + 1 else 0x10000 + i)
+                state[0x1ed + i * 0x1c] = (case[2] >> i) & 1
+            m.mem_write(DATA + 0x1000, bytes(state))
+            self.check_initial_state = bytes(state)
+            variant = bytearray(0xe4); struct.pack_into("<I", variant, 8, DATA + 0x5000)
+            m.mem_write(DATA + 0x4000, bytes(variant))
+            definition = bytearray(0x808); definition[0x54f] = case[10]
+            struct.pack_into("<2I", definition, 0x3b4, *case[11:13])
+            m.mem_write(DATA + 0x5000, bytes(definition))
+            table = bytearray(8192); struct.pack_into("<I", table, case[0] * 4, DATA + 0x4000)
+            m.mem_write(self.base + 0x880258, bytes(table))
+            m.mem_write(SP + 4, struct.pack("<I", case[14]))
+            m.reg_write(x.UC_X86_REG_EAX, DATA + 0x1000)
+        elif name == "PM_Weapon_FinishRechamber":
             from .cases import validate_rechamber_finish
             validate_rechamber_finish(case)
             state = bytearray(0x26e8)
@@ -255,6 +301,24 @@ class Emulator:
             return x87_double_words(*m.reg_read(getattr(x, "UC_X86_REG_FP" + str(top))))
         if name == "BG_GetQuickScopeSpread":
             return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
+        if name == "PM_Weapon_OffHandEnd":
+            from .offhand_replay import outputs
+            return outputs(self, case)
+        if name == "PM_Weapon_CheckForRechamber":
+            state = m.mem_read(DATA + 0x1000, 0x26e8)
+            before = bytearray(self.check_initial_state)
+            event_offset = 0xec + (case[15] & 3) * 4
+            changed = [(0x158, 4), (0x3c, 8), (0x558, 4), (0xe8, 2), (event_offset, 4)]
+            changed += [(0x1ed + i * 0x1c, 1) for i in range(15)]
+            for offset, size in changed:
+                before[offset:offset + size] = state[offset:offset + size]
+            if before != state:
+                raise Blocked("Rechamber check modified unobserved player-state bytes")
+            if case[15] & 256:
+                return [m.reg_read(x.UC_X86_REG_EAX),
+                        sum(state[0x1ed + i * 0x1c] << i for i in range(15)),
+                        struct.unpack_from("<H", state, 0xe8)[0], struct.unpack_from("<I", state, event_offset)[0]]
+            return [struct.unpack_from("<I", state, offset)[0] for offset in (0x158, 0x3c, 0x40, 0x558)]
         if name == "PM_Weapon_FinishRechamber":
             state = m.mem_read(DATA + 0x1000, 0x26e8)
             return [struct.unpack_from("<I", state, 0x158)[0], struct.unpack_from("<I", state, 0x558)[0],

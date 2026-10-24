@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Complete original PM_Weapon_CheckForRechamber and its declared original dependencies",
+  "native_capture_id": "d16e7974e246efb713c95765dd4e5d57507322d67fdd1a7fb899c630a57cb834",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd60",
+      "input_u32": [
+        1,
+        1,
+        32767,
+        7,
+        0,
+        0,
+        0,
+        1030,
+        6,
+        0,
+        1,
+        100,
+        50,
+        1061158912,
+        0,
+        18
+      ],
+      "expected_u32": [
+        7,
+        0,
+        0,
+        1030
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-restoration mismatch. Expected outputs are preserved original native instructions, independently replayed in Unicorn; projected output view is explicit in the catalog contract."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd60",
+      "input_u32": [
+        1,
+        1,
+        32767,
+        7,
+        0,
+        0,
+        0,
+        1030,
+        6,
+        0,
+        1,
+        100,
+        50,
+        1061158912,
+        0,
+        274
+      ],
+      "expected_u32": [
+        0,
+        32767,
+        18,
+        85
+      ],
+      "observed_cpp_u32": [
+        0,
+        32766,
+        18,
+        85
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-restoration mismatch. Expected outputs are preserved original native instructions, independently replayed in Unicorn; projected output view is explicit in the catalog contract."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd60",
+      "input_u32": [
+        1,
+        1,
+        32767,
+        8,
+        0,
+        0,
+        0,
+        1030,
+        6,
+        0,
+        1,
+        100,
+        50,
+        1061158912,
+        0,
+        179
+      ],
+      "expected_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        8,
+        0,
+        0,
+        1030
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-restoration mismatch. Expected outputs are preserved original native instructions, independently replayed in Unicorn; projected output view is explicit in the catalog contract."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bcd60",
+      "input_u32": [
+        1,
+        1,
+        32767,
+        8,
+        0,
+        0,
+        0,
+        1030,
+        6,
+        0,
+        1,
+        100,
+        50,
+        1061158912,
+        0,
+        435
+      ],
+      "expected_u32": [
+        0,
+        32766,
+        179,
+        85
+      ],
+      "observed_cpp_u32": [
+        0,
+        32767,
+        179,
+        85
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-restoration mismatch. Expected outputs are preserved original native instructions, independently replayed in Unicorn; projected output view is explicit in the catalog contract."
+    }
+  ]
+}

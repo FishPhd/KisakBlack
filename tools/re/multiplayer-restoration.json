@@ -1739,10 +1739,10 @@
     "unit_coverage": "64 circular-distance boundary cases against the extracted production retention predicate, native x86 and wasm32. This does not establish original-execution equivalence."
   },
   "last_behavioral_observation": {
-    "units": 13,
-    "cases_per_backend": 16246,
-    "native_report": "build-re/reports/run-1792871530742889400.json",
-    "wasm_report": "build-re/reports/run-1792871531828502700.json",
+    "units": 15,
+    "cases_per_backend": 22006,
+    "native_report": "build-re/reports/run-1792878269119632100.json",
+    "wasm_report": "build-re/reports/run-1792878268904151100.json",
     "old_native_captures_preserved": true,
     "all_branch_fixes_qualified": false,
     "scope": "Recorded catalog units only; unverified restorations and intentional platform changes remain outside this percentage."
@@ -1774,9 +1774,9 @@
           "sha256": "4e2e68fa507c4f21686cb8ed813dbaff8d33efb86c876d32bf45505996edd21f"
         }
       ],
-      "status": "instruction_evidence_only_caller_unqualified",
-      "observation": "Original state7 plus delayedAction enters state8, emits event0x22, and returns1 if weaponTime remains nonzero; completion tests state8 and calls0x7bcd00. It leaves needsRechamber set until completion. Reconstructed enum assigns8 to reloading-right, omits the state8 transition and clears needsRechamber before emitting the event. Original disassembly also blocks state8 while weaponTime is nonzero. No source changes to this caller or enum in this observation.",
-      "effect": "Missing post-bolt state and displaced later numeric consumers still require coordinated restoration and original execution coverage. The callee finish routine is separately qualified in catalog.json."
+      "status": "execution_qualified_within_catalog_domain",
+      "observation": "The complete original check, finish, held lookup, weapon getter and predictable event chain is qualified over 1472 fixtures with paired four-word views (2944 observations) on native x86 and wasm32. Raw state8/post-bolt flow and held-flag lifetime restored. Prior 76 mismatching observations are retained in rechamber-check regressions. Original global enum and callers remain separately unqualified.",
+      "effect": "This routine is restored and qualified locally. Reconstructed enum values, global dispatch and remaining consumers still need a coordinated migration; a bounded routine result does not qualify caller integration."
     }
   ],
   "viewmodel_selector_observation": {
@@ -1804,5 +1804,82 @@
     "contract_tests": 52,
     "skipped_tests": 0,
     "wrong_code_mutation_detected": true
+  },
+  "rechamber_chain_offhand_observation": {
+    "units": [
+      {
+        "name": "PM_Weapon_CheckForRechamber",
+        "observations": 2944,
+        "paired_fixtures": 1472,
+        "before_mismatches": 76,
+        "after_mismatches": 0,
+        "regression": "tools/re/regressions/rechamber-check.json"
+      },
+      {
+        "name": "PM_Weapon_OffHandEnd",
+        "observations": 2816,
+        "before_mismatches": 2816,
+        "after_mismatches": 0,
+        "regression": "tools/re/regressions/offhand-end.json"
+      }
+    ],
+    "native_report": "build-re/reports/run-1792878269119632100.json",
+    "wasm_report": "build-re/reports/run-1792878268904151100.json",
+    "prior_native_archives_preserved": 13,
+    "contract_tests": 58,
+    "skipped_tests": 0,
+    "wrong_code_mutation_detected": true,
+    "native_game_compiled": true,
+    "game_launched": false,
+    "scope": "Catalog fixture domains only; does not establish literal machine-byte identity or enum/dispatch/live-combat integration. Actual event/dvar/hash/lock source executes with private empty diagnostic table. Offhand current weapon0 diagnostic path excluded."
+  },
+  "state_numbering_migration_pending": {
+    "mapping_status": "instruction_evidence_only",
+    "instruction_evidence": [
+      {
+        "va": "0x5cf0e0",
+        "rva": "0x1cf0e0",
+        "size": 1460,
+        "sha256": "9d0a5baed2380c7343c295b0f1dee2cf242364ea2caa68084e4a8ad253f66cf9",
+        "purpose": "Central original PM_Weapon handler and dispatch uses state-1 and upperbound46."
+      },
+      {
+        "va": "0x5cf694",
+        "rva": "0x1cf694",
+        "size": 104,
+        "sha256": "7426fac9faab72d3b26d4b9829c197304af3110905b9e6c31c7c140c4b29ee7c",
+        "purpose": "26-entry original PM_Weapon dispatch destination pointer table."
+      },
+      {
+        "va": "0x5cf6fc",
+        "rva": "0x1cf6fc",
+        "size": 47,
+        "sha256": "a91fdb6776322a139a29d5e255b3c316e12a48fd65e4f41184731c2b1ee76e9f",
+        "purpose": "47-entry state1..47 compressed dispatch index table."
+      },
+      {
+        "va": "0x7c4070",
+        "rva": "0x3c4070",
+        "size": 95,
+        "sha256": "303c78fd3fe51681e790e0de0fca7c7f33fba3316ce23c77be7df7c21b17eb19",
+        "purpose": "Low-ready interpolation: raw50 drop,48 raise."
+      },
+      {
+        "va": "0x7c4130",
+        "rva": "0x3c4130",
+        "size": 404,
+        "sha256": "d7c80223c7b74f7fb97e28894cf0284972951bdbde636cd6fd04f4e8d3d44234",
+        "purpose": "Weapon-state pose selection: sprint28..30,lowready48..50,dtp41..43,slide44."
+      }
+    ],
+    "observation": "Original post-bolt state8 displaces later meanings by one through low-ready raw50. Source enum still assigns8 to reloading-right. Original enum sentinel/name for8 not established. Already restored selector/check/offhand-end raw values must not be shifted again.",
+    "review_inventory": {
+      "source_files": 23,
+      "functions": 102,
+      "numeric_lines": 452,
+      "numeric_switch_labels": 59
+    },
+    "execution_status": "global_dispatch_and_consumer_migration_unqualified",
+    "scope": "Inventory identifies review candidates, not proof that each consumer is semantically correct. All branch fixes remain unqualified as a group."
   }
 }
