@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from retool import core
-from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack
+from retool.cases import corpus, encode, decode_results, validate_quickscope, validate_difftrack, validate_viewmodel
 from retool.emulator import Emulator, DATA, x87_double_words
 from retool.selection import definition
 from retool.verification import first_difference, load_capture
@@ -36,6 +36,28 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_viewmodel_domain_and_raw_state_boundaries(self):
+        cases = corpus("BG_GetViewmodelWeaponIndex")
+        for case in cases:
+            validate_viewmodel(case)
+        self.assertTrue(set(range(64)) <= {c[0] for c in cases})
+        self.assertTrue({0, 1, 1023, 2047} <= {c[2] for c in cases})
+        for index, invalid in ((2, 2048), (3, 0), (5, 2), (6, 255)):
+            case = list(cases[0]); case[index] = invalid
+            with self.assertRaises(ValueError):
+                validate_viewmodel(case)
+
+    def test_viewmodel_original_writes_are_blocked(self):
+        # cdecl ps argument, then an illegal weaponstate store.
+        code = b"\x8b\x44\x24\x04\x89\x90\x58\x01\x00\x00\xc3"
+        f = program(code); f["name"] = "BG_GetViewmodelWeaponIndex"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code)
+        original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(corpus("BG_GetViewmodelWeaponIndex")[0])
+
     def test_x87_double_capture_preserves_bits_and_blocks_rounding(self):
         self.assertEqual(x87_double_words(1 << 63, 16383), [0, 0x3ff00000, 0, 0])
         self.assertEqual(x87_double_words((1 << 63) | (1 << 11), 16383), [1, 0x3ff00000, 0, 0])
@@ -55,6 +77,7 @@ class Contracts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sample.cpp"
             path.write_text("void caller() {\n    if (target(1)) { }\n}\n"
+                            "void multiline() {\n    if (true\n        && !target(1)) { }\n}\n"
                             "bool target(int value) { return value > 0; }\n")
             selected = definition(path, "target")
             self.assertIn("bool target(int value)", selected)

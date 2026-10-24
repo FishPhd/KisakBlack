@@ -93,6 +93,11 @@ class Emulator:
                 allowed += [(DATA + 0x14ec, DATA + 0x14f4), (DATA + 0x1560, DATA + 0x1564)]
                 allowed += [(DATA + 0x400 + i * 0x100 + 0x18,
                              DATA + 0x400 + i * 0x100 + 0x18 + (1 if i == 0 else 4)) for i in range(4)]
+            if self.f["name"] == "BG_GetViewmodelWeaponIndex":
+                allowed += [(DATA + 0x1010, DATA + 0x1011), (DATA + 0x1158, DATA + 0x115c),
+                            (DATA + 0x1134, DATA + 0x1138), (DATA + 0x1144, DATA + 0x1146),
+                            (DATA + 0x1154, DATA + 0x1158), (DATA + 0x4008, DATA + 0x400c),
+                            (DATA + 0x5569, DATA + 0x556a), (DATA + 0x564c, DATA + 0x564d)]
         if not any(start <= address and address + size <= end for start, end in allowed):
             self._fail(f"Undeclared {'write' if write else 'read'} {address:#x}+{size}")
 
@@ -110,7 +115,26 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "DiffTrack":
+        if name == "BG_GetViewmodelWeaponIndex":
+            from .cases import validate_viewmodel
+            validate_viewmodel(case)
+            state = bytearray(0x26e8)
+            for offset, value in ((0x158, case[0]), (0x10, case[1]), (0x134, case[3]), (0x154, case[4])):
+                struct.pack_into("<I", state, offset, value)
+            struct.pack_into("<H", state, 0x144, case[2])
+            m.mem_write(DATA + 0x1000, bytes(state))
+            # Private fixtures retain the original variant pointer indirection.
+            variant = bytearray(0xe4)
+            struct.pack_into("<I", variant, 8, DATA + 0x5000)
+            m.mem_write(DATA + 0x4000, bytes(variant))
+            definition = bytearray(0x800)
+            definition[0x569], definition[0x64c] = case[5:7]
+            m.mem_write(DATA + 0x5000, bytes(definition))
+            table = bytearray(8192)
+            struct.pack_into("<I", table, case[2] * 4, DATA + 0x4000)
+            m.mem_write(self.base + 0x880258, bytes(table))
+            m.mem_write(SP + 4, struct.pack("<I", DATA + 0x1000))
+        elif name == "DiffTrack":
             from .cases import validate_difftrack
             validate_difftrack(case)
             m.mem_write(SP + 4, struct.pack("<4I", *case[:4]))
@@ -210,7 +234,7 @@ class Emulator:
             return x87_double_words(*m.reg_read(getattr(x, "UC_X86_REG_FP" + str(top))))
         if name == "BG_GetQuickScopeSpread":
             return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
-        if name == "G_GetClientSize":
+        if name in ("G_GetClientSize", "BG_GetViewmodelWeaponIndex"):
             return [m.reg_read(x.UC_X86_REG_EAX), 0, 0, 0]
         if name.startswith("FloatPack"):
             reg = x.UC_X86_REG_XMM1 if name == "FloatPack9S" else x.UC_X86_REG_XMM4

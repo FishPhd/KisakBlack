@@ -6,7 +6,7 @@ records instruction hashes, data-table locations, corrected historical BinDiff
 candidates, dependency notes, and the precise scope of the restorations.
 It is an evidence inventory, not a replacement execution catalog. Routines without
 original execution adapters remain unverified and pending mapping review.
-The eleven existing pilots retain their narrower
+The twelve existing pilots retain their narrower
 contracts in `catalog.json`; their results do not qualify all multiplayer logic.
 
 Restored gaps:
@@ -71,7 +71,7 @@ The previous C++ used a double epsilon and a float addition expression: **9 of
 474 native cases** and **54 of 474 Wasm cases** differed. Both historical failure
 inputs and original expected bits are preserved in `regressions/difftrack.json`.
 The corrected production function passes all 474 cases and both reproducers on
-native and Wasm. All **eleven units / 7,846 cases per backend** now pass, with
+native and Wasm. That **eleven-unit / 7,846-case observation** passed, with
 the ten previous native input/output archives preserved byte for byte.
 
 This DiffTrack contract covers bounded finite inputs and all 64 return bits
@@ -79,11 +79,29 @@ with x87 precision control 53. It excludes NaNs, infinities, larger arithmetic
 domains and other FP control modes, and does not claim literal instruction-byte
 identity. Its adapter rejects x87 outputs that would need synthetic rounding.
 
-The full quick-scope dependency chain still needs the original weapon-state
-numbering mapped: `BG_GetViewmodelWeaponIndex` at `0x6b94f0` checks offhand states
-21..26 and melee states 18..20, while the reconstructed code uses 20..25 and
-17..19. Changing enum values without mapping their consumers would not establish
-original behavior. This gap remains recorded as unverified.
+## Viewmodel selector correction (2026-10-24)
+
+`BG_GetViewmodelWeaponIndex` at `0x6b94f0` now uses the original raw offhand
+states 21..26 and melee states 18..20. The complete selector and its original
+`BG_GetWeaponDef` dependency execute in the native oracle and Unicorn, with
+the original table-to-variant-to-definition pointer chain retained. Production
+header assertions check each accessed player-state and weapon-asset offset.
+The prior C++ differed on **96 of 4,544 cases** on both native and Wasm; six
+representative historical failures remain in `regressions/viewmodel-selector.json`.
+All selector cases and reproducers now match on both backends.
+
+All **twelve units / 12,390 cases per backend** pass. The eleven previous native
+input/output archives are preserved byte for byte, all 49 contract tests pass
+without skips, the deliberate wrong-code mutation is detected, and the native
+game compiles without a launch. Selector fixtures cover raw states 0..63 and
+signed extremes, flag combinations, valid weapon-table indices and both asset
+flags. This is tested output agreement, not literal instruction-byte identity.
+
+The reconstructed weapon-state enum and its producers/other consumers still
+need independent mapping. The selector correction deliberately retains raw
+original values; it does not establish consistent original transitions through
+the whole weapon state machine. The full quick-scope update dependency chain
+also remains unqualified.
 
 **All branch fixes are not yet qualified.** Only the contracts in `catalog.json`
 contribute to measured behavioral agreement. Snapshot/archive integration,

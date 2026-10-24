@@ -14,15 +14,70 @@ const dvar_s* bg_aqs = nullptr;
 const dvar_s* player_aqs_spread_max = nullptr;
 const dvar_s* player_aqs_time = nullptr;
 const dvar_s* player_aqs_spread_multiplier = nullptr;
+WeaponVariantDef* bg_weaponVariantDefs[2048]{};
+unsigned int bg_lastParsedWeaponIndex = 2047;
 
 static_assert(offsetof(playerState_s, aimSpreadScale) == 0x560);
 static_assert(offsetof(playerState_s, quickScopeScale) == 0x4ec);
 static_assert(offsetof(playerState_s, quickScopeTimer) == 0x4f0);
 static_assert(offsetof(dvar_s, current) == 0x18);
 static_assert(sizeof(gclient_s) == 0x2a28, "Client-size codegen binding must match production");
+static_assert(offsetof(playerState_s, weapFlags) == 0x10);
+static_assert(offsetof(playerState_s, offHandIndex) == 0x134);
+static_assert(offsetof(playerState_s, weapon) == 0x144 && sizeof(playerState_s::weapon) == 2);
+static_assert(offsetof(playerState_s, meleeWeapon) == 0x154);
+static_assert(offsetof(playerState_s, weaponstate) == 0x158);
+static_assert(offsetof(WeaponVariantDef, weapDef) == 8);
+static_assert(offsetof(WeaponDef, bHasBayonet) == 0x569);
+static_assert(offsetof(WeaponDef, bUseAsMelee) == 0x64c);
+
+static void viewmodel_call(bool original, void* entry, const unsigned* input, unsigned* output)
+{
+    if (input[2] >= 2048 || !input[3] || input[5] > 1 || input[6] > 1) std::abort();
+    playerState_s ps{};
+    std::memcpy(&ps.weaponstate, input, 4);
+    std::memcpy(&ps.weapFlags, input + 1, 4);
+    ps.weapon = static_cast<unsigned short>(input[2]);
+    std::memcpy(&ps.offHandIndex, input + 3, 4);
+    std::memcpy(&ps.meleeWeapon, input + 4, 4);
+    WeaponDef definition{};
+    definition.bHasBayonet = input[5] != 0;
+    definition.bUseAsMelee = input[6] != 0;
+    WeaponVariantDef variant{};
+    variant.weapDef = &definition;
+    bg_weaponVariantDefs[input[2]] = &variant;
+    const playerState_s before = ps;
+    const WeaponDef before_definition = definition;
+    const WeaponVariantDef before_variant = variant;
+#ifdef _WIN32
+    if (original)
+    {
+        auto table = static_cast<unsigned char*>(entry) - 0x2b94f0 + 0x880258;
+        DWORD protection, ignored;
+        if (!VirtualProtect(table, sizeof(bg_weaponVariantDefs), PAGE_READWRITE, &protection)) std::abort();
+        std::memcpy(table, bg_weaponVariantDefs, sizeof(bg_weaponVariantDefs));
+        if (!VirtualProtect(table, sizeof(bg_weaponVariantDefs), protection, &ignored)) std::abort();
+        output[0] = reinterpret_cast<unsigned(__cdecl*)(const playerState_s*)>(entry)(&ps);
+        if (std::memcmp(table, bg_weaponVariantDefs, sizeof(bg_weaponVariantDefs))) std::abort();
+    }
+    else
+#endif
+    output[0] = BG_GetViewmodelWeaponIndex(&ps);
+    if (std::memcmp(&before, &ps, sizeof(ps)) ||
+        std::memcmp(&before_definition, &definition, sizeof(definition)) ||
+        std::memcmp(&before_variant, &variant, sizeof(variant))) std::abort();
+    for (unsigned i = 0; i < 2048; ++i)
+        if (bg_weaponVariantDefs[i] != (i == input[2] ? &variant : nullptr)) std::abort();
+    bg_weaponVariantDefs[input[2]] = nullptr;
+}
 
 void weapon_call(int kind, bool original, void* entry, const unsigned* input, unsigned* output)
 {
+    if (kind == 11)
+    {
+        viewmodel_call(original, entry, input, output);
+        return;
+    }
     if (kind == 9)
     {
 #ifdef _WIN32

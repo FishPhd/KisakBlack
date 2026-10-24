@@ -208,6 +208,15 @@ production definition over a bounded finite corpus. It observes all 64 bits of
 the double return, including precision lost by a float addition expression.
 The emulator reads the physical x87 stack top with PC=53 and converts its exact
 representation to double bits; unsupported precision/ranges block comparison.
+
+`BG_GetViewmodelWeaponIndex` executes the complete original selector and its
+original weapon-definition getter. The private fixture binds the original
+2048-entry variant pointer table and preserves the variant-to-definition
+indirection. Production structure offsets are asserted; all fixture state,
+assets and table entries are checked for writes. Its raw-state coverage does
+not qualify the reconstructed enum, state transitions, other asset fields or
+the complete quick-scope dependency chain. Historical selector failures remain
+in `regressions/viewmodel-selector.json`.
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

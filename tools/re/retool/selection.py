@@ -11,7 +11,7 @@ def definition(path, symbol, data=False):
     # A declaration has a nonempty type/storage prefix. Calls inside if/while
     # conditions must not be mistaken for a definition ending at that brace.
     matches = [m for m in re.finditer(r"^(?P<prefix>[^\n;{}()]*)\b" + re.escape(symbol) + suffix, masked, re.M)
-               if m["prefix"].strip()]
+               if re.fullmatch(r"[A-Za-z_][\w\s:*&<>]*", m["prefix"].strip())]
     if len(matches) != 1:
         raise Blocked(f"Expected one production definition of {symbol}, found {len(matches)}")
     start, position, depth = matches[0].start(), matches[0].end(), 1
@@ -35,8 +35,11 @@ def generate(directory):
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTimeInFrame"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_OrientationDirToWorldDir"),
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetQuickScopeSpread"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "BG_GetViewmodelWeaponIndex"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "BG_IsUseAsMeleeWeapon"),
+             (ROOT / "src/bgame/bg_weapons_def.cpp", "BG_GetWeaponDef"),
              (ROOT / "src/game_mp/g_main_mp.cpp", "G_GetClientSize")]
-    header = '#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
+    header = '#include <bgame/bg_weapons_def.h>\n#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)

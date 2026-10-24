@@ -10,6 +10,18 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "BG_GetViewmodelWeaponIndex":
+        values = []
+        for state in (*range(64), 0xffffffff, 0x80000000, 0x7fffffff):
+            for flags in (0, 1, 2, 0xffffffff):
+                for weapon in (0, 1, 1023, 2047):
+                    for bayonet, melee in ((0, 0), (0, 1), (1, 0), (1, 1)):
+                        values.append((state, flags, weapon, rng.randrange(1, 1 << 32),
+                                       rng.getrandbits(32), bayonet, melee))
+        values += [(rng.getrandbits(32), rng.getrandbits(32), rng.randrange(2048),
+                    rng.randrange(1, 1 << 32), rng.getrandbits(32), rng.randrange(2), rng.randrange(2))
+                   for _ in range(random_count)]
+        return values
     if name == "DiffTrack":
         def bits(v):
             return struct.unpack("<I", struct.pack("<f", v))[0]
@@ -132,6 +144,11 @@ def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
                            bits(rng.choice((0., 100., 300.))), rng.choice((1, 8)), 0, 0, 0, 0))
         return values
     raise ValueError(f"No corpus adapter: {name}")
+
+
+def validate_viewmodel(case):
+    if len(case) < 7 or not 0 <= case[2] < 2048 or not case[3] or case[5] not in (0, 1) or case[6] not in (0, 1):
+        raise ValueError("Viewmodel replay requires seven words, a valid weapon table index, nonzero offhand and bool asset flags")
 
 
 def validate_quickscope(case):

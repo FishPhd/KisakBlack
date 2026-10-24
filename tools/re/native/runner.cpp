@@ -203,7 +203,7 @@ static Response dispatch(int kind, bool original, void* entry, void* global, con
     _mm_setcsr(0x1f80);
     __try {
         if (kind == 10) difftrack_call(original, entry, request.words, response.words);
-        else if (kind == 8 || kind == 9) weapon_call(kind, original, entry, request.words, response.words);
+        else if (kind == 8 || kind == 9 || kind == 11) weapon_call(kind, original, entry, request.words, response.words);
         else if (kind == 7) fx_velocity_call(original, entry, request.words, response.words);
         else if (kind == 6) bounds_call(original, entry, request.words, response.words);
         else if (kind == 5) fx_call(original, entry, request.words, response.words);
@@ -213,7 +213,7 @@ static Response dispatch(int kind, bool original, void* entry, void* global, con
     } __except(EXCEPTION_EXECUTE_HANDLER) { response.status = GetExceptionCode(); }
 #else
     if (kind == 10) difftrack_call(false, nullptr, request.words, response.words);
-    else if (kind == 8 || kind == 9) weapon_call(kind, false, nullptr, request.words, response.words);
+    else if (kind == 8 || kind == 9 || kind == 11) weapon_call(kind, false, nullptr, request.words, response.words);
     else if (kind == 7) fx_velocity_call(false, nullptr, request.words, response.words);
     else if (kind == 6) bounds_call(false, nullptr, request.words, response.words);
     else if (kind == 5) fx_call(false, nullptr, request.words, response.words);
@@ -226,7 +226,7 @@ static Response dispatch(int kind, bool original, void* entry, void* global, con
 int main(int argc, char** argv) {
     if (argc < 3) { std::fprintf(stderr, "runner cpp|original kind [binary rva end_rva]\n"); return 2; }
     const int kind = std::atoi(argv[2]);
-    if (kind < 0 || kind > 10) return 2;
+    if (kind < 0 || kind > 11) return 2;
     const bool original = std::strcmp(argv[1], "original") == 0;
     if (!original && std::strcmp(argv[1], "cpp")) return 2;
     void* entry = nullptr;

@@ -221,7 +221,9 @@ unsigned int __cdecl BG_GetViewmodelWeaponIndex(const playerState_s *ps)
 {
     int weapIndex; // [esp+0h] [ebp-4h]
 
-    if ( (ps->weapFlags & 2) != 0 && ps->weaponstate >= 20 && ps->weaponstate <= 25 )
+    // Original MP selector at 0x6b94f0 uses these raw network state values.
+    // The reconstructed enum and its state producers need separate alignment.
+    if ( (ps->weapFlags & 2) != 0 && ps->weaponstate >= 21 && ps->weaponstate <= 26 )
     {
         weapIndex = ps->offHandIndex;
         if ( !weapIndex
@@ -235,10 +237,10 @@ unsigned int __cdecl BG_GetViewmodelWeaponIndex(const playerState_s *ps)
             __debugbreak();
         }
     }
-    else if ( (ps->weaponstate == 17 || ps->weaponstate == 18 || ps->weaponstate == 19)
+    else if ( (ps->weaponstate == 18 || ps->weaponstate == 19 || ps->weaponstate == 20)
                  && !BG_IsUseAsMeleeWeapon(ps->weapon) )
     {
-        if ( ps->weaponstate == 19 )
+        if ( ps->weaponstate == 20 )
             return ps->weapon;
         else
             return ps->meleeWeapon;

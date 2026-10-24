@@ -1,0 +1,218 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Original native BG_GetViewmodelWeaponIndex and its original BG_GetWeaponDef dependency; independently replayed in Unicorn",
+  "native_capture_id": "f50729e5a87b0a4f80b2ebb202a623cad607ba4692619d87804cb983d06206b3",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "input_u32": [
+        17,
+        0,
+        0,
+        3266543034,
+        2196467881,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        2196467881,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical original-native/Unicorn-qualified selector mismatch before correcting raw weapon-state boundaries. Current enum producers remain independently unverified."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "input_u32": [
+        17,
+        2,
+        0,
+        1892994863,
+        2139337074,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        2139337074,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical original-native/Unicorn-qualified selector mismatch before correcting raw weapon-state boundaries. Current enum producers remain independently unverified."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "input_u32": [
+        19,
+        0,
+        0,
+        1865028909,
+        3383694728,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        3383694728,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical original-native/Unicorn-qualified selector mismatch before correcting raw weapon-state boundaries. Current enum producers remain independently unverified."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "input_u32": [
+        19,
+        2,
+        0,
+        4078011277,
+        2750093079,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        2750093079,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical original-native/Unicorn-qualified selector mismatch before correcting raw weapon-state boundaries. Current enum producers remain independently unverified."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "input_u32": [
+        20,
+        2,
+        0,
+        2477339064,
+        547704701,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        2477339064,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical original-native/Unicorn-qualified selector mismatch before correcting raw weapon-state boundaries. Current enum producers remain independently unverified."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "input_u32": [
+        26,
+        2,
+        0,
+        2355772423,
+        1028422421,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        2355772423,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical original-native/Unicorn-qualified selector mismatch before correcting raw weapon-state boundaries. Current enum producers remain independently unverified."
+    }
+  ]
+}

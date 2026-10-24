@@ -486,6 +486,54 @@
       "evidence": "VA 0x5603c0..0x56040a: SUBSS target-current; MULSS difference*rate then *deltaTime; abs mask at 0xaa1cf0; float epsilon 0x3a83126f at 0xa100ac. COMISS/JBE returns target for small/unordered difference; COMISS/JA returns target on overshoot. Otherwise FLD rounded step; FADD current, preserving the x87 PC=53 double sum. Called by original PM_UpdateQuickScope at 0x7bf320.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x2b94f0",
+      "name": "BG_GetViewmodelWeaponIndex",
+      "entry_rva": 2856176,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 2856176,
+          "size": 116,
+          "sha256": "67dd7913d629ecabe95368853a556fc09baab8cfd3619289b80661b3b4a85e76"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_GetViewmodelWeaponIndex"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_IsUseAsMeleeWeapon"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "cdecl const playerState_s* on stack, unsigned result in EAX. Complete original getter dependency at 0x529ff0; private 2048-entry weapon-variant table retains variant+8 -> WeaponDef indirection.",
+      "output_words": 1,
+      "comparison": "bitwise",
+      "coverage": "Complete selector and getter over raw signed weapon states, flag patterns, weapon table indices 0..2047, nonzero unsigned offhand, arbitrary melee index and valid boolean bayonet/use-as-melee fields. Corpus covers every state 0..63 and signed extremes, not all 32-bit combinations. Checks unchanged state/assets/table. Does not qualify state producers, enum names, other asset members, debug assertions or gameplay integration.",
+      "evidence": "VA 0x6b94f0..0x6b9563: weapFlags byte+0x10 bit2, signed state+0x158 range21..26 returns offhand+0x134; state18/19/20 calls 0x529ff0 (table0xc80258, variant+8). Nonzero bayonet+0x569 or use-as-melee+0x64c returns current uint16+0x144. Otherwise 18/19 returns melee+0x154 and20 returns current. All other states return current. ABI/data flow checked directly in original instructions; no heuristic names used as proof.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }
