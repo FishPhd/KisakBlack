@@ -257,6 +257,23 @@ does not claim compiled ABI equivalence or complete caller integration. Their
 original state pairs are 50/48 and 43/41, respectively. Historical mismatches
 remain in `regressions/lowready-lerp.json` and `regressions/dtp-lerp.json`.
 
+`BG_CalculateWeaponMovement_GetSprintLerp` adds the complete original sprint
+helper, including the state-30 recovery-perk setting gate and float multiplication.
+`BG_CalculateWeaponMovement_Base_Internal_WeaponState` compares the actual pose
+caller through weapon selection and all four pose categories: sprint 28..30,
+low-ready 48..50, DTP 41..43 and slide 44. Slide interpolation is inline in this
+original caller; it is not presented as a separate full-function mapping.
+Paired views observe all six target position/angle float words. Assets, player
+state, settings and the weapon table remain immutable.
+
+The pose corpus explicitly excludes mantling (`pm_flags & 4 == 0`). It executes
+the real mantle fallback gate; the complete original mantle dependency closure
+is still mapped, and the production mantle/animation functions are selected
+without replacement calculations. Null private animation bindings are never
+read in this domain. This does not qualify equipped-mantle timing, global state
+producers or live gameplay. Historical sprint and caller failures remain in
+`regressions/sprint-lerp.json` and `regressions/weapon-pose.json`.
+
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

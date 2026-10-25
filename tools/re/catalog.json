@@ -1101,6 +1101,254 @@
       "evidence": "Original state comparisons 43/41; definition in/out offsets 43c/444. CVTSI2SS signed int conversions, DIVSS and raise SUBSS from exact1.0; complete helper has no callees. Pinned instructions and original caller checked independently.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c3fd0",
+      "name": "BG_CalculateWeaponMovement_GetSprintLerp",
+      "entry_rva": 3948496,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3948496,
+          "size": 153,
+          "sha256": "a5870568d9e18c5e54a7d4b350db6e9d1a89bc8a97a606a37a0b5ad06e7dc2e7"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        },
+        {
+          "rva": 7975352,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "globals": [
+        {
+          "rva": 8797224,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetSprintLerp"
+        }
+      ],
+      "abi": "Custom WeaponDef pointer EAX, weaponState pointer stack+4, float result XMM0. Production reconstructed double result projected to float consumed by original caller; compiled ABI equality excluded.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original sprint helper over raw signed states/time/durations, perks words, finite multiplier[-4,4] including signed zero. All PS/weaponState/definition/dvar bytes immutable. Float caller projection only; no compiled ABI or full movement caller qualification.",
+      "evidence": "Original7c3fd0 states30/28 use signed CVTSI2SS/DIVSS, raise SUBSS exact1.0. Perk4000 recovery applies only state30 and nonzero dvar current value, with float multiplication.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c4130",
+      "name": "BG_CalculateWeaponMovement_Base_Internal_WeaponState",
+      "entry_rva": 3948848,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3948848,
+          "size": 404,
+          "sha256": "d7c80223c7b74f7fb97e28894cf0284972951bdbde636cd6fd04f4e8d3d44234"
+        },
+        {
+          "rva": 3948496,
+          "size": 153,
+          "sha256": "a5870568d9e18c5e54a7d4b350db6e9d1a89bc8a97a606a37a0b5ad06e7dc2e7"
+        },
+        {
+          "rva": 3948656,
+          "size": 95,
+          "sha256": "303c78fd3fe51681e790e0de0fca7c7f33fba3316ce23c77be7df7c21b17eb19"
+        },
+        {
+          "rva": 3948752,
+          "size": 95,
+          "sha256": "da12090be0b0b56a8aab51add9a694a6358a59f2316d4b3d6061afc128c77c34"
+        },
+        {
+          "rva": 2856176,
+          "size": 116,
+          "sha256": "67dd7913d629ecabe95368853a556fc09baab8cfd3619289b80661b3b4a85e76"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 2387824,
+          "size": 40,
+          "sha256": "8dcc4193f3d41774f266cfbd174e34dd205034bb07ee27686136f1fb91d656ae"
+        },
+        {
+          "rva": 681584,
+          "size": 30,
+          "sha256": "2739f15d500723ebf1b234bf349b6b72003cef42fe1438b94370c24d80c010e1"
+        },
+        {
+          "rva": 585328,
+          "size": 120,
+          "sha256": "d0740855f3cd072c7442fcda5afca1129b38edbb901f18fa91898ba54a80df86"
+        },
+        {
+          "rva": 1478336,
+          "size": 41,
+          "sha256": "e7a123db9f408c3ee9e489d53a5d3a23e3569ff8f6bfefd003f069d0457d3ba7"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        },
+        {
+          "rva": 7975352,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 6885632,
+          "size": 4,
+          "sha256": "07883481b5c147464597d44401db095d88c2a6b049fbbcd7b278de98a5ceeb71"
+        },
+        {
+          "rva": 8297872,
+          "size": 84,
+          "sha256": "aac4bcf25dd949cc14c0b7e9b16eb418bd3b59cdcc83e5404b7748fa493a4613"
+        }
+      ],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "rva": 8797224,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 8714216,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 8714204,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        },
+        {
+          "rva": 8797228,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_Base_Internal_WeaponState"
+        },
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetSprintLerp"
+        },
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetLowReadyLerp"
+        },
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetDTPLerp"
+        },
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetSlideLerp"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_GetViewmodelWeaponIndex"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_IsUseAsMeleeWeapon"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Mantle_IsWeaponEquipped"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Mantle_IsWeaponInactive"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Mantle_GetMantleFrac"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Mantle_GetDuration"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Mantle_GetUpLength"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Mantle_GetOverLength"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Trans_GetUpIndex"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "Trans_GetOverIndex"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "s_mantleTrans"
+        },
+        {
+          "path": "src/xanim/xanim.cpp",
+          "symbol": "XAnimGetLengthMsec"
+        },
+        {
+          "path": "src/xanim/xanim.cpp",
+          "symbol": "XAnimGetLength"
+        },
+        {
+          "path": "src/xanim/xanim.cpp",
+          "symbol": "IsLeafNode"
+        }
+      ],
+      "abi": "cdecl(ws*,targetPos*,targetAngles*),void return. Sprint/lowready/DTP helpers EAXDef/stackws/XMM0; MantleFrac cdeclPS/ST0double; all remaining callees cdecl.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original pose caller and declared dependencies under nonmantling pm_flags&4==0 domain; all other raw flags, states and signed timers; valid three-asset selector fixtures and finite bounded pattern vectors/initial targets. Paired output views observe all six position/angle float bits. All other state/assets/table/dvar bytes guarded. Full original mantle chain remains mapped, but animation globals are null and unexecuted; no mantle timing, global state producer or live gameplay qualification.",
+      "evidence": "Original signed sprint range28..30, lowready48..50, DTP41..43, inline slide44; complete selector/getter chain and direct helper/Mantle callees mapped. Original MULSS/ADDSS accumulate six float outputs only for fraction>0.",
+      "depends_on": [
+        "BG_CalculateWeaponMovement_GetSprintLerp",
+        "BG_CalculateWeaponMovement_GetLowReadyLerp",
+        "BG_CalculateWeaponMovement_GetDTPLerp",
+        "BG_GetViewmodelWeaponIndex"
+      ],
+      "exceptions": []
     }
   ]
 }

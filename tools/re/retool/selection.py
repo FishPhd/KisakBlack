@@ -48,12 +48,16 @@ def generate(directory):
              (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_OffHandInit"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetLowReadyLerp"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetDTPLerp"),
+             (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetSprintLerp"),
+             (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetSlideLerp"),
+             (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_Base_Internal_WeaponState"),
              (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponConst"),
              (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponSlot"),
              (ROOT / "src/bgame/bg_weapons_def.cpp", "BG_GetWeaponDef"),
              (ROOT / "src/game_mp/g_main_mp.cpp", "G_GetClientSize")]
     header = '#include <bgame/bg_weapons_def.h>\n#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
     header += '#include <bgame/bg_weapons_view.h>\n#include <cgame/cg_weapons.h>\n'
+    header += '#include <bgame/bg_mantle.h>\n#include <bgame/bg_perks.h>\n'
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)
@@ -62,11 +66,12 @@ def generate(directory):
     from .offhand_hold_selection import definitions as hold_definitions
     from .game_debug_selection import definitions as debug_definitions
     from .melee_end_selection import definitions as melee_definitions
+    from .weapon_pose_selection import definitions as pose_definitions
     selected.write_text(header + "\n".join(definition(p, s) for p, s in paths) +
                        event_definitions() +
                        offhand_definitions() +
                        hold_definitions() + debug_definitions() +
-                       melee_definitions() +
+                       melee_definitions() + pose_definitions() +
                        "\n".join(definition(fields, symbol, data=True) for symbol in arrays) +
                        definition(ROOT / "src/EffectsCore/fx_random.cpp", "fx_randomTable", data=True) +
                        '\nfloat re_quickscope_spread(const playerState_s* ps) { return BG_GetQuickScopeSpread(ps); }\n', encoding="utf-8")

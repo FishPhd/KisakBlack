@@ -36,6 +36,40 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_weapon_pose_views_exclude_mantling_and_guard_state(self):
+        from retool.weapon_pose_replay import validate
+        cases = corpus("BG_CalculateWeaponMovement_Base_Internal_WeaponState")
+        for first, second in zip(cases[::2], cases[1::2]):
+            validate(first); validate(second)
+            self.assertEqual(first[:15], second[:15])
+            self.assertEqual((first[15], second[15]), (0, 1))
+        for index, value in ((7, 4), (9, 4), (14, 1), (15, 2), (5, 0x7f800000)):
+            case = list(cases[0]); case[index] = value
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\x8b\x44\x24\x04\x8b\x00\xc7\x40\x3c\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "BG_CalculateWeaponMovement_Base_Internal_WeaponState"
+        f["globals"] = [dict(rva=rva, size=size, sha256=hashlib.sha256(bytes(size)).hexdigest())
+                        for rva, size in ((0x880258, 8192), (0x863c28, 4))]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(cases[0])
+
+    def test_sprint_lerp_setting_domain_and_readonly_guard(self):
+        from retool.sprint_slide_replay import validate
+        cases = corpus("BG_CalculateWeaponMovement_GetSprintLerp")
+        for case in cases: validate(case)
+        for bits in (0x7f800000, 0x7fc00000, 0x40a00000):
+            case = list(cases[0]); case[5] = bits
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\xc7\x80\x18\x04\x00\x00\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "BG_CalculateWeaponMovement_GetSprintLerp"
+        f["globals"] = [dict(rva=0x863c28, size=4, sha256=hashlib.sha256(bytes(4)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(cases[0])
+
     def test_view_lerp_domain_and_readonly_structure_guard(self):
         from retool.lowready_replay import validate
         for name in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):

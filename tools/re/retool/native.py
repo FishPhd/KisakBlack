@@ -13,7 +13,9 @@ KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4Un
          "BG_GetViewmodelWeaponIndex": 11, "PM_Weapon_FinishRechamber": 12,
          "PM_Weapon_CheckForRechamber": 13, "PM_Weapon_OffHandEnd": 14,
          "PM_Weapon_OffHandHold": 16, "PM_Weapon_MeleeEnd": 15, "PM_Weapon_OffHandInit": 17,
-         "BG_CalculateWeaponMovement_GetLowReadyLerp": 18, "BG_CalculateWeaponMovement_GetDTPLerp": 19}
+         "BG_CalculateWeaponMovement_GetLowReadyLerp": 18, "BG_CalculateWeaponMovement_GetDTPLerp": 19,
+         "BG_CalculateWeaponMovement_GetSprintLerp": 20,
+         "BG_CalculateWeaponMovement_Base_Internal_WeaponState": 21}
 
 
 def relocations(f, pe):
@@ -97,6 +99,12 @@ def build(wasm=False, mutation=False):
 
 
 def execute(f, cases, original=False, binary=None, wasm=False, mutation=False, benchmark=False):
+    if f["name"] == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
+        from .weapon_pose_replay import validate
+        for case in cases: validate(case)
+    if f["name"] == "BG_CalculateWeaponMovement_GetSprintLerp":
+        from .sprint_slide_replay import validate
+        for case in cases: validate(case)
     if f["name"] in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):
         from .lowready_replay import validate
         for case in cases: validate(case)
