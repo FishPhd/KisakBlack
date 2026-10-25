@@ -1768,6 +1768,380 @@
       "evidence": "Original enters rawstate38, sets weaponTime from WeaponDef+0x450, clears weaponDelay, and for signed pm_type<9 stores(~weapAnim&0x400)|44. Instruction bytes, custom ABI and original callsites checked independently.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be6e0",
+      "name": "Dtp_State_In",
+      "entry_rva": 3925728,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3925728,
+          "size": 348,
+          "sha256": "a751f7ada92b0c5d71641a87f5fbb5e8685091d1ea6f3fdc9875097f8ae81bfe"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 554080,
+          "size": 70,
+          "sha256": "3205402cadb66989dc20566d85ba0dd2bbe240762e31449bf13842e1bc367603"
+        },
+        {
+          "rva": 2248432,
+          "size": 58,
+          "sha256": "a5b5d24f4d8becf26045a0c12f4311ece5f30b2a191ee251d49b2a019d3a4b29"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Dtp_State_In"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_ammo.cpp",
+          "symbol": "PM_WeaponClipEmpty"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClip"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClipForWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponVariantDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI, void return. Original cdecl getter/clip/ammo/variant dependency chain; private real variant/definition table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original DTP transition over nonzero weapon1..2047, raw signed pm_type/state/time/duration/flags, full32bit right/left animations, bool hand/dual/unlimited and distinct optional clip slots. Paired views observe both states/time/delay then both animations/states. Every other PS byte and all asset/table fixtures guarded. No state checker, global enum/dispatch or live gameplay qualification.",
+      "evidence": "Both original states are 41. In/out duration is copied from definition; loop zeroes time. Delay zero. Original ContinueWeaponAnim behavior inspects active hand and animation toggle bit before changing right/left animations, using empty/nonempty clip animation pairs.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bea20",
+      "name": "Dtp_State_Loop",
+      "entry_rva": 3926560,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3926560,
+          "size": 346,
+          "sha256": "6b9fbc44cb6a0d8c76019127bdcf51a5f60bb92e2e26e3e1173565a2fdd34f64"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 554080,
+          "size": 70,
+          "sha256": "3205402cadb66989dc20566d85ba0dd2bbe240762e31449bf13842e1bc367603"
+        },
+        {
+          "rva": 2248432,
+          "size": 58,
+          "sha256": "a5b5d24f4d8becf26045a0c12f4311ece5f30b2a191ee251d49b2a019d3a4b29"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Dtp_State_Loop"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_ammo.cpp",
+          "symbol": "PM_WeaponClipEmpty"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClip"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClipForWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponVariantDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI, void return. Original cdecl getter/clip/ammo/variant dependency chain; private real variant/definition table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original DTP transition over nonzero weapon1..2047, raw signed pm_type/state/time/duration/flags, full32bit right/left animations, bool hand/dual/unlimited and distinct optional clip slots. Paired views observe both states/time/delay then both animations/states. Every other PS byte and all asset/table fixtures guarded. No state checker, global enum/dispatch or live gameplay qualification.",
+      "evidence": "Both original states are 42. In/out duration is copied from definition; loop zeroes time. Delay zero. Original ContinueWeaponAnim behavior inspects active hand and animation toggle bit before changing right/left animations, using empty/nonempty clip animation pairs.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be8c0",
+      "name": "Dtp_State_Out",
+      "entry_rva": 3926208,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3926208,
+          "size": 348,
+          "sha256": "77d764c946829a96bf57b9eb1b49361a04572ece47b41309935ca4a25b20e90d"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 554080,
+          "size": 70,
+          "sha256": "3205402cadb66989dc20566d85ba0dd2bbe240762e31449bf13842e1bc367603"
+        },
+        {
+          "rva": 2248432,
+          "size": 58,
+          "sha256": "a5b5d24f4d8becf26045a0c12f4311ece5f30b2a191ee251d49b2a019d3a4b29"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Dtp_State_Out"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_ammo.cpp",
+          "symbol": "PM_WeaponClipEmpty"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClip"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClipForWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponVariantDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI, void return. Original cdecl getter/clip/ammo/variant dependency chain; private real variant/definition table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original DTP transition over nonzero weapon1..2047, raw signed pm_type/state/time/duration/flags, full32bit right/left animations, bool hand/dual/unlimited and distinct optional clip slots. Paired views observe both states/time/delay then both animations/states. Every other PS byte and all asset/table fixtures guarded. No state checker, global enum/dispatch or live gameplay qualification.",
+      "evidence": "Both original states are 43. In/out duration is copied from definition; loop zeroes time. Delay zero. Original ContinueWeaponAnim behavior inspects active hand and animation toggle bit before changing right/left animations, using empty/nonempty clip animation pairs.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be840",
+      "name": "Slide_State_In",
+      "entry_rva": 3926080,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3926080,
+          "size": 113,
+          "sha256": "17044cae3438d34b7f9ebf4dca1038582042f88d5194ee737ac278ac9be7e65d"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Slide_State_In"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Complete cdecl original definition getter; PM_ContinueWeaponAnim/PM_StartWeaponAnim inline.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original slide transition and getter over nonzero weapon1..2047, raw signed movement/state/timer/duration words, full32bit right/left animations and bool active hand. Outputs state/time/delay/right animation; every other PS byte including left animation and all assets/table fixtures unchanged. Covers exact continue-animation identity with only bit400 masked, active hand and movement9 boundary. No slide checker/global dispatch/live gameplay qualification.",
+      "evidence": "Original enters rawstate44, copies definition slideInTime448 and zeroesdelay; continueanim51 checks active-hand match with only400 masked and signedpm_type<9 before toggling right animation.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "name": "PM_Weapon_CheckForSlide",
+      "entry_rva": 3927472,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3927472,
+          "size": 137,
+          "sha256": "f413e6a23ce8e5014e8a1dd1e198ea88792905b5764b8aa1bab34a4e6f844c68"
+        },
+        {
+          "rva": 3926080,
+          "size": 113,
+          "sha256": "17044cae3438d34b7f9ebf4dca1038582042f88d5194ee737ac278ac9be7e65d"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "name": "bg_weaponVariantDefs",
+          "va": "0xc80258",
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_CheckForSlide"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Slide_State_In"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ContinueWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        },
+        {
+          "path": "src/cgame_mp/cg_predict_mp.cpp",
+          "symbol": "pmove_t::pmove_t"
+        },
+        {
+          "path": "src/physics/phys_traverse.cpp",
+          "symbol": "colgeom_visitor_t::colgeom_visitor_t"
+        }
+      ],
+      "abi": "Custom pmove pointer in ECX, void return; original Slide_State_In uses ESI PS, definition getter cdecl.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original slide checker, slide entry and getter over valid nonzero current weapon and uint16 command weapon, raw states/flags/signed water/movement/timers and full32bit animation words, bool active hand. Outputs state/time/delay/right animation; every other PS byte, complete pmove object, assets and table guarded. Actual production constructors establish fixture object lifetime; physics vtable operations outside this path must terminate. No central dispatch/global enum or live gameplay qualification.",
+      "evidence": "Original7bedb0 excludes states6/7/8/32, melee18..20, switching1..5, offhand21..26, DTP41..43 and slide44. Requires signed water<3, nonzero uint16 command weapon, pm_flags800000 and slideTime==commandserverTime; calls full original slide entry.",
+      "depends_on": [
+        "Slide_State_In"
+      ],
+      "exceptions": []
     }
   ]
 }

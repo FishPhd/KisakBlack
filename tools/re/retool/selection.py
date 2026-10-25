@@ -30,6 +30,7 @@ def generate(directory):
              (ROOT / "src/universal/com_math.cpp", "Vec3Normalize"),
              (ROOT / "src/universal/com_math.cpp", "ExpandBoundsToWidth"),
              (ROOT / "src/universal/com_math.cpp", "DiffTrack"),
+             (ROOT / "src/universal/com_math.cpp", "Vec3Max"),
              (ROOT / "src/EffectsCore/fx_draw.cpp", "FX_SetupVisualState"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTime"),
              (ROOT / "src/EffectsCore/fx_update_util.cpp", "FX_GetVelocityAtTimeInFrame"),
@@ -53,6 +54,11 @@ def generate(directory):
              (ROOT / "src/bgame/bg_weapons.cpp", "ContinuousFire_State_Out"),
              (ROOT / "src/bgame/bg_weapons.cpp", "Deploy_State_Deploy"),
              (ROOT / "src/bgame/bg_weapons.cpp", "Deploy_State_Breakdown"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Dtp_State_In"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Dtp_State_Loop"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Dtp_State_Out"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Slide_State_In"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_CheckForSlide"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetLowReadyLerp"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetDTPLerp"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetSprintLerp"),
@@ -66,6 +72,7 @@ def generate(directory):
     header += '#include <bgame/bg_weapons_view.h>\n#include <cgame/cg_weapons.h>\n'
     header += '#include <bgame/bg_mantle.h>\n#include <bgame/bg_perks.h>\n'
     header += '#include <bgame/bg_weapons_ammo.h>\n'
+    header += '#include <cgame_mp/cg_predict_mp.h>\n'
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)
@@ -75,11 +82,14 @@ def generate(directory):
     from .game_debug_selection import definitions as debug_definitions
     from .melee_end_selection import definitions as melee_definitions
     from .weapon_pose_selection import definitions as pose_definitions
+    from .event_selection import _exact_definition
     selected.write_text(header + "\n".join(definition(p, s) for p, s in paths) +
                        event_definitions() +
                        offhand_definitions() +
                        hold_definitions() + debug_definitions() +
                        melee_definitions() + pose_definitions() +
+                       _exact_definition(ROOT / "src/cgame_mp/cg_predict_mp.cpp", "pmove_t::pmove_t()") +
+                       _exact_definition(ROOT / "src/physics/phys_traverse.cpp", "colgeom_visitor_t::colgeom_visitor_t()") +
                        "\n".join(definition(fields, symbol, data=True) for symbol in arrays) +
                        definition(ROOT / "src/EffectsCore/fx_random.cpp", "fx_randomTable", data=True) +
                        '\nfloat re_quickscope_spread(const playerState_s* ps) { return BG_GetQuickScopeSpread(ps); }\n', encoding="utf-8")

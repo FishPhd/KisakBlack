@@ -290,6 +290,24 @@ fields. Their state/time/delay/animation outputs and preservation guards do not
 qualify the remaining state checkers, central dispatcher or live combat. The
 historical failures are retained in the corresponding `regressions/` files.
 
+The DTP entry/loop/exit units observe both original states 41/42/43, timers,
+delay and full-width animations through paired views, using the original clip
+dependency chain. `Slide_State_In` observes state 44 and active-hand animation
+continuation. `PM_Weapon_CheckForSlide` includes the entire original checker and
+its callees, including state-8 blocking and every other exclusion, water,
+command-weapon, movement-flag and exact timestamp condition. Its fixture uses
+the actual `pmove_t` and production constructors; unexecuted collision/diagnostic
+vtable dependencies terminate rather than supply results. All other PS bytes,
+the complete movement fixture, assets and table are guarded. Historical inputs
+are retained in `regressions/dtp-*.json`, `slide-in.json` and `slide-check.json`.
+
+Known integration gap: the legacy central `PM_Weapon` switch still misroutes
+restored raw states, including 19 to idle instead of melee end, 29 to idle
+instead of a return, 36 to a return instead of a deployment event, and 41 to
+the old DTP-out path instead of DTP loop. Qualified individual routines and the
+slide checker do not repair that dispatcher or establish gameplay/merge readiness.
+Its original jump-table evidence is preserved under ignored `build-re/`.
+
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

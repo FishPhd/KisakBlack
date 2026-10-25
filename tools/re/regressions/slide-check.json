@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Complete original slide checker, slide entry and getter",
+  "native_capture_id": "1bfc565543156224b069078e3dbc7bf2a7d48f7413bbe9e39f253c077bfb3166",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        2047,
+        0,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        2663959672,
+        2577274012,
+        3953908883,
+        2327672097,
+        1,
+        2920879481
+      ],
+      "expected_u32": [
+        44,
+        100,
+        0,
+        1075
+      ],
+      "observed_cpp_u32": [
+        43,
+        100,
+        0,
+        1075
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        2047,
+        8,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        1201283166,
+        3664047745,
+        188585652,
+        4022241820,
+        1,
+        3953932628
+      ],
+      "expected_u32": [
+        8,
+        1201283166,
+        3664047745,
+        0
+      ],
+      "observed_cpp_u32": [
+        43,
+        100,
+        0,
+        1075
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        1023,
+        17,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        841002812,
+        621967765,
+        2306383329,
+        4079892333,
+        1,
+        247996840
+      ],
+      "expected_u32": [
+        44,
+        100,
+        0,
+        1075
+      ],
+      "observed_cpp_u32": [
+        17,
+        841002812,
+        621967765,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        1023,
+        26,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        1899914286,
+        3084451412,
+        1900371584,
+        860518763,
+        1,
+        1552157020
+      ],
+      "expected_u32": [
+        26,
+        1899914286,
+        3084451412,
+        0
+      ],
+      "observed_cpp_u32": [
+        43,
+        100,
+        0,
+        1075
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        1,
+        31,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        2070284115,
+        78723847,
+        4272223716,
+        2868825812,
+        1,
+        2677913842
+      ],
+      "expected_u32": [
+        44,
+        100,
+        0,
+        1075
+      ],
+      "observed_cpp_u32": [
+        31,
+        2070284115,
+        78723847,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        1023,
+        32,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        1445056106,
+        1149497014,
+        891409387,
+        647532044,
+        1,
+        1140754520
+      ],
+      "expected_u32": [
+        32,
+        1445056106,
+        1149497014,
+        0
+      ],
+      "observed_cpp_u32": [
+        43,
+        100,
+        0,
+        1075
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        1023,
+        40,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        1304603665,
+        1088230830,
+        2731945199,
+        1631835459,
+        1,
+        1677317173
+      ],
+      "expected_u32": [
+        44,
+        100,
+        0,
+        1075
+      ],
+      "observed_cpp_u32": [
+        40,
+        1304603665,
+        1088230830,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bedb0",
+      "input_u32": [
+        2047,
+        44,
+        2,
+        8388608,
+        123,
+        123,
+        0,
+        0,
+        0,
+        100,
+        1703350270,
+        1943713310,
+        1972673667,
+        3264935274,
+        1,
+        2644687421
+      ],
+      "expected_u32": [
+        44,
+        1703350270,
+        1943713310,
+        0
+      ],
+      "observed_cpp_u32": [
+        43,
+        100,
+        0,
+        1075
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix slide state/gate mismatch. Original native outputs independently replayed in Unicorn. Includes missing state8 and shifted exclusion boundaries."
+    }
+  ]
+}

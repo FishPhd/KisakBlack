@@ -36,6 +36,56 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_slide_checker_domain_and_readonly_command(self):
+        from retool.slide_check_replay import validate
+        cases = corpus("PM_Weapon_CheckForSlide")
+        for case in cases: validate(case)
+        self.assertTrue(any(case[1] == 8 for case in cases))
+        for index, value in ((0, 0), (0, 2048), (14, 0x20000)):
+            case = list(cases[0]); case[index] = value
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\xc7\x41\x04\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "PM_Weapon_CheckForSlide"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(cases[0])
+
+    def test_dtp_transition_views_domain_and_readonly_left_timer(self):
+        from retool.dtp_transition_replay import validate
+        for name in ("Dtp_State_In", "Dtp_State_Loop", "Dtp_State_Out"):
+            cases = corpus(name)
+            for first, second in zip(cases[::2], cases[1::2]):
+                validate(first); validate(second)
+                self.assertEqual(first[:4] + first[5:], second[:4] + second[5:])
+                self.assertEqual(first[4] ^ second[4], 8)
+            for index, value in ((0, 0), (0, 2048), (4, 16), (7, 16)):
+                case = list(cases[0]); case[index] = value
+                with self.assertRaises(ValueError): validate(case)
+            code = b"\xc7\x46\x44\x00\x00\x00\x00\xc3"
+            f = program(code); f["name"] = name
+            f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+            pe = TinyPE(code); original_get = pe.get_data
+            pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+            with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+                Emulator(f, pe).execute(cases[0])
+
+    def test_slide_transition_domain_and_readonly_left_animation(self):
+        from retool.slide_transition_replay import validate
+        cases = corpus("Slide_State_In")
+        for case in cases: validate(case)
+        for index, value in ((0, 0), (0, 2048), (4, 2), (15, 1)):
+            case = list(cases[0]); case[index] = value
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\xc7\x86\x5c\x05\x00\x00\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "Slide_State_In"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(cases[0])
+
     def test_timed_transitions_domain_and_readonly_weapon_flags(self):
         from retool.timed_weapon_replay import SPECS, validate
         for name, (_, duration) in SPECS.items():

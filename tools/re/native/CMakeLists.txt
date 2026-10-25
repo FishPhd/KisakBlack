@@ -5,6 +5,8 @@ set(KISAK_RE_PACK_SOURCE "${REPO}/src/universal/com_pack.cpp" CACHE FILEPATH "Pr
 add_executable(re_runner runner.cpp link_guards.cpp pm_adapter.cpp fx_adapter.cpp math_adapter.cpp weapon_adapter.cpp rechamber_adapter.cpp rechamber_check_adapter.cpp event_adapter.cpp offhand_adapter.cpp game_debug_adapter.cpp offhand_hold_adapter.cpp melee_end_adapter.cpp
     offhand_init_adapter.cpp lowready_adapter.cpp sprint_slide_adapter.cpp weapon_pose_adapter.cpp
     melee_fire_adapter.cpp sprint_loop_adapter.cpp timed_weapon_adapter.cpp
+    dtp_transition_adapter.cpp slide_transition_adapter.cpp
+    slide_check_adapter.cpp
     "${KISAK_RE_PACK_SOURCE}" "${CMAKE_CURRENT_BINARY_DIR}/selected.cpp")
 target_include_directories(re_runner PRIVATE "${REPO}" "${REPO}/src" "${REPO}/src/libs" "${REPO}/src/universal")
 target_compile_features(re_runner PRIVATE cxx_std_20)

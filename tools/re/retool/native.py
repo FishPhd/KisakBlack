@@ -18,7 +18,9 @@ KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4Un
          "BG_CalculateWeaponMovement_Base_Internal_WeaponState": 21,
          "PM_Weapon_MeleeFire": 22, "Sprint_State_Loop": 23,
          "ContinuousFire_State_In": 24, "ContinuousFire_State_Loop": 25,
-         "ContinuousFire_State_Out": 26, "Deploy_State_Deploy": 27, "Deploy_State_Breakdown": 28}
+         "ContinuousFire_State_Out": 26, "Deploy_State_Deploy": 27, "Deploy_State_Breakdown": 28,
+         "Dtp_State_In": 29, "Dtp_State_Loop": 30, "Dtp_State_Out": 31, "Slide_State_In": 32,
+         "PM_Weapon_CheckForSlide": 33}
 
 
 def relocations(f, pe):
@@ -102,6 +104,15 @@ def build(wasm=False, mutation=False):
 
 
 def execute(f, cases, original=False, binary=None, wasm=False, mutation=False, benchmark=False):
+    if f["name"] == "PM_Weapon_CheckForSlide":
+        from .slide_check_replay import validate
+        for case in cases: validate(case)
+    if f["name"] in ("Dtp_State_In", "Dtp_State_Loop", "Dtp_State_Out"):
+        from .dtp_transition_replay import validate
+        for case in cases: validate(case)
+    if f["name"] == "Slide_State_In":
+        from .slide_transition_replay import validate
+        for case in cases: validate(case)
     if f["name"] in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
                      "Deploy_State_Deploy", "Deploy_State_Breakdown"):
         from .timed_weapon_replay import validate

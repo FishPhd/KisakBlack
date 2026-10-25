@@ -10,6 +10,15 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name == "PM_Weapon_CheckForSlide":
+        from .slide_check_replay import corpus as slide_check_corpus
+        return slide_check_corpus(rng, random_count)
+    if name in ("Dtp_State_In", "Dtp_State_Loop", "Dtp_State_Out"):
+        from .dtp_transition_replay import corpus as dtp_corpus
+        return dtp_corpus(rng, random_count, name)
+    if name == "Slide_State_In":
+        from .slide_transition_replay import corpus as slide_corpus
+        return slide_corpus(rng, random_count)
     if name in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
                 "Deploy_State_Deploy", "Deploy_State_Breakdown"):
         from .timed_weapon_replay import corpus as timed_corpus
