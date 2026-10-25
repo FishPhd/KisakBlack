@@ -2,6 +2,7 @@
 #include "com_math.h"
 
 #include <cfloat>
+#include <bit>
 #include "q_shared.h"
 
 PackedUnitVec __cdecl Vec3PackUnitVec(const float *unitVec)
