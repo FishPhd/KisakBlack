@@ -966,7 +966,7 @@ void __cdecl Scr_SetClientField(gclient_s *client, int offset)
     {
         __debugbreak();
     }
-    if ( (unsigned int)offset >= 0x29
+    if ( (unsigned int)offset >= ARRAY_COUNT(fields) - 1
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_client_fields.cpp",
                     910,
@@ -1006,7 +1006,7 @@ void __cdecl Scr_GetClientField(gclient_s *client, int offset)
     {
         __debugbreak();
     }
-    if ( (unsigned int)offset >= 0x29
+    if ( (unsigned int)offset >= ARRAY_COUNT(fields) - 1
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\game\\g_client_fields.cpp",
                     941,
