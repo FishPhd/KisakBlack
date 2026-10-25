@@ -4563,8 +4563,8 @@ void __cdecl Dtp_State_Out(playerState_s *ps)
     const WeaponDef *WeaponDef; // eax
 
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_DTP_OUT;
-    ps->weaponstateLeft = 42;
+    ps->weaponstate = static_cast<weaponstate_t>(43); // Original MP DTP-out state.
+    ps->weaponstateLeft = 43;
     ps->weaponTime = WeaponDef->dtpOutTime;
     ps->weaponDelay = 0;
     if ( PM_WeaponClipEmpty(ps) )
@@ -4582,8 +4582,8 @@ void __cdecl Dtp_State_Out(playerState_s *ps)
 void __cdecl Dtp_State_Loop(playerState_s *ps)
 {
     BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_DTP_LOOP;
-    ps->weaponstateLeft = 41;
+    ps->weaponstate = static_cast<weaponstate_t>(42); // Original MP DTP-loop state.
+    ps->weaponstateLeft = 42;
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     if ( PM_WeaponClipEmpty(ps) )
@@ -4806,8 +4806,8 @@ void __cdecl Dtp_State_In(playerState_s *ps)
     const WeaponDef *WeaponDef; // eax
 
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_DTP_IN;
-    ps->weaponstateLeft = 40;
+    ps->weaponstate = static_cast<weaponstate_t>(41); // Original MP DTP-in state.
+    ps->weaponstateLeft = 41;
     ps->weaponTime = WeaponDef->dtpInTime;
     ps->weaponDelay = 0;
     if ( PM_WeaponClipEmpty(ps) )
@@ -4835,21 +4835,19 @@ void __cdecl PM_Weapon_CheckForSlide(pmove_t *pm)
         && pm->cmd.weapon
         && ps->weaponstate != 6
         && ps->weaponstate != 7
-        && ps->weaponstate != 31
-        && ps->weaponstate != 17
+        && ps->weaponstate != 8
+        && ps->weaponstate != 32
         && ps->weaponstate != 18
         && ps->weaponstate != 19
-        && ps->weaponstate != 17
-        && ps->weaponstate != 18
-        && ps->weaponstate != 19
+        && ps->weaponstate != 20
         && ps->weaponstate != 1
         && ps->weaponstate != 2
         && ps->weaponstate != 3
         && ps->weaponstate != 4
         && ps->weaponstate != 5
-        && (ps->weaponstate < 20 || ps->weaponstate > 25)
-        && (ps->weaponstate < 40 || ps->weaponstate > 42)
-        && ps->weaponstate != 43
+        && (ps->weaponstate < 21 || ps->weaponstate > 26)
+        && (ps->weaponstate < 41 || ps->weaponstate > 43)
+        && ps->weaponstate != 44
         && (ps->pm_flags & 0x800000) != 0
         && ps->slideTime == pm->cmd.serverTime )
     {
@@ -4862,7 +4860,7 @@ void __cdecl Slide_State_In(playerState_s *ps)
     const WeaponDef *WeaponDef; // eax
 
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_SLIDE_IN;
+    ps->weaponstate = static_cast<weaponstate_t>(44); // Original MP slide-entry state.
     ps->weaponTime = WeaponDef->slideInTime;
     ps->weaponDelay = 0;
     PM_ContinueWeaponAnim(ps, 51, 0);
