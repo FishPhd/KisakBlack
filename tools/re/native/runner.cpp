@@ -41,6 +41,9 @@ extern void lowready_call(bool original, void* entry, const uint32_t* input, uin
 extern void dtp_call(bool original, void* entry, const uint32_t* input, uint32_t* output);
 extern void sprint_lerp_call(bool original, void* entry, const uint32_t* input, uint32_t* output);
 extern void weapon_pose_call(bool original, void* entry, const uint32_t* input, uint32_t* output);
+extern void melee_fire_call(bool original, void* entry, const uint32_t* input, uint32_t* output);
+extern void sprint_loop_call(bool original, void* entry, const uint32_t* input, uint32_t* output);
+extern void timed_weapon_call(int kind, bool original, void* entry, const uint32_t* input, uint32_t* output);
 
 static float as_float(uint32_t bits) { float f; std::memcpy(&f, &bits, 4); return f; }
 
@@ -212,7 +215,10 @@ static Response dispatch(int kind, bool original, void* entry, void* global, con
     _controlfp_s(&ignored, _CW_DEFAULT, _MCW_EM | _MCW_RC | _MCW_PC);
     _mm_setcsr(0x1f80);
     __try {
-        if (kind == 21) weapon_pose_call(original, entry, request.words, response.words);
+        if (kind >= 24 && kind <= 28) timed_weapon_call(kind, original, entry, request.words, response.words);
+        else if (kind == 23) sprint_loop_call(original, entry, request.words, response.words);
+        else if (kind == 22) melee_fire_call(original, entry, request.words, response.words);
+        else if (kind == 21) weapon_pose_call(original, entry, request.words, response.words);
         else if (kind == 20) sprint_lerp_call(original, entry, request.words, response.words);
         else if (kind == 19) dtp_call(original, entry, request.words, response.words);
         else if (kind == 18) lowready_call(original, entry, request.words, response.words);
@@ -232,7 +238,10 @@ static Response dispatch(int kind, bool original, void* entry, void* global, con
         else cpp_call(kind, request, response);
     } __except(EXCEPTION_EXECUTE_HANDLER) { response.status = GetExceptionCode(); }
 #else
-    if (kind == 21) weapon_pose_call(false, nullptr, request.words, response.words);
+    if (kind >= 24 && kind <= 28) timed_weapon_call(kind, false, nullptr, request.words, response.words);
+    else if (kind == 23) sprint_loop_call(false, nullptr, request.words, response.words);
+    else if (kind == 22) melee_fire_call(false, nullptr, request.words, response.words);
+    else if (kind == 21) weapon_pose_call(false, nullptr, request.words, response.words);
     else if (kind == 20) sprint_lerp_call(false, nullptr, request.words, response.words);
     else if (kind == 19) dtp_call(false, nullptr, request.words, response.words);
     else if (kind == 18) lowready_call(false, nullptr, request.words, response.words);
@@ -256,7 +265,7 @@ static Response dispatch(int kind, bool original, void* entry, void* global, con
 int main(int argc, char** argv) {
     if (argc < 3) { std::fprintf(stderr, "runner cpp|original kind [binary rva end_rva]\n"); return 2; }
     const int kind = std::atoi(argv[2]);
-    if (kind < 0 || kind > 21) return 2;
+    if (kind < 0 || kind > 28) return 2;
     const bool original = std::strcmp(argv[1], "original") == 0;
     if (!original && std::strcmp(argv[1], "cpp")) return 2;
     void* entry = nullptr;

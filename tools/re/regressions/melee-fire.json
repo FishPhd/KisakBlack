@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Complete original combat transition and declared dependencies; explicit fixture domain in catalog",
+  "native_capture_id": "9ceb87f500096160c66f21fee16ee398f567f925256b991ae001ff6ce55a111d",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3503093777,
+        0,
+        2190322372,
+        2663959672,
+        2577274012,
+        3953908883,
+        2327672097,
+        2920879481,
+        3578142137,
+        148043803,
+        0
+      ],
+      "expected_u32": [
+        19,
+        0,
+        1,
+        36
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        1,
+        36
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3503093777,
+        0,
+        2190322372,
+        2663959672,
+        2577274012,
+        3953908883,
+        2327672097,
+        2920879481,
+        3578142137,
+        148043803,
+        1
+      ],
+      "expected_u32": [
+        19,
+        0,
+        1,
+        0
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        1,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        4134419898,
+        1,
+        2996952811,
+        2268585681,
+        2200429660,
+        1423586452,
+        872787356,
+        1107577230,
+        834018393,
+        4217230491,
+        0
+      ],
+      "expected_u32": [
+        19,
+        0,
+        2,
+        36
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        2,
+        36
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        4134419898,
+        1,
+        2996952811,
+        2268585681,
+        2200429660,
+        1423586452,
+        872787356,
+        1107577230,
+        834018393,
+        4217230491,
+        1
+      ],
+      "expected_u32": [
+        19,
+        0,
+        2,
+        0
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        2,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1991129022,
+        2,
+        1915601632,
+        831965135,
+        2014352217,
+        1708077601,
+        4040187547,
+        1099763326,
+        2846426482,
+        4087556226,
+        0
+      ],
+      "expected_u32": [
+        19,
+        0,
+        3,
+        36
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        3,
+        36
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1991129022,
+        2,
+        1915601632,
+        831965135,
+        2014352217,
+        1708077601,
+        4040187547,
+        1099763326,
+        2846426482,
+        4087556226,
+        1
+      ],
+      "expected_u32": [
+        19,
+        0,
+        3,
+        0
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        3,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        626379280,
+        3,
+        621867854,
+        3905330895,
+        1959526506,
+        1305236967,
+        2724741353,
+        1517426895,
+        1809154681,
+        11596296,
+        0
+      ],
+      "expected_u32": [
+        19,
+        0,
+        4,
+        36
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        4,
+        36
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "input_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        626379280,
+        3,
+        621867854,
+        3905330895,
+        1959526506,
+        1305236967,
+        2724741353,
+        1517426895,
+        1809154681,
+        11596296,
+        1
+      ],
+      "expected_u32": [
+        19,
+        0,
+        4,
+        0
+      ],
+      "observed_cpp_u32": [
+        18,
+        0,
+        4,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix mismatch against complete original native instructions, independently replayed in Unicorn."
+    }
+  ]
+}

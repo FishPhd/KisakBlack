@@ -274,6 +274,22 @@ read in this domain. This does not qualify equipped-mantle timing, global state
 producers or live gameplay. Historical sprint and caller failures remain in
 `regressions/sprint-lerp.json` and `regressions/weapon-pose.json`.
 
+`PM_Weapon_MeleeFire` compares the complete original melee-definition selection,
+predictable event and prone-override chain. Paired output views observe state 19,
+movement flags, sequence, selected event and parameter; every other state byte
+and all asset/table fixtures remain unchanged. `Sprint_State_Loop` compares the
+actual clip-empty/clip-lookup chain, state 29, zero timers and both full-width
+animation words, including movement types that suppress animation writes.
+
+The continuous-fire entry/loop/exit and deploy/breakdown units each have their
+own complete original mapping and capture. They share fixture plumbing, while
+expected outputs still come only from original native execution. Their original
+states are 31/32/33 and 36/38. The continuous loop has no original asset dependency;
+the other transitions use the original variant/definition table and duration
+fields. Their state/time/delay/animation outputs and preservation guards do not
+qualify the remaining state checkers, central dispatcher or live combat. The
+historical failures are retained in the corresponding `regressions/` files.
+
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

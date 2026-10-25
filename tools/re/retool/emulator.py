@@ -67,6 +67,16 @@ class Emulator:
     def _memory(self, machine, access, address, size, value, _):
         write = access == self.uc.UC_MEM_WRITE
         allowed = [(SP - 0x1000, SP + 0x100)]
+        if self.f["name"] in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
+                              "Deploy_State_Deploy", "Deploy_State_Breakdown"):
+            from .timed_weapon_replay import memory_ranges
+            allowed += memory_ranges(write, self.f["name"])
+        if self.f["name"] == "PM_Weapon_MeleeFire":
+            from .melee_fire_replay import memory_ranges
+            allowed += memory_ranges(write)
+        if self.f["name"] == "Sprint_State_Loop":
+            from .sprint_loop_replay import memory_ranges
+            allowed += memory_ranges(write)
         if self.f["name"] == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
             from .weapon_pose_replay import memory_ranges
             allowed += memory_ranges(write)
@@ -157,7 +167,17 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
+        if name in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
+                    "Deploy_State_Deploy", "Deploy_State_Breakdown"):
+            from .timed_weapon_replay import setup
+            setup(self, case)
+        elif name == "PM_Weapon_MeleeFire":
+            from .melee_fire_replay import setup
+            setup(self, case)
+        elif name == "Sprint_State_Loop":
+            from .sprint_loop_replay import setup
+            setup(self, case)
+        elif name == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
             from .weapon_pose_replay import setup
             setup(self, case)
         elif name == "BG_CalculateWeaponMovement_GetSprintLerp":
@@ -337,6 +357,16 @@ class Emulator:
             return x87_double_words(*m.reg_read(getattr(x, "UC_X86_REG_FP" + str(top))))
         if name == "BG_GetQuickScopeSpread":
             return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
+        if name in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
+                    "Deploy_State_Deploy", "Deploy_State_Breakdown"):
+            from .timed_weapon_replay import outputs
+            return outputs(self, case)
+        if name == "PM_Weapon_MeleeFire":
+            from .melee_fire_replay import outputs
+            return outputs(self, case)
+        if name == "Sprint_State_Loop":
+            from .sprint_loop_replay import outputs
+            return outputs(self, case)
         if name == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
             from .weapon_pose_replay import outputs
             return outputs(self, case)

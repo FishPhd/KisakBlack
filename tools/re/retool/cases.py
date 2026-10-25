@@ -10,6 +10,16 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
+                "Deploy_State_Deploy", "Deploy_State_Breakdown"):
+        from .timed_weapon_replay import corpus as timed_corpus
+        return timed_corpus(rng, random_count, name)
+    if name == "PM_Weapon_MeleeFire":
+        from .melee_fire_replay import corpus as melee_fire_corpus
+        return melee_fire_corpus(rng, random_count)
+    if name == "Sprint_State_Loop":
+        from .sprint_loop_replay import corpus as sprint_loop_corpus
+        return sprint_loop_corpus(rng, random_count)
     if name == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
         from .weapon_pose_replay import corpus as pose_corpus
         return pose_corpus(rng, random_count)

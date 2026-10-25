@@ -1349,6 +1349,425 @@
         "BG_GetViewmodelWeaponIndex"
       ],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bdfd0",
+      "name": "PM_Weapon_MeleeFire",
+      "entry_rva": 3923920,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3923920,
+          "size": 87,
+          "sha256": "7b9fa90e7bd6f1accbc08d3ae3a820b84d7082d0dfbec626dbe284340f377fe3"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 283680,
+          "size": 21,
+          "sha256": "f44fd62bb46c85346e97a8024ad05e1eab15374d9bafccf8525ce43b742be893"
+        },
+        {
+          "rva": 30368,
+          "size": 65,
+          "sha256": "f293212e5a485a7e1c19c291e28cafc7c72d60b9af0a144864c252d35ece4293"
+        },
+        {
+          "rva": 76096,
+          "size": 20,
+          "sha256": "f7ead4a9cd8f8c69ed13e9121ff0e88425f129df0ba4b0649bc10ef7af78e6ea"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_MeleeFire"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_GetMeleeWeapDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_IsUseAsMeleeWeapon"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_pmove.cpp",
+          "symbol": "PM_SetProneMovementOverride"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindMalleableVar_0"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Sys_UnlockRead"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindMalleableVar"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindVar"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_GetBool"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_StringToBool"
+        },
+        {
+          "path": "src/server_mp/sv_bot_mp.cpp",
+          "symbol": "Com_HashString"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "eventnames"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_AddEvent"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_AddPredictableEventToPlayerstate"
+        },
+        {
+          "path": "src/bgame/bg_pmove.cpp",
+          "symbol": "PM_AddEvent"
+        }
+      ],
+      "abi": "Custom playerState pointer ESI; void return. All declared original callees cdecl.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original melee-fire transition and original getter/event/prone dependencies. Valid current/melee indices0..2047, bool bayonet/use-as-melee, arbitrary flags/raw state/timers, event sequence0..255. Paired output views observe state, prone flags, sequence, selected event and parameter; all other PS/assets/table bytes guarded. Real production event diagnostics run with private empty dvar table; logging/contended locks excluded. No producer/dispatcher/live combat qualification.",
+      "evidence": "Original7bdfd0 selects melee definition through original bayonet/use-as-melee getter, enters state19, adds event36 with zero parameter and sets prone flag200 only when pm_flags bit1 set.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be490",
+      "name": "Sprint_State_Loop",
+      "entry_rva": 3925136,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3925136,
+          "size": 148,
+          "sha256": "a574fa272b0464080ee31a87ff4bc4deaa22e14a45a845eb6be42caa3c2e4109"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 554080,
+          "size": 70,
+          "sha256": "3205402cadb66989dc20566d85ba0dd2bbe240762e31449bf13842e1bc367603"
+        },
+        {
+          "rva": 2248432,
+          "size": 58,
+          "sha256": "a5b5d24f4d8becf26045a0c12f4311ece5f30b2a191ee251d49b2a019d3a4b29"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Sprint_State_Loop"
+        },
+        {
+          "path": "src/bgame/bg_weapons_ammo.cpp",
+          "symbol": "PM_WeaponClipEmpty"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClip"
+        },
+        {
+          "path": "src/bgame/bg_mantle.cpp",
+          "symbol": "BG_GetAmmoInClipForWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponVariantDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom playerState pointer in ESI; voidreturn. Full original clip-empty/ammo/getter dependency chain cdecl, as independently qualified OffHandEnd.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original sprint-loop transition and clip-empty/variant/clip lookup dependencies. Nonzero current weapon1..2047, raw pm_type/animations/state/flags/counts/timers, bool hand/dual/unlimited, distinct optional clip slots0..15. Observes raw state and both full32bit animations; zero weaponTime and delay required. Every other PS byte, assets and table guarded. No zero-weapon diagnostic, full sprint checker, global enum or live movement qualification.",
+      "evidence": "Original central PM_Weapon rawstate28 dispatch at5cf553 moves EBP toESI and calls7be490; 148byte function writes state29, clears time/delay then callsclip-empty487460. Signed pm_type<9 toggles both animations31 ifempty else28. No other state writes.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be610",
+      "name": "ContinuousFire_State_In",
+      "entry_rva": 3925520,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3925520,
+          "size": 72,
+          "sha256": "75ab00908fe48e924a4bf9c2339141c3fe516d379fb052c18a6f91cb0db825bc"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "ContinuousFire_State_In"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Complete original cdecl definition getter and private2048entry variant table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original transition over nonzero weapon1..2047, raw signed movement/state/timer/duration words and full32bit animations. Observes state/time/delay/animation; every other player-state byte guarded. Private definition/variant/table fixtures immutable; unused asset fixtures guarded on no-asset loop. No global enum, caller/checker, dispatch or live gameplay qualification.",
+      "evidence": "Original enters rawstate31, sets weaponTime from WeaponDef+0x430, clears weaponDelay, and for signed pm_type<9 stores(~weapAnim&0x400)|36. Instruction bytes, custom ABI and original callsites checked independently.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be660",
+      "name": "ContinuousFire_State_Loop",
+      "entry_rva": 3925600,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3925600,
+          "size": 48,
+          "sha256": "cf84cae8d7444254d15abb76126bacabf9bfc1e23f3ed2ef9cfcafa5872a7223"
+        }
+      ],
+      "constants": [],
+      "globals": [],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "ContinuousFire_State_Loop"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        }
+      ],
+      "abi": "Custom player-state pointer in EAX; void return. No original callees/assets.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original transition over nonzero weapon1..2047, raw signed movement/state/timer/duration words and full32bit animations. Observes state/time/delay/animation; every other player-state byte guarded. Private definition/variant/table fixtures immutable; unused asset fixtures guarded on no-asset loop. No global enum, caller/checker, dispatch or live gameplay qualification.",
+      "evidence": "Original enters rawstate32, sets weaponTime0, clears weaponDelay, and for signed pm_type<9 stores(~weapAnim&0x400)|37. Instruction bytes, custom ABI and original callsites checked independently.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be690",
+      "name": "ContinuousFire_State_Out",
+      "entry_rva": 3925648,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3925648,
+          "size": 72,
+          "sha256": "2176db9992cc738c5b2f9375285241e6fe6c7fcea9d56fd7eb685e5d10b147d9"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "ContinuousFire_State_Out"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Complete original cdecl definition getter and private2048entry variant table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original transition over nonzero weapon1..2047, raw signed movement/state/timer/duration words and full32bit animations. Observes state/time/delay/animation; every other player-state byte guarded. Private definition/variant/table fixtures immutable; unused asset fixtures guarded on no-asset loop. No global enum, caller/checker, dispatch or live gameplay qualification.",
+      "evidence": "Original enters rawstate33, sets weaponTime from WeaponDef+0x438, clears weaponDelay, and for signed pm_type<9 stores(~weapAnim&0x400)|38. Instruction bytes, custom ABI and original callsites checked independently.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3beb80",
+      "name": "Deploy_State_Deploy",
+      "entry_rva": 3926912,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3926912,
+          "size": 72,
+          "sha256": "1333e29443d8bebee43cfceaa09217974675a385048e82233d2451b7be69eee9"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Deploy_State_Deploy"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Complete original cdecl definition getter and private2048entry variant table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original transition over nonzero weapon1..2047, raw signed movement/state/timer/duration words and full32bit animations. Observes state/time/delay/animation; every other player-state byte guarded. Private definition/variant/table fixtures immutable; unused asset fixtures guarded on no-asset loop. No global enum, caller/checker, dispatch or live gameplay qualification.",
+      "evidence": "Original enters rawstate36, sets weaponTime from WeaponDef+0x44c, clears weaponDelay, and for signed pm_type<9 stores(~weapAnim&0x400)|43. Instruction bytes, custom ABI and original callsites checked independently.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3bebd0",
+      "name": "Deploy_State_Breakdown",
+      "entry_rva": 3926992,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3926992,
+          "size": 72,
+          "sha256": "ef52a6f1c83958ba2e7e5f5f9d440a1ffb42b0534b7ea897f3dd87e917678b38"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "Deploy_State_Breakdown"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Complete original cdecl definition getter and private2048entry variant table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original transition over nonzero weapon1..2047, raw signed movement/state/timer/duration words and full32bit animations. Observes state/time/delay/animation; every other player-state byte guarded. Private definition/variant/table fixtures immutable; unused asset fixtures guarded on no-asset loop. No global enum, caller/checker, dispatch or live gameplay qualification.",
+      "evidence": "Original enters rawstate38, sets weaponTime from WeaponDef+0x450, clears weaponDelay, and for signed pm_type<9 stores(~weapAnim&0x400)|44. Instruction bytes, custom ABI and original callsites checked independently.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }

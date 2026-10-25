@@ -15,7 +15,10 @@ KINDS = {"FloatPack9S": 0, "FloatPack10S": 1, "Vec2UnpackTexCoords": 2, "Byte4Un
          "PM_Weapon_OffHandHold": 16, "PM_Weapon_MeleeEnd": 15, "PM_Weapon_OffHandInit": 17,
          "BG_CalculateWeaponMovement_GetLowReadyLerp": 18, "BG_CalculateWeaponMovement_GetDTPLerp": 19,
          "BG_CalculateWeaponMovement_GetSprintLerp": 20,
-         "BG_CalculateWeaponMovement_Base_Internal_WeaponState": 21}
+         "BG_CalculateWeaponMovement_Base_Internal_WeaponState": 21,
+         "PM_Weapon_MeleeFire": 22, "Sprint_State_Loop": 23,
+         "ContinuousFire_State_In": 24, "ContinuousFire_State_Loop": 25,
+         "ContinuousFire_State_Out": 26, "Deploy_State_Deploy": 27, "Deploy_State_Breakdown": 28}
 
 
 def relocations(f, pe):
@@ -99,6 +102,16 @@ def build(wasm=False, mutation=False):
 
 
 def execute(f, cases, original=False, binary=None, wasm=False, mutation=False, benchmark=False):
+    if f["name"] in ("ContinuousFire_State_In", "ContinuousFire_State_Loop", "ContinuousFire_State_Out",
+                     "Deploy_State_Deploy", "Deploy_State_Breakdown"):
+        from .timed_weapon_replay import validate
+        for case in cases: validate(case)
+    if f["name"] == "PM_Weapon_MeleeFire":
+        from .melee_fire_replay import validate
+        for case in cases: validate(case)
+    if f["name"] == "Sprint_State_Loop":
+        from .sprint_loop_replay import validate
+        for case in cases: validate(case)
     if f["name"] == "BG_CalculateWeaponMovement_Base_Internal_WeaponState":
         from .weapon_pose_replay import validate
         for case in cases: validate(case)

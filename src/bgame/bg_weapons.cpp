@@ -3802,7 +3802,7 @@ void __cdecl PM_Weapon_MeleeFire(playerState_s *ps)
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 3738, 0, "%s", "ps") )
         __debugbreak();
     PM_Weapon_GetMeleeWeapDef(ps);
-    ps->weaponstate = WEAPON_MELEE_FIRE;
+    ps->weaponstate = static_cast<weaponstate_t>(19); // Original MP melee-fire state.
     PM_AddEvent(ps, 0x24u);
     PM_SetProneMovementOverride(ps);
 }
@@ -4593,7 +4593,7 @@ void __cdecl Sprint_State_Loop(playerState_s *ps)
 {
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4670, 0, "%s", "ps") )
         __debugbreak();
-    ps->weaponstate = WEAPON_SPRINT_LOOP;
+    ps->weaponstate = static_cast<weaponstate_t>(29); // Original MP sprint-loop state.
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     if ( PM_WeaponClipEmpty(ps) )
@@ -4612,7 +4612,7 @@ void __cdecl ContinuousFire_State_Loop(playerState_s *ps)
 {
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4737, 0, "%s", "ps") )
         __debugbreak();
-    ps->weaponstate = WEAPON_CONT_FIRE_LOOP;
+    ps->weaponstate = static_cast<weaponstate_t>(32); // Original MP continuous-fire loop.
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 37, 0);
@@ -4808,7 +4808,7 @@ void __cdecl ContinuousFire_State_In(playerState_s *ps)
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4724, 0, "%s", "ps") )
         __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_CONT_FIRE_IN;
+    ps->weaponstate = static_cast<weaponstate_t>(31); // Original MP continuous-fire entry.
     ps->weaponTime = WeaponDef->contFireInTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 36, 0);
@@ -4821,7 +4821,7 @@ void __cdecl ContinuousFire_State_Out(playerState_s *ps)
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4750, 0, "%s", "ps") )
         __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_CONT_FIRE_OUT;
+    ps->weaponstate = static_cast<weaponstate_t>(33); // Original MP continuous-fire exit.
     ps->weaponTime = WeaponDef->contFireOutTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 38, 0);
@@ -4978,7 +4978,7 @@ void __cdecl Deploy_State_Deploy(playerState_s *ps)
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4871, 0, "%s", "ps") )
         __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_DEPLOYING;
+    ps->weaponstate = static_cast<weaponstate_t>(36); // Original MP deploying state.
     ps->weaponTime = WeaponDef->deployTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 43, 0);
@@ -4991,7 +4991,7 @@ void __cdecl Deploy_State_Breakdown(playerState_s *ps)
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4886, 0, "%s", "ps") )
         __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = WEAPON_BREAKING_DOWN;
+    ps->weaponstate = static_cast<weaponstate_t>(38); // Original MP breakdown state.
     ps->weaponTime = WeaponDef->breakdownTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 44, 0);

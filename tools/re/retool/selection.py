@@ -46,6 +46,13 @@ def generate(directory):
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_PlayerWeaponNeedsRechambered"),
              (ROOT / "src/bgame/bg_weapons.cpp", "PM_ExitAimDownSight"),
              (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_OffHandInit"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_MeleeFire"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Sprint_State_Loop"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "ContinuousFire_State_In"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "ContinuousFire_State_Loop"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "ContinuousFire_State_Out"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Deploy_State_Deploy"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "Deploy_State_Breakdown"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetLowReadyLerp"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetDTPLerp"),
              (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetSprintLerp"),
@@ -58,6 +65,7 @@ def generate(directory):
     header = '#include <bgame/bg_weapons_def.h>\n#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
     header += '#include <bgame/bg_weapons_view.h>\n#include <cgame/cg_weapons.h>\n'
     header += '#include <bgame/bg_mantle.h>\n#include <bgame/bg_perks.h>\n'
+    header += '#include <bgame/bg_weapons_ammo.h>\n'
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)
