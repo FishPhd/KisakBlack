@@ -172,13 +172,13 @@ void __cdecl BG_CalculateWeaponMovement_Base_Internal_WeaponState(
     ps = ws->ps;
     weapIndex = BG_GetViewmodelWeaponIndex(ws->ps);
     weapDef = BG_GetWeaponDef(weapIndex);
-    if ( ps->weaponstate < 27 || ps->weaponstate > 29 )
+    if ( ps->weaponstate < 28 || ps->weaponstate > 30 )
     {
-        if ( ps->weaponstate < 47 || ps->weaponstate > 49 )
+        if ( ps->weaponstate < 48 || ps->weaponstate > 50 )
         {
-            if ( ps->weaponstate < 40 || ps->weaponstate > 42 )
+            if ( ps->weaponstate < 41 || ps->weaponstate > 43 )
             {
-                if ( ps->weaponstate == 43 )
+                if ( ps->weaponstate == 44 )
                 {
                     lerp = BG_CalculateWeaponMovement_GetSlideLerp(ws, weapDef);
                     weaponStateMaxMovement = weapDef->vSlideOfs;
@@ -235,13 +235,13 @@ double __cdecl BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws,
     sprintInTime = weapDef->sprintInTime;
     sprintOutTime = weapDef->sprintOutTime;
     ps = ws->ps;
-    if ( ws->ps->weaponstate == 29 && sprintOutTime )
+    if ( ws->ps->weaponstate == 30 && sprintOutTime )
     {
         v5 = (float)ps->weaponTime / (float)sprintOutTime;
     }
-    else if ( ps->weaponstate == 27 && sprintInTime )
+    else if ( ps->weaponstate == 28 && sprintInTime )
     {
-        v5 = 1.0 - (float)((float)ps->weaponTime / (float)sprintInTime);
+        v5 = 1.0f - (float)((float)ps->weaponTime / (float)sprintInTime);
     }
     else
     {
@@ -249,7 +249,7 @@ double __cdecl BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws,
     }
     fFrac = v5;
     if ( (ws->ps->perks[1] & 0x4000) != 0
-        && ws->ps->weaponstate == 29
+        && ws->ps->weaponstate == 30
         && perk_sprintRecoveryMultiplier->current.value != 0.0 )
     {
         return (float)(v5 * perk_sprintRecoveryMultiplier->current.value);
@@ -308,8 +308,8 @@ double __cdecl BG_CalculateWeaponMovement_GetSlideLerp(const weaponState_t *ws, 
     int slideInTime; // [esp+0h] [ebp-Ch]
 
     slideInTime = weapDef->slideInTime;
-    if ( ws->ps->weaponstate == 43 && slideInTime )
-        return (float)(1.0 - (float)((float)ws->ps->weaponTime / (float)slideInTime));
+    if ( ws->ps->weaponstate == 44 && slideInTime )
+        return (float)(1.0f - (float)((float)ws->ps->weaponTime / (float)slideInTime));
     else
         return 1.0f;
 }
