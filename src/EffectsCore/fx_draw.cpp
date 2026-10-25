@@ -87,16 +87,16 @@ void __cdecl FX_SetupVisualState(
                 float normTimeUpdateEnd,
                 FxElemPreVisualState *preVisState)
 {
-    float v5; // [esp+8h] [ebp-Ch]
-    float samplePoint; // [esp+Ch] [ebp-8h]
-
-    samplePoint = (float)elemDef->visStateIntervalCount * normTimeUpdateEnd;
-    v5 = floor(samplePoint);
-    preVisState->sampleLerp = samplePoint - (float)(int)v5;
-    preVisState->sampleLerpInv = 1.0 - preVisState->sampleLerp;
+    // BlackOpsMP 0x52d580: the setup does not clamp the time or sample index.
+    // In particular, time == 1 selects sample N with a zero interpolation weight.
+    const float samplePoint = static_cast<float>(elemDef->visStateIntervalCount) * normTimeUpdateEnd;
+    const float sampleFloor = static_cast<float>(floor(samplePoint));
+    const int sampleIndex = static_cast<int>(sampleFloor);
+    preVisState->sampleLerp = samplePoint - static_cast<float>(sampleIndex);
+    preVisState->sampleLerpInv = 1.0f - preVisState->sampleLerp;
     preVisState->elemDef = elemDef;
     preVisState->effect = effect;
-    preVisState->refState = &elemDef->visSamples[(int)v5];
+    preVisState->refState = &elemDef->visSamples[sampleIndex];
     preVisState->randomSeed = randomSeed;
     preVisState->distanceFade = 255;
 }
