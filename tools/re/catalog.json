@@ -944,6 +944,163 @@
       "evidence": "Original0x7c1a60 sets state24 and offhand flag2, clears weaponTime/weaponDelay, assigns grenadeTime from def+0x46c only for owner1023. Getter preserves table->variant+8->definition indirection. Other throwback owners retain incoming grenade time.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "name": "PM_Weapon_OffHandInit",
+      "entry_rva": 3924400,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3924400,
+          "size": 74,
+          "sha256": "5920903a6e681ab525b92b611a4acb89a8dceb40641bdebf606e901c3c2d622d"
+        },
+        {
+          "rva": 283680,
+          "size": 21,
+          "sha256": "f44fd62bb46c85346e97a8024ad05e1eab15374d9bafccf8525ce43b742be893"
+        },
+        {
+          "rva": 30368,
+          "size": 65,
+          "sha256": "f293212e5a485a7e1c19c291e28cafc7c72d60b9af0a144864c252d35ece4293"
+        }
+      ],
+      "constants": [],
+      "globals": [],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_OffHandInit"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_ExitAimDownSight"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindMalleableVar_0"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Sys_UnlockRead"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindMalleableVar"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_FindVar"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_GetBool"
+        },
+        {
+          "path": "src/universal/dvar.cpp",
+          "symbol": "Dvar_StringToBool"
+        },
+        {
+          "path": "src/server_mp/sv_bot_mp.cpp",
+          "symbol": "Com_HashString"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "eventnames"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_AddEvent"
+        },
+        {
+          "path": "src/bgame/bg_misc.cpp",
+          "symbol": "BG_AddPredictableEventToPlayerstate"
+        },
+        {
+          "path": "src/bgame/bg_pmove.cpp",
+          "symbol": "PM_AddEvent"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Original complete PM_AddEvent/predictable writer callees. Production diagnostics use real dvar/hash/lock path with private empty table.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original offhand initialization and event callees, nonzero offhand index, uint16 current weapon, arbitrary signed water/state/timers and raw flags, event sequence0..255. Paired output views observe state/flags/delay/pm_flags and owner/sequence/selected event/parameter; every other player-state byte guarded, all bytes unchanged on water>=3. Missing showevents excludes logging/contended locks. No dispatcher, global enum migration or live combat coverage.",
+      "evidence": "Original7be1b0 signed waterlevel<3 clears flag2, sets state21 and delay0, sets flag20000 only for nonzero uint16 current weapon, owner1023, adds event17 and clears pm_flags10. Original full callees and event sequence wrap checked from instructions.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c4070",
+      "name": "BG_CalculateWeaponMovement_GetLowReadyLerp",
+      "entry_rva": 3948656,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3948656,
+          "size": 95,
+          "sha256": "303c78fd3fe51681e790e0de0fca7c7f33fba3316ce23c77be7df7c21b17eb19"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        }
+      ],
+      "globals": [],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetLowReadyLerp"
+        }
+      ],
+      "abi": "Custom definition pointer in EAX and weaponState_t pointer on stack; float result in XMM0. Production reconstructed cdecl double return is explicitly projected to float, matching original caller consumption; compiled ABI equality excluded.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original helper, raw int32 state/time/in/out duration, zero/signed durations and integer-to-float boundaries. Result float bits compared; player state, weaponState and definition remain immutable. No caller movement integration, global enum migration or compiled ABI equivalence claim.",
+      "evidence": "Original state comparisons 50/48; definition in/out offsets 424/42c. CVTSI2SS signed int conversions, DIVSS and raise SUBSS from exact1.0; complete helper has no callees. Pinned instructions and original caller checked independently.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c40d0",
+      "name": "BG_CalculateWeaponMovement_GetDTPLerp",
+      "entry_rva": 3948752,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3948752,
+          "size": 95,
+          "sha256": "da12090be0b0b56a8aab51add9a694a6358a59f2316d4b3d6061afc128c77c34"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        }
+      ],
+      "globals": [],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons_view.cpp",
+          "symbol": "BG_CalculateWeaponMovement_GetDTPLerp"
+        }
+      ],
+      "abi": "Custom definition pointer in EAX and weaponState_t pointer on stack; float result in XMM0. Production reconstructed cdecl double return is explicitly projected to float, matching original caller consumption; compiled ABI equality excluded.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original helper, raw int32 state/time/in/out duration, zero/signed durations and integer-to-float boundaries. Result float bits compared; player state, weaponState and definition remain immutable. No caller movement integration, global enum migration or compiled ABI equivalence claim.",
+      "evidence": "Original state comparisons 43/41; definition in/out offsets 43c/444. CVTSI2SS signed int conversions, DIVSS and raise SUBSS from exact1.0; complete helper has no callees. Pinned instructions and original caller checked independently.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }

@@ -44,11 +44,16 @@ def generate(directory):
              (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_FinishRechamber"),
              (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_CheckForRechamber"),
              (ROOT / "src/bgame/bg_weapons.cpp", "BG_PlayerWeaponNeedsRechambered"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_ExitAimDownSight"),
+             (ROOT / "src/bgame/bg_weapons.cpp", "PM_Weapon_OffHandInit"),
+             (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetLowReadyLerp"),
+             (ROOT / "src/bgame/bg_weapons_view.cpp", "BG_CalculateWeaponMovement_GetDTPLerp"),
              (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponConst"),
              (ROOT / "src/bgame/bg_misc.cpp", "BG_GetHeldWeaponSlot"),
              (ROOT / "src/bgame/bg_weapons_def.cpp", "BG_GetWeaponDef"),
              (ROOT / "src/game_mp/g_main_mp.cpp", "G_GetClientSize")]
     header = '#include <bgame/bg_weapons_def.h>\n#include <bgame/bg_local.h>\n#include <bgame/bg_pmove.h>\n#include <bgame/bg_misc.h>\n#include <bgame/bg_weapons.h>\n#include <game_mp/g_main_mp.h>\n#include <EffectsCore/fx_draw.h>\n#include <EffectsCore/fx_update_util.h>\n#include <EffectsCore/fx_random.h>\n#include <qcommon/common.h>\n'
+    header += '#include <bgame/bg_weapons_view.h>\n#include <cgame/cg_weapons.h>\n'
     selected = directory / "selected.cpp"
     fields = ROOT / "src/qcommon/msg_mp.cpp"
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)

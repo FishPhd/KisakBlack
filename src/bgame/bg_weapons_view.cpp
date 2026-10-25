@@ -266,13 +266,13 @@ double __cdecl BG_CalculateWeaponMovement_GetLowReadyLerp(const weaponState_t *w
     lowReadyInTime = weapDef->lowReadyInTime;
     lowReadyOutTime = weapDef->lowReadyOutTime;
     ps = ws->ps;
-    if ( ws->ps->weaponstate == 49 && lowReadyOutTime )
+    if ( ws->ps->weaponstate == 50 && lowReadyOutTime )
     {
         return (float)((float)ps->weaponTime / (float)lowReadyOutTime);
     }
-    else if ( ps->weaponstate == 47 && lowReadyInTime )
+    else if ( ps->weaponstate == 48 && lowReadyInTime )
     {
-        return (float)(1.0 - (float)((float)ps->weaponTime / (float)lowReadyInTime));
+        return (float)(1.0f - (float)((float)ps->weaponTime / (float)lowReadyInTime));
     }
     else
     {
@@ -289,13 +289,13 @@ double __cdecl BG_CalculateWeaponMovement_GetDTPLerp(const weaponState_t *ws, co
     dtpInTime = weapDef->dtpInTime;
     dtpOutTime = weapDef->dtpOutTime;
     ps = ws->ps;
-    if ( ws->ps->weaponstate == 42 && dtpOutTime )
+    if ( ws->ps->weaponstate == 43 && dtpOutTime )
     {
         return (float)((float)ps->weaponTime / (float)dtpOutTime);
     }
-    else if ( ps->weaponstate == 40 && dtpInTime )
+    else if ( ps->weaponstate == 41 && dtpInTime )
     {
-        return (float)(1.0 - (float)((float)ps->weaponTime / (float)dtpInTime));
+        return (float)(1.0f - (float)((float)ps->weaponTime / (float)dtpInTime));
     }
     else
     {

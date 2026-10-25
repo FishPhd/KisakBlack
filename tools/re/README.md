@@ -242,6 +242,21 @@ dependencies, with paired four-word result views and all other state bytes guard
 The production-only debug calls execute the real `G_IsServerGameSystem` with a
 private null setting, while unexpected diagnostic output still terminates.
 These routine contracts do not cover the remaining global weapon-state migration.
+`PM_Weapon_OffHandInit` includes the complete original ADS-exit event chain.
+Paired result views cover state/flags/delay/movement flags and owner/event
+sequence/event/parameter; the signed waterlevel guard preserves all state when
+submerged. The original enters raw state 21. Its historical state mismatch is
+retained in `regressions/offhand-init.json`.
+
+`BG_CalculateWeaponMovement_GetLowReadyLerp` and
+`BG_CalculateWeaponMovement_GetDTPLerp` execute their complete original no-call
+helpers over signed state/time/duration boundaries. Every fixture structure is
+read-only. They compare float result bits consumed by the original caller;
+the reconstructed C++ double return is explicitly projected to float, so this
+does not claim compiled ABI equivalence or complete caller integration. Their
+original state pairs are 50/48 and 43/41, respectively. Historical mismatches
+remain in `regressions/lowready-lerp.json` and `regressions/dtp-lerp.json`.
+
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

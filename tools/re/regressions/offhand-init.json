@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Complete original function; float result projection for view interpolation only",
+  "native_capture_id": "9dff5fb8ab78b9fa2f30789665911a3319117e1717be3829371be66479154fcf",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        2047,
+        0,
+        0,
+        0,
+        0,
+        2663959672,
+        2577274012,
+        3953908883,
+        0,
+        2327672097,
+        2920879481,
+        3578142137,
+        148043803,
+        4134419898,
+        2996952811,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        2047,
+        0,
+        0,
+        0,
+        0,
+        2200429660,
+        1423586452,
+        872787356,
+        1,
+        1107577230,
+        834018393,
+        4217230491,
+        1991129022,
+        1915601632,
+        831965135,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        1023,
+        0,
+        0,
+        0,
+        0,
+        1708077601,
+        4040187547,
+        1099763326,
+        2,
+        2846426482,
+        4087556226,
+        626379280,
+        621867854,
+        3905330895,
+        1959526506,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        1023,
+        0,
+        0,
+        0,
+        0,
+        2724741353,
+        1517426895,
+        1809154681,
+        3,
+        11596296,
+        2782052482,
+        568610332,
+        2839707121,
+        4171053146,
+        3711102053,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        1023,
+        0,
+        0,
+        0,
+        0,
+        721909731,
+        3696687784,
+        4058503393,
+        127,
+        1609507394,
+        1801547328,
+        3532813772,
+        3457029989,
+        3287667061,
+        2650497370,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        2047,
+        0,
+        0,
+        0,
+        0,
+        2048130739,
+        3935864296,
+        3752087929,
+        128,
+        1899444093,
+        2684654827,
+        3056900044,
+        2490716840,
+        3184736738,
+        329733231,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        1023,
+        0,
+        0,
+        0,
+        0,
+        2102437544,
+        2889232587,
+        255720259,
+        254,
+        2779495130,
+        3212914225,
+        607480217,
+        1827178111,
+        4039988807,
+        3617778339,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3be1b0",
+      "input_u32": [
+        1023,
+        0,
+        0,
+        0,
+        0,
+        3285310449,
+        2486652157,
+        346429332,
+        255,
+        573117152,
+        2898390317,
+        2296611191,
+        1994686871,
+        3242915304,
+        3478612985,
+        0
+      ],
+      "expected_u32": [
+        21,
+        0,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        20,
+        0,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Pre-fix mismatch against original native instructions, independently replayed in Unicorn."
+    }
+  ]
+}

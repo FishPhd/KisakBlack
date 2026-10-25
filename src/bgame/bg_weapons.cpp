@@ -4262,7 +4262,8 @@ void __cdecl PM_Weapon_OffHandInit(playerState_s *ps)
     }
     if ( ps->waterlevel < 3 )
     {
-        ps->weaponstate = WEAPON_OFFHAND_INIT;
+        // Original 0x7be1c8 enters state 21; the legacy enum is missing a state.
+        ps->weaponstate = static_cast<weaponstate_t>(21);
         ps->weaponDelay = 0;
         ps->weapFlags &= ~2u;
         if ( ps->weapon )

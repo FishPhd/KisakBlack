@@ -10,6 +10,12 @@ EDGE_FLOATS = [0, 0x80000000, 1, 0x80000001, 0x007FFFFF, 0x00800000,
 
 def corpus(name, exhaustive=False, seed=0xB10C, random_count=256):
     rng = random.Random(seed)
+    if name in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):
+        from .lowready_replay import corpus as lerp_corpus
+        return lerp_corpus(rng, random_count, dtp=name.endswith("GetDTPLerp"))
+    if name == "PM_Weapon_OffHandInit":
+        from .offhand_init_replay import corpus as init_corpus
+        return init_corpus(rng, random_count)
     if name == "PM_Weapon_MeleeEnd":
         from .melee_end_replay import corpus as melee_corpus
         return melee_corpus(rng, random_count)

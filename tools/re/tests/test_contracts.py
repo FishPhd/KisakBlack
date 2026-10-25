@@ -36,6 +36,33 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_view_lerp_domain_and_readonly_structure_guard(self):
+        from retool.lowready_replay import validate
+        for name in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):
+            cases = corpus(name)
+            for case in cases: validate(case)
+            with self.assertRaises(ValueError): validate((0, 0, 0, 0, 1))
+            with self.assertRaises(ValueError): validate((0, 0, 0, 0x100000000))
+            code = b"\xc7\x80\x24\x04\x00\x00\x00\x00\x00\x00\xc3"
+            f = program(code); f["name"] = name
+            with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+                Emulator(f, TinyPE(code)).execute(cases[0])
+
+    def test_offhand_init_views_domain_and_readonly_water(self):
+        from retool.offhand_init_replay import validate
+        cases = corpus("PM_Weapon_OffHandInit")
+        for first, second in zip(cases[::2], cases[1::2]):
+            validate(first); validate(second)
+            self.assertEqual(first[:15], second[:15])
+            self.assertEqual((first[15], second[15]), (0, 1))
+        for index, value in ((0, 0), (0, 2048), (1, 65536), (8, 256), (15, 2)):
+            case = list(cases[0]); case[index] = value
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\xc7\x86\x90\x05\x00\x00\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "PM_Weapon_OffHandInit"
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, TinyPE(code)).execute(cases[0])
+
     def test_melee_replay_views_and_readonly_water_guard(self):
         from retool.melee_end_replay import validate
         cases = corpus("PM_Weapon_MeleeEnd")

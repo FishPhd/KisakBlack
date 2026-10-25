@@ -67,6 +67,12 @@ class Emulator:
     def _memory(self, machine, access, address, size, value, _):
         write = access == self.uc.UC_MEM_WRITE
         allowed = [(SP - 0x1000, SP + 0x100)]
+        if self.f["name"] in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):
+            from .lowready_replay import memory_ranges
+            allowed += memory_ranges(write, dtp=self.f["name"].endswith("GetDTPLerp"))
+        if self.f["name"] == "PM_Weapon_OffHandInit":
+            from .offhand_init_replay import memory_ranges
+            allowed += memory_ranges(write)
         if self.f["name"] == "PM_Weapon_MeleeEnd":
             from .melee_end_replay import memory_ranges
             allowed += memory_ranges(write)
@@ -145,7 +151,13 @@ class Emulator:
         m.reg_write(x.UC_X86_REG_MXCSR, 0x1F80)
         m.mem_write(SP, struct.pack("<I", RETURN))
         name = f["name"]
-        if name == "PM_Weapon_MeleeEnd":
+        if name in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):
+            from .lowready_replay import setup
+            setup(self, case)
+        elif name == "PM_Weapon_OffHandInit":
+            from .offhand_init_replay import setup
+            setup(self, case)
+        elif name == "PM_Weapon_MeleeEnd":
             from .melee_end_replay import setup
             setup(self, case)
         elif name == "PM_Weapon_OffHandHold":
@@ -313,6 +325,12 @@ class Emulator:
             return x87_double_words(*m.reg_read(getattr(x, "UC_X86_REG_FP" + str(top))))
         if name == "BG_GetQuickScopeSpread":
             return [m.reg_read(x.UC_X86_REG_XMM0) & 0xffffffff, 0, 0, 0]
+        if name in ("BG_CalculateWeaponMovement_GetLowReadyLerp", "BG_CalculateWeaponMovement_GetDTPLerp"):
+            from .lowready_replay import outputs
+            return outputs(self, case)
+        if name == "PM_Weapon_OffHandInit":
+            from .offhand_init_replay import outputs
+            return outputs(self, case)
         if name == "PM_Weapon_MeleeEnd":
             from .melee_end_replay import outputs
             return outputs(self, case)
