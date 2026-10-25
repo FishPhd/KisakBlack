@@ -235,6 +235,13 @@ whole stated result, and a contract test enforces the pairing. `PM_Weapon_OffHan
 includes real weapon/clip dependencies with a declared nonzero-weapon domain.
 Both units guard unobserved player-state bytes and asset fixtures. They do not
 establish enum/dispatch integration or universal instruction-byte identity.
+
+`PM_Weapon_MeleeEnd` includes complete original idle, prone and weapon-definition
+dependencies, with paired four-word result views and all other state bytes guarded.
+`PM_Weapon_OffHandHold` includes its original getter and throwback-owner gate.
+The production-only debug calls execute the real `G_IsServerGameSystem` with a
+private null setting, while unexpected diagnostic output still terminates.
+These routine contracts do not cover the remaining global weapon-state migration.
 `regressions/difftrack.json` retains the original epsilon and return-precision
 mismatches and can be replayed with `reproduce` on native or `--wasm`.
 

@@ -14,4 +14,3 @@ float Vec3Dot(const float*, const float*) { unsupported(); }
 float Vec4Normalize(float*) { unsupported(); }
 void NET_Sleep(unsigned int) { unsupported(); }
 void Com_Printf(int, const char*, ...) { unsupported(); }
-int G_IsServerGameSystem(int) { unsupported(); }

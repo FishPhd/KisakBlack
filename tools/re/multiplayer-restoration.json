@@ -1739,10 +1739,10 @@
     "unit_coverage": "64 circular-distance boundary cases against the extracted production retention predicate, native x86 and wasm32. This does not establish original-execution equivalence."
   },
   "last_behavioral_observation": {
-    "units": 15,
-    "cases_per_backend": 22006,
-    "native_report": "build-re/reports/run-1792878269119632100.json",
-    "wasm_report": "build-re/reports/run-1792878268904151100.json",
+    "units": 17,
+    "cases_per_backend": 28370,
+    "native_report": "build-re/reports/run-1792894415697305500.json",
+    "wasm_report": "build-re/reports/run-1792894459891328700.json",
     "old_native_captures_preserved": true,
     "all_branch_fixes_qualified": false,
     "scope": "Recorded catalog units only; unverified restorations and intentional platform changes remain outside this percentage."
@@ -1881,5 +1881,126 @@
     },
     "execution_status": "global_dispatch_and_consumer_migration_unqualified",
     "scope": "Inventory identifies review candidates, not proof that each consumer is semantically correct. All branch fixes remain unqualified as a group."
+  },
+  "melee_end_offhand_hold_observation": {
+    "native_report": "build-re/reports/run-1792894415697305500.json",
+    "wasm_report": "build-re/reports/run-1792894459891328700.json",
+    "units": [
+      {
+        "name": "PM_Weapon_MeleeEnd",
+        "observations": 4608,
+        "paired_fixtures": 2304,
+        "before_mismatches": 154,
+        "after_mismatches": 0,
+        "regression": "tools/re/regressions/melee-end.json"
+      },
+      {
+        "name": "PM_Weapon_OffHandHold",
+        "observations": 1756,
+        "before_mismatches": 1756,
+        "after_mismatches": 0,
+        "regression": "tools/re/regressions/offhand-hold.json"
+      }
+    ],
+    "prior_native_archives_preserved": 15,
+    "contract_tests": 60,
+    "skipped_tests": 0,
+    "wrong_code_mutation_detected": true,
+    "native_game_compiled": true,
+    "game_launched": false,
+    "scope": "Catalog fixture domains only. Real diagnostic gate uses a private disabled setting. No global enum/dispatcher or literal machine-byte equivalence claim."
+  },
+  "local_improvement_comparisons": {
+    "baseline_kind": "local_pre_fix_implementations_not_whole_master_replay",
+    "whole_game_accuracy_percent": null,
+    "scope": "Within each recorded before/after pair the original capture is identical. Counts include paired result projections where documented. No aggregate removed-mismatch accuracy is inferred.",
+    "units": [
+      {
+        "name": "PM_Accelerate",
+        "observations": 292,
+        "before_native_mismatches": 10,
+        "before_wasm_mismatches": null,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": null,
+        "commit": "7dd5d1d",
+        "before_native_report": "build-re/reports/run-1792424444772939500.json",
+        "after_native_report": "build-re/reports/run-1792424510941099100.json"
+      },
+      {
+        "name": "DiffTrack",
+        "observations": 474,
+        "before_native_mismatches": 9,
+        "before_wasm_mismatches": 54,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "commit": "76bafca",
+        "before_native_report": "build-re/reports/run-1792792262576594700.json",
+        "after_native_report": "build-re/reports/run-1792792331780623800.json"
+      },
+      {
+        "name": "BG_GetViewmodelWeaponIndex",
+        "observations": 4544,
+        "before_native_mismatches": 96,
+        "before_wasm_mismatches": 96,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "commit": "15e8d6a",
+        "before_native_report": "build-re/reports/run-1792859488731514100.json",
+        "after_native_report": "build-re/reports/run-1792859537381642600.json"
+      },
+      {
+        "name": "PM_Weapon_FinishRechamber",
+        "observations": 3856,
+        "before_native_mismatches": 1010,
+        "before_wasm_mismatches": 1010,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "commit": "2269753",
+        "before_native_report": "build-re/reports/run-1792871426314543500.json",
+        "after_native_report": "build-re/reports/run-1792871530742889400.json"
+      },
+      {
+        "name": "PM_Weapon_CheckForRechamber",
+        "observations": 2944,
+        "before_native_mismatches": 76,
+        "before_wasm_mismatches": 76,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "commit": "6360a64",
+        "before_native_report": "build-re/reports/run-1792878126163672500.json",
+        "after_native_report": "build-re/reports/run-1792878189207675000.json"
+      },
+      {
+        "name": "PM_Weapon_OffHandEnd",
+        "observations": 2816,
+        "before_native_mismatches": 2816,
+        "before_wasm_mismatches": 2816,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "commit": "6360a64",
+        "before_native_report": "build-re/reports/run-1792878130314435600.json",
+        "after_native_report": "build-re/reports/run-1792878193402234000.json"
+      },
+      {
+        "name": "PM_Weapon_MeleeEnd",
+        "observations": 4608,
+        "before_native_mismatches": 154,
+        "before_wasm_mismatches": 154,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "before_native_report": "build-re/reports/run-1792894264156694100.json",
+        "after_native_report": "build-re/reports/run-1792894415697305500.json"
+      },
+      {
+        "name": "PM_Weapon_OffHandHold",
+        "observations": 1756,
+        "before_native_mismatches": 1756,
+        "before_wasm_mismatches": 1756,
+        "after_native_mismatches": 0,
+        "after_wasm_mismatches": 0,
+        "before_native_report": "build-re/reports/run-1792894268526439700.json",
+        "after_native_report": "build-re/reports/run-1792894415697305500.json"
+      }
+    ]
   }
 }

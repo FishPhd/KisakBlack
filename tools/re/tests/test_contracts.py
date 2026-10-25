@@ -36,6 +36,39 @@ def program(code):
 
 
 class Contracts(unittest.TestCase):
+    def test_melee_replay_views_and_readonly_water_guard(self):
+        from retool.melee_end_replay import validate
+        cases = corpus("PM_Weapon_MeleeEnd")
+        for first, second in zip(cases[::2], cases[1::2]):
+            validate(first); validate(second)
+            self.assertEqual(first[:15], second[:15])
+            self.assertEqual((first[15], second[15]), (0, 1))
+        for index, value in ((0, 2048), (2, 2), (10, 65536), (15, 2)):
+            case = list(cases[0]); case[index] = value
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\xc7\x86\x90\x05\x00\x00\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "PM_Weapon_MeleeEnd"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(cases[0])
+
+    def test_offhand_hold_domain_and_owner_guard(self):
+        from retool.offhand_hold_replay import validate
+        cases = corpus("PM_Weapon_OffHandHold")
+        for case in cases: validate(case)
+        for index in (0, 2048):
+            case = list(cases[0]); case[0] = index
+            with self.assertRaises(ValueError): validate(case)
+        code = b"\xc7\x46\x54\x00\x00\x00\x00\xc3"
+        f = program(code); f["name"] = "PM_Weapon_OffHandHold"
+        f["globals"] = [dict(rva=0x880258, size=8192, sha256=hashlib.sha256(bytes(8192)).hexdigest())]
+        pe = TinyPE(code); original_get = pe.get_data
+        pe.get_data = lambda rva, size: original_get(rva, size).ljust(size, b"\0")
+        with self.assertRaisesRegex(core.Blocked, "Undeclared write"):
+            Emulator(f, pe).execute(cases[0])
+
     def test_offhand_replay_rejects_unsupported_diagnostic_and_alias_domain(self):
         from retool.offhand_replay import validate
         cases = corpus("PM_Weapon_OffHandEnd")

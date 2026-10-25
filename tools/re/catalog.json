@@ -814,6 +814,136 @@
       "evidence": "VA0x7be200..0x7be2d8: nonzero weapon obtains original def and clip-empty helper, selects raise animation26 if empty else24, optional left24, copies quickRaiseTime+0x408 and zeroes delay. ANDweapFlags,0xfffdfffd clears both0x2 and0x20000, ANDpm_flags,0xfffffdff, clears throwbackTime+0x58, owner+0x54=1023, state+0x158=26. Full clip path checks unlimitedAmmo+0x358, bRunLeftGun+0x61, dual index+0x594, variant clipIndex+0x4c and scans15 clip entries stride8.",
       "depends_on": [],
       "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1710",
+      "name": "PM_Weapon_MeleeEnd",
+      "entry_rva": 3938064,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3938064,
+          "size": 162,
+          "sha256": "e18fba6d8b8227d8ea5ef8ddcbf86b4590ad1d33f7ac076e2b8bc72171d86d7f"
+        },
+        {
+          "rva": 3924304,
+          "size": 91,
+          "sha256": "3d3ba71608146e7e82d2a0b844ea11196d46beed46e565aedaf58f8b6bfbcd51"
+        },
+        {
+          "rva": 76096,
+          "size": 20,
+          "sha256": "f7ead4a9cd8f8c69ed13e9121ff0e88425f129df0ba4b0649bc10ef7af78e6ea"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_MeleeEnd"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_GetMeleeWeapDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_Idle"
+        },
+        {
+          "path": "src/bgame/bg_pmove.cpp",
+          "symbol": "PM_SetProneMovementOverride"
+        },
+        {
+          "path": "src/game_mp/g_main_mp.cpp",
+          "symbol": "G_IsServerGameSystem"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_IsUseAsMeleeWeapon"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_StartWeaponAnim"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Full declared original callee chain, private real weapon fixture table. Production-only debug gate uses actual G_IsServerGameSystem with null setting fixture.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original melee end, idle, prone and getter over valid weapon indices, bool bayonet/use-as-melee/shared-definition flags, signed movement/water/timer inputs and uint16 animations. Each fixture has paired output views: state/time/pm_flags/packed animations, then weapon flags/left time/delay/state. Zero right delay is guarded; all other state/assets/table bytes unchanged. Real production diagnostic gate runs with private disabled setting. No dispatcher or global enum integration coverage.",
+      "evidence": "Original0x7c1710 compares current and selected melee definition addresses. Equal definitions tail-call idle0x7be150. Otherwise state20, current quickRaiseTime, zero delay; right raise animation24 if water<3 and pm_type<9; original prone helper sets0x200 only when pm_flags bit1. Idle clears offhand/prone bits and both hand timers/states, toggles both idle animations if pm_type<9. No heuristic names establish identity.",
+      "depends_on": [],
+      "exceptions": []
+    },
+    {
+      "id": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "name": "PM_Weapon_OffHandHold",
+      "entry_rva": 3938912,
+      "mapping_status": "verified",
+      "kind": "full_function",
+      "code": [
+        {
+          "rva": 3938912,
+          "size": 56,
+          "sha256": "e8fdde11145cb359c53e3592c7dd926505a48f4111f92133cc369e0fc3110daf"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "PM_Weapon_OffHandHold"
+        },
+        {
+          "path": "src/bgame/bg_weapons.cpp",
+          "symbol": "BG_ThrowingBackGrenade"
+        },
+        {
+          "path": "src/game_mp/g_main_mp.cpp",
+          "symbol": "G_IsServerGameSystem"
+        },
+        {
+          "path": "src/bgame/bg_weapons_def.cpp",
+          "symbol": "BG_GetWeaponDef"
+        }
+      ],
+      "abi": "Custom player-state pointer in ESI; void return. Full declared original callee chain, private real weapon fixture table. Production-only debug gate uses actual G_IsServerGameSystem with null setting fixture.",
+      "output_words": 4,
+      "comparison": "bitwise",
+      "coverage": "Complete original offhand hold and getter over nonzero offhand1..2047, arbitrary flag/owner/timer/fuse words. Outputs state/flags/grenade time/weapon time; zero weapon delay and every other state/assets/table byte guarded. Real production diagnostic gate runs with private disabled setting. No actual original game asset, dispatcher or enum migration coverage.",
+      "evidence": "Original0x7c1a60 sets state24 and offhand flag2, clears weaponTime/weaponDelay, assigns grenadeTime from def+0x46c only for owner1023. Getter preserves table->variant+8->definition indirection. Other throwback owners retain incoming grenade time.",
+      "depends_on": [],
+      "exceptions": []
     }
   ]
 }

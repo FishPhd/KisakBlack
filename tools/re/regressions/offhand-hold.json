@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "origin": "Complete original PM_Weapon_OffHandHold and declared original callees",
+  "native_capture_id": "f13f460fc7f54d578c623895e281772c9e304d0ca6d51d587b721d09ab4c9323",
+  "cases": [
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        3503093777,
+        2190322372,
+        2663959672,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        2,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        2,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1,
+        0,
+        1022,
+        0,
+        0,
+        329733231,
+        1869242306,
+        2102437544,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        2,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        2,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1,
+        0,
+        1023,
+        0,
+        0,
+        52816257,
+        131486235,
+        516366187,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        2,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        2,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1,
+        0,
+        1024,
+        0,
+        0,
+        2435142945,
+        600470060,
+        1587131372,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        2,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        2,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1,
+        0,
+        4294967295,
+        0,
+        0,
+        1059850491,
+        355178627,
+        41337073,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        2,
+        0,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        2,
+        0,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        405,
+        1979164292,
+        494491549,
+        479168368,
+        2864398128,
+        1606587934,
+        882920591,
+        2147337568,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        1979164294,
+        479168368,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        1979164294,
+        479168368,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1506,
+        2107459204,
+        1473989135,
+        1492776118,
+        2909466394,
+        1802472611,
+        1816045668,
+        2337924664,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        2107459206,
+        1492776118,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        2107459206,
+        1492776118,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    },
+    {
+      "function": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc:0x3c1a60",
+      "input_u32": [
+        1062,
+        4293752879,
+        311144064,
+        3503244933,
+        1144986880,
+        1230765297,
+        2371645365,
+        245667247,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_u32": [
+        24,
+        4293752879,
+        3503244933,
+        0
+      ],
+      "observed_cpp_u32": [
+        23,
+        4293752879,
+        3503244933,
+        0
+      ],
+      "status": "known_mismatch",
+      "note": "Historical pre-fix state number mismatch. Expected results are original native instructions independently replayed in Unicorn; fixture domain and output view are explicit in catalog."
+    }
+  ]
+}

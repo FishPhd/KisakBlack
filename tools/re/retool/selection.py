@@ -54,9 +54,14 @@ def generate(directory):
     arrays = re.findall(r"^const NetField (\w+)\[", fields.read_text(encoding="utf-8"), re.M)
     from .event_selection import definitions as event_definitions
     from .offhand_selection import definitions as offhand_definitions
+    from .offhand_hold_selection import definitions as hold_definitions
+    from .game_debug_selection import definitions as debug_definitions
+    from .melee_end_selection import definitions as melee_definitions
     selected.write_text(header + "\n".join(definition(p, s) for p, s in paths) +
                        event_definitions() +
                        offhand_definitions() +
+                       hold_definitions() + debug_definitions() +
+                       melee_definitions() +
                        "\n".join(definition(fields, symbol, data=True) for symbol in arrays) +
                        definition(ROOT / "src/EffectsCore/fx_random.cpp", "fx_randomTable", data=True) +
                        '\nfloat re_quickscope_spread(const playerState_s* ps) { return BG_GetQuickScopeSpread(ps); }\n', encoding="utf-8")

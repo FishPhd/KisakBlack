@@ -3780,7 +3780,7 @@ void __cdecl PM_Weapon_MeleeEnd(playerState_s *ps)
     }
     else
     {
-        ps->weaponstate = WEAPON_MELEE_END;
+        ps->weaponstate = static_cast<weaponstate_t>(20); // Original MP melee-end state.
         ps->weaponTime = weapDef->quickRaiseTime;
         ps->weaponDelay = 0;
         if ( ps->waterlevel < 3 )
@@ -3972,7 +3972,7 @@ void __cdecl PM_Weapon_OffHandHold(playerState_s *ps)
     {
         __debugbreak();
     }
-    ps->weaponstate = WEAPON_OFFHAND_START;
+    ps->weaponstate = static_cast<weaponstate_t>(24); // Original MP offhand-start state.
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     ps->weapFlags |= 2u;

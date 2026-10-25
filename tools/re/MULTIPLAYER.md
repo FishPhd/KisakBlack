@@ -6,7 +6,7 @@ records instruction hashes, data-table locations, corrected historical BinDiff
 candidates, dependency notes, and the precise scope of the restorations.
 It is an evidence inventory, not a replacement execution catalog. Routines without
 original execution adapters remain unverified and pending mapping review.
-The fifteen existing pilots retain their narrower
+The seventeen existing pilots retain their narrower
 contracts in `catalog.json`; their results do not qualify all multiplayer logic.
 
 Restored gaps:
@@ -159,7 +159,7 @@ postconditions and every other state/asset byte are guarded. The weapon-zero
 source diagnostic path remains outside coverage. Sixteen historical failures
 are retained in `regressions/offhand-end.json`.
 
-All **fifteen units / 22,006 observations per backend** pass; the thirteen prior
+That **fifteen-unit / 22,006-observation result** passed; the thirteen prior
 native input/output archives remain byte-identical. The native game compiles
 without launching. These scoped function results do not qualify their callers
 or the complete weapon state machine. Original central dispatch and low-ready
@@ -167,6 +167,46 @@ instructions confirm the numbering gap continues through raw state 50; a review
 inventory found numeric consumers across 23 source files. The coordinated enum,
 dispatch and consumer migration remains pending, and these restored routines
 retain explicit original raw values in the meantime.
+
+## Melee completion and offhand hold (2026-10-24)
+
+`PM_Weapon_MeleeEnd` now stores original raw state **20** instead of the legacy
+enum value 19. Its complete original idle/prone/getter chain is included in the
+execution unit, covering both shared-definition idle and distinct-melee branches.
+The original result is observed through 2,304 paired fixtures (4,608 observations),
+including both animations, flags and left-hand timers/state. All other state,
+asset and table bytes are guarded; zero right-hand delay is required. The old
+source differed on **154 observations** on each backend; all now match.
+
+`PM_Weapon_OffHandHold` now stores original raw state **24** instead of 23.
+Its complete routine and getter are compared over 1,756 cases, including the
+throwback-owner boundary 1023, signed timer/fuse extremes and flag combinations.
+All 1,756 previously mismatched cases now match on both backends. The actual
+production diagnostic gate executes with a private null setting; no false-return
+diagnostic stand-in is used. Diagnostic output remains outside this fixture domain.
+Eight historical failures for each unit remain in their `regressions/` files.
+
+All **seventeen units / 28,370 observations per backend** pass, with 60 contract
+tests and deliberate wrong-code detection passing. All fifteen prior native
+input/output archives remain byte-identical. The native game compiles without
+launching. Global enum/dispatch integration and literal machine-byte identity
+remain outside these function contracts.
+
+Measured improvements from local pre-fix implementations, using the same original
+capture within each comparison pair:
+
+- Movement: **10/292 native mismatches to zero**; no retained pre-fix Wasm count.
+- `DiffTrack`: **9/474 native and 54/474 Wasm to zero**.
+- Viewmodel selector: **96/4,544 to zero** on both backends.
+- Rechamber completion: **1,010/3,856 to zero** on both.
+- Rechamber check: **76/2,944 observations to zero** on both.
+- Offhand completion: **2,816/2,816 to zero** on both.
+- Melee completion: **154/4,608 observations to zero** on both.
+- Offhand hold: **1,756/1,756 to zero** on both.
+
+These are local pre-fix baselines, not behavioral replays of the complete master
+executable. Observation counts include documented paired output projections;
+their reductions must not be summed into a whole-game accuracy percentage.
 
 **All branch fixes are not yet qualified.** Only the contracts in `catalog.json`
 contribute to measured behavioral agreement. Snapshot/archive integration,
