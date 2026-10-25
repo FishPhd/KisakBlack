@@ -352,3 +352,8 @@ const NetFieldList *__cdecl Demo_GetStateFieldListForEntityType(int eType)
     return &s_demoEntityNetFieldLists[netFieldsVersionIndex][v2];
 }
 
+
+bool __cdecl Demo_IsVersionAtLeast(int version)
+{
+    return !Demo_IsPlaying() || Demo_GetVersion() >= version;
+}

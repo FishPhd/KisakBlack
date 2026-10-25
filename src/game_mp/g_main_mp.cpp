@@ -553,7 +553,8 @@ gclient_s *__cdecl G_GetPlayerState(unsigned int clientNum)
 
 int __cdecl G_GetClientSize()
 {
-    return 10720;
+    // BlackOpsMP 0x56a1e0 returns 0x2a28.
+    return sizeof(gclient_s);
 }
 
 void __cdecl G_FreeEntities(bool clearTargets)
@@ -853,7 +854,8 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
     level.num_entities = 44;
     level.firstFreeEnt = 0;
     level.lastFreeEnt = 0;
-    SV_LocateGameData(level.gentities, level.num_entities, 760, &level.clients->ps, 10720);
+    // BlackOpsMP 0x5f7087 registers the original client stride, 0x2a28.
+    SV_LocateGameData(level.gentities, level.num_entities, 760, &level.clients->ps, sizeof(gclient_s));
 
     G_ParseHitLocDmgTable();
     BG_LoadPenetrationDepthTable();

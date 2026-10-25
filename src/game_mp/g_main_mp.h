@@ -32,7 +32,7 @@ struct trigger_info_t // sizeof=0xC
     int otherUseCount;
 };
 
-struct gclient_s // sizeof=0x29E0
+struct gclient_s // sizeof=0x2A28
 {                                       // XREF: .data:g_clients/r
                                         // gclient_t/r
     gclient_s();

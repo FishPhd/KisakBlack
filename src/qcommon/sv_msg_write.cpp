@@ -2291,7 +2291,7 @@ LABEL_17:
     {
         if ( from->heldWeapons[j].weapon == to->heldWeapons[j].weapon )
         {
-            if ( memcmp(&to->heldWeapons[j], &from->heldWeapons[j], 0x18u) )
+            if ( memcmp(&to->heldWeapons[j], &from->heldWeapons[j], sizeof(PlayerHeldWeapon)) )
             {
                 anyWeaponChanged = 1;
                 needToSendWeapon[j] = 1;
@@ -2346,6 +2346,19 @@ LABEL_17:
             {
                 MSG_WriteBit1(msg);
                 MSG_WriteBits(msg, to->heldWeapons[ja].fuelTankTime, 0x20u);
+            }
+            // BlackOpsMP 0x6969b4: version 3 introduced held-weapon zoom.
+            if ( Demo_IsVersionAtLeast(3) )
+            {
+                if ( from->heldWeapons[ja].adsZoomSelect == to->heldWeapons[ja].adsZoomSelect )
+                {
+                    MSG_WriteBit0(msg);
+                }
+                else
+                {
+                    MSG_WriteBit1(msg);
+                    MSG_WriteBits(msg, to->heldWeapons[ja].adsZoomSelect, 3u);
+                }
             }
             if ( to->heldWeapons[ja].overHeating )
                 MSG_WriteBit1(msg);

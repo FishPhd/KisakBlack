@@ -30,7 +30,7 @@ const char *g_scoreboardColumnNames[18] =
   "headshots"
 };
 
-const client_fields_s fields[42] =
+const client_fields_s fields[43] =
 {
   {
     "sessionteam",
@@ -51,7 +51,7 @@ const client_fields_s fields[42] =
     ClientScr_GetFFATeam
   },
   { "name", 0, { 0 }, F_LSTRING, 0u, ClientScr_ReadOnly, ClientScr_GetName },
-  { "maxhealth", 10068, { 4 }, F_INT, 0u, ClientScr_SetMaxHealth, NULL },
+  { "maxhealth", 10132, { 4 }, F_INT, 0u, ClientScr_SetMaxHealth, NULL },
   {
     "headiconteam",
     0,
@@ -61,35 +61,36 @@ const client_fields_s fields[42] =
     ClientScr_SetHeadIconTeam,
     ClientScr_GetHeadIconTeam
   },
-  { "hasspyplane", 10692, { 4 }, F_INT, 0u, NULL, NULL },
-  { "hassatellite", 10696, { 4 }, F_INT, 0u, NULL, NULL },
-  { "disallowvehicleusage", 10708, { 4 }, F_INT, 0u, NULL, NULL },
-  { "kills", 10280, { 4 }, F_INT, 0u, ClientScr_SetKills, NULL },
-  { "deaths", 10288, { 4 }, F_INT, 0u, ClientScr_SetDeaths, NULL },
-  { "assists", 10284, { 4 }, F_INT, 0u, ClientScr_SetAssists, NULL },
-  { "defends", 10336, { 4 }, F_INT, 0u, ClientScr_SetDefends, NULL },
-  { "plants", 10340, { 4 }, F_INT, 0u, ClientScr_SetPlants, NULL },
-  { "defuses", 10344, { 4 }, F_INT, 0u, ClientScr_SetDefuses, NULL },
-  { "returns", 10348, { 4 }, F_INT, 0u, ClientScr_SetReturns, NULL },
-  { "captures", 10352, { 4 }, F_INT, 0u, ClientScr_SetCaptures, NULL },
-  { "destructions", 10356, { 4 }, F_INT, 0u, ClientScr_SetDestructions, NULL },
-  { "survived", 10364, { 4 }, F_INT, 0u, ClientScr_SetSurvived, NULL },
-  { "stabs", 10368, { 4 }, F_INT, 0u, ClientScr_SetStabs, NULL },
-  { "tomahawks", 10372, { 4 }, F_INT, 0u, ClientScr_SetTomahawks, NULL },
-  { "humiliated", 10376, { 4 }, F_INT, 0u, ClientScr_SetHumiliated, NULL },
-  { "x2score", 10380, { 4 }, F_INT, 0u, ClientScr_SetX2Score, NULL },
-  { "headshots", 10384, { 4 }, F_INT, 0u, ClientScr_SetHeadshots, NULL },
-  { "killcamentity", 9904, { 4 }, F_INT, 0u, ClientScr_SetKillCamEntity, NULL },
+  { "hasspyplane", 10764, { 4 }, F_INT, 0u, NULL, NULL },
+  { "hassatellite", 10768, { 4 }, F_INT, 0u, NULL, NULL },
+  { "disallowvehicleusage", 10780, { 4 }, F_INT, 0u, NULL, NULL },
+  { "kills", 10344, { 4 }, F_INT, 0u, ClientScr_SetKills, NULL },
+  { "deaths", 10352, { 4 }, F_INT, 0u, ClientScr_SetDeaths, NULL },
+  { "assists", 10348, { 4 }, F_INT, 0u, ClientScr_SetAssists, NULL },
+  { "wagerwinnings", 10356, { 4 }, F_INT, 0u, NULL, NULL },
+  { "defends", 10408, { 4 }, F_INT, 0u, ClientScr_SetDefends, NULL },
+  { "plants", 10412, { 4 }, F_INT, 0u, ClientScr_SetPlants, NULL },
+  { "defuses", 10416, { 4 }, F_INT, 0u, ClientScr_SetDefuses, NULL },
+  { "returns", 10420, { 4 }, F_INT, 0u, ClientScr_SetReturns, NULL },
+  { "captures", 10424, { 4 }, F_INT, 0u, ClientScr_SetCaptures, NULL },
+  { "destructions", 10428, { 4 }, F_INT, 0u, ClientScr_SetDestructions, NULL },
+  { "survived", 10436, { 4 }, F_INT, 0u, ClientScr_SetSurvived, NULL },
+  { "stabs", 10440, { 4 }, F_INT, 0u, ClientScr_SetStabs, NULL },
+  { "tomahawks", 10444, { 4 }, F_INT, 0u, ClientScr_SetTomahawks, NULL },
+  { "humiliated", 10448, { 4 }, F_INT, 0u, ClientScr_SetHumiliated, NULL },
+  { "x2score", 10452, { 4 }, F_INT, 0u, ClientScr_SetX2Score, NULL },
+  { "headshots", 10456, { 4 }, F_INT, 0u, ClientScr_SetHeadshots, NULL },
+  { "killcamentity", 9968, { 4 }, F_INT, 0u, ClientScr_SetKillCamEntity, NULL },
   {
     "killcamtargetentity",
-    9908,
+    9972,
     { 4 },
     F_INT,
     0u,
     ClientScr_SetKillCamTargetEntity,
     NULL
   },
-  { "score", 10276, { 4 }, F_INT, 0u, ClientScr_SetScore, NULL },
+  { "score", 10340, { 4 }, F_INT, 0u, ClientScr_SetScore, NULL },
   {
     "sessionstate",
     0,
@@ -110,7 +111,7 @@ const client_fields_s fields[42] =
   },
   {
     "spectatorclient",
-    9900,
+    9964,
     { 4 },
     F_INT,
     0u,
@@ -119,7 +120,7 @@ const client_fields_s fields[42] =
   },
   {
     "archivetime",
-    9912,
+    9976,
     { 4 },
     F_FLOAT,
     0u,
@@ -128,17 +129,17 @@ const client_fields_s fields[42] =
   },
   {
     "psoffsettime",
-    10312,
+    10384,
     { 4 },
     F_INT,
     0u,
     ClientScr_SetPSOffsetTime,
     ClientScr_GetPSOffsetTime
   },
-  { "pers", 9916, { 4 }, F_OBJECT, 0u, ClientScr_ReadOnly, NULL },
+  { "pers", 9980, { 4 }, F_OBJECT, 0u, ClientScr_ReadOnly, NULL },
   { "usingturret", 224, { 4 }, F_BITFLAG, 768u, ClientScr_ReadOnly, NULL },
   { "usingvehicle", 224, { 4 }, F_BITFLAG, 16384u, ClientScr_ReadOnly, NULL },
-  { "vehicleposition", 1092, { 4 }, F_INT, 0u, ClientScr_ReadOnly, NULL },
+  { "vehicleposition", 1152, { 4 }, F_INT, 0u, ClientScr_ReadOnly, NULL },
   {
     "headicon",
     0,
@@ -161,7 +162,7 @@ const client_fields_s fields[42] =
   },
   {
     "viewlockedentity",
-    1088,
+    1148,
     { 2 },
     F_ENTITY,
     0u,

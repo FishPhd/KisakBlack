@@ -24,7 +24,7 @@ struct playerTeamState_t // sizeof=0x4
     int location;
 };
 
-struct __declspec(align(8)) clientSession_t // sizeof=0x1F0
+struct __declspec(align(8)) clientSession_t // sizeof=0x1F8
 {                                       // XREF: gclient_s/r
                                         // ?ClientSpawn@@YAXPAUgentity_s@@QBM1@Z/r
     sessionState_t sessionState;

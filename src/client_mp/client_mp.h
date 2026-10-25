@@ -18,7 +18,7 @@ enum VehicleAnimState : __int32
         VEHICLEANIMSTATECOUNT            = 0x4,
 };
 
-struct clientState_s // sizeof=0xD0
+struct clientState_s // sizeof=0xD8
 {                                                                             // XREF: .data:clientState_s g_defaultClientState/r
                                                                                 // snapshot_s/r ...
         int clientIndex;                                        // XREF: Demo_SwitchPlayer(int,bool,int,bool)+B9/r

@@ -135,13 +135,13 @@ struct __declspec(align(2)) usercmd_s // sizeof=0x34
         // padding byte
 };
 
-struct netFieldOrderInfo_t // sizeof=0x79C
+struct netFieldOrderInfo_t // sizeof=0x7A4
 {                                       // XREF: .data:netFieldOrderInfo_t orderInfo/r
     int entState[79];
     int arcEntState[10];                // XREF: MSG_DumpNetFieldChanges_f(void)+D/o
     int matchState[17];
     int clientState[52];                // XREF: MSG_DumpNetFieldChanges_f(void)+14/o
-    int playerState[179];               // XREF: MSG_DumpNetFieldChanges_f(void)+1B/o
+    int playerState[181];               // BlackOpsMP player-state field table
     int actorState[98];
     int objective[9];                   // XREF: MSG_DumpNetFieldChanges_f(void)+22/o
     int hudElem[43];                    // XREF: MSG_DumpNetFieldChanges_f(void)+29/o
@@ -326,9 +326,9 @@ extern const NetField archivedEntityFields[8];
 extern const NetField entityStateFields[69];
 
 extern const int numClientStateFields;
-extern const NetField clientStateFields[50];
+extern const NetField clientStateFields[51];
 extern const int numPlayerStateFields;
-extern const NetField playerStateFields[179];
+extern const NetField playerStateFields[181];
 extern const int numObjectiveFields;
 extern const NetField objectiveFields[9];
 extern const int numMatchStateFields;
@@ -412,8 +412,8 @@ static const NetField hudElemFields[43] =
 static NetFieldList s_otherNetFieldList[6] =
 {
   { archivedEntityFields, 8u, "archivedEntityFields" },
-  { clientStateFields, 50u, "clientStateFields" },
-  { playerStateFields, 179u, "playerStateFields" },
+  { clientStateFields, 51u, "clientStateFields" },
+  { playerStateFields, 181u, "playerStateFields" },
   { objectiveFields, 9u, "objectiveFields" },
   { hudElemFields, 43u, "hudElemFields" },
   { matchStateFields, 15u, "matchStateFields" }

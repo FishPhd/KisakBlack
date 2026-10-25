@@ -1886,7 +1886,9 @@ int __cdecl CG_AllocateClientMemory_SizeRequired(int maxLocalClients)
     int localClientNum; // [esp+0h] [ebp-8h]
     int size; // [esp+4h] [ebp-4h]
 
-    size = 907268 * maxLocalClients;
+    // Preserve the existing ancillary reserve while accounting for the actual
+    // cg/cgs allocations below. Their enclosing layouts remain unqualified.
+    size = (907268 - 466048 - 12712 + sizeof(cg_s) + sizeof(cgs_t)) * maxLocalClients;
     for ( localClientNum = 0; localClientNum < maxLocalClients; ++localClientNum )
         size += 1062080;
     return size;
@@ -1896,8 +1898,8 @@ void __cdecl CG_AllocateClientMemory(HunkUser *hunk, int maxLocalClients)
 {
     int localClientNum; // [esp+0h] [ebp-4h]
 
-    cgArray = (cg_s *)Hunk_UserAlloc(hunk, 466048 * maxLocalClients, 128, "cgArray");
-    cgsArray = (cgs_t *)Hunk_UserAlloc(hunk, 12712 * maxLocalClients, 8, "cgsArray");
+    cgArray = (cg_s *)Hunk_UserAlloc(hunk, sizeof(cg_s) * maxLocalClients, 128, "cgArray");
+    cgsArray = (cgs_t *)Hunk_UserAlloc(hunk, sizeof(cgs_t) * maxLocalClients, 8, "cgsArray");
     cg_fakeEntitiesArray = (fake_centity_s *)Hunk_UserAlloc(hunk, 415744 * maxLocalClients, 4, "cg_fakeEntitiesArray");
     cg_viewModelArray = (ViewModelInfo *)Hunk_UserAlloc(hunk, 52 * maxLocalClients, 4, "cg_viewModelArray");
     for ( localClientNum = 0; localClientNum < maxLocalClients; ++localClientNum )
