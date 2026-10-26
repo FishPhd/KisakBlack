@@ -1,4 +1,6 @@
 #pragma once
+#include "stats_buffer.h"
+#include <cstddef>
 #include <DemonWare/bdCore/bdContainers/bdByteBuffer.h>
 #include <DemonWare/bdPlatform/bdPlatformLog/bdPlatformLog.h>
 #include <DemonWare/bdCore/bdContainers/bdArray.h>
@@ -173,14 +175,20 @@ const struct __declspec(align(8)) TaskDefinition // sizeof=0x20
     // padding byte
 };
 
-struct persistentStats // sizeof=0x996C
+struct persistentStats // sizeof=0xA005 in the pinned PC multiplayer executable
 {                                       // XREF: .data:s_otherPlayerStats/r
-    unsigned __int8 statsBuffer[39272];
+    unsigned __int8 statsBuffer[STATS_BUFFER_SIZE];
     bool isChecksumValid;
     bool statsWriteNeeded;
     bool statsValidatedWithDDL;
     bool statsFetched;
+    unsigned __int8 reservedA004;
 };
+
+static_assert(offsetof(persistentStats, isChecksumValid) == 0xA000);
+static_assert(offsetof(persistentStats, statsValidatedWithDDL) == 0xA002);
+static_assert(offsetof(persistentStats, statsFetched) == 0xA003);
+static_assert(sizeof(persistentStats) == 0xA005);
 
 enum bdWriteType //bdStats::bdWriteType : __int32
 {                                       // XREF: bdStatsInfo/r
@@ -729,15 +737,15 @@ struct fileShareWriteFileInfo // sizeof=0x34
                                         // Demo_StartRecord_f(void)+195/w ...
 };
 
-struct playerNetworkData // sizeof=0x3AD90
+struct playerNetworkData // sizeof=0x3C024 on x86
 {                                       // XREF: .data:controllerNetworkData/r
-    _BYTE playerStats[40172];
-    _BYTE playerStatsBackup[40172];     // XREF: LiveStorage_GetPersStatsBuffer+81/o
-    _BYTE stableStatsBuffer[40172];     // XREF: LiveStorage_GetPersStatsBuffer+94/o
-    _BYTE basicTrainingStats[40172];    // XREF: LiveStorage_GetPersStatsBuffer+B1/o
+    _BYTE playerStats[sizeof(persistentStats)];
+    _BYTE playerStatsBackup[sizeof(persistentStats)];     // XREF: LiveStorage_GetPersStatsBuffer+81/o
+    _BYTE stableStatsBuffer[sizeof(persistentStats)];     // XREF: LiveStorage_GetPersStatsBuffer+94/o
+    _BYTE basicTrainingStats[sizeof(persistentStats)];    // XREF: LiveStorage_GetPersStatsBuffer+B1/o
                                         // LiveStorage_GetPersStatsBuffer+117/o
-    _BYTE globalplayerStats[40172];     // XREF: LiveStorage_GetPersStatsBuffer+C5/o
-    _BYTE globalStablePlayerStats[40172];
+    _BYTE globalplayerStats[sizeof(persistentStats)];     // XREF: LiveStorage_GetPersStatsBuffer+C5/o
+    _BYTE globalStablePlayerStats[sizeof(persistentStats)];
                                         // XREF: LiveStorage_GetPersStatsBuffer+D8/o
     bool firstTimeRunning;              // XREF: LiveStorage_PlayerStatsFileNotFound+49/w
                                         // LiveStorage_ReadPlayerStatsSuccessful+79/w ...
@@ -747,6 +755,13 @@ struct playerNetworkData // sizeof=0x3AD90
     playerFileOperations *fileOps;      // XREF: LiveStorage_StatsBackupFetchCompleted(int)+C/r
                                         // LiveStorage_StatsBackupFetchCompleted(int)+44/r ...
 };
+
+static_assert(offsetof(playerNetworkData, playerStatsBackup) == 0xA005);
+static_assert(offsetof(playerNetworkData, basicTrainingStats) == 0x1E00F);
+#if defined(_M_IX86)
+static_assert(offsetof(playerNetworkData, fileOps) == 0x3C020);
+static_assert(sizeof(playerNetworkData) == 0x3C024);
+#endif
 
 persistentStats *__cdecl LiveStorage_GetStatsBuffer(
                 int controllerIndex,

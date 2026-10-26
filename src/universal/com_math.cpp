@@ -310,11 +310,13 @@ double __cdecl DiffTrack(float tgt, float cur, float rate, float deltaTime)
 {
     float step; // [esp+8h] [ebp-4h]
 
-    step = (float)(rate * (float)(tgt - cur)) * deltaTime;
-    if ( fabs(tgt - cur) <= 0.001 )
+    const float difference = tgt - cur;
+    step = (difference * rate) * deltaTime;
+    if ( fabsf(difference) <= 0.001f )
         return tgt;
-    if ( fabs(step) <= fabs(tgt - cur) )
-        return cur + step;
+    if ( fabsf(step) <= fabsf(difference) )
+        // Original FLD/FADD returns the unrounded double sum through x87.
+        return static_cast<double>(cur) + static_cast<double>(step);
     return tgt;
 }
 
@@ -1913,6 +1915,8 @@ void __cdecl ExpandBoundsToWidth(float *mins, float *maxs)
     float diff; // [esp+4h] [ebp-14h]
     float size_8; // [esp+14h] [ebp-4h]
 
+#ifdef _DEBUG
+    // Retail 0x41f170 contains no assertion branches.
     if ( *maxs < *mins
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
@@ -1943,16 +1947,17 @@ void __cdecl ExpandBoundsToWidth(float *mins, float *maxs)
     {
         __debugbreak();
     }
+#endif
     size_8 = maxs[2] - mins[2];
-    if ( (float)((float)(*maxs - *mins) - (float)(maxs[1] - mins[1])) < 0.0 )
+    if (!((float)((float)(*maxs - *mins) - (float)(maxs[1] - mins[1])) >= 0.0f))
         v2 = maxs[1] - mins[1];
     else
         v2 = *maxs - *mins;
     if ( v2 > size_8 )
     {
-        diff = (float)(v2 - size_8) * 0.5;
+        diff = (float)(v2 - size_8) * 0.5f;
         mins[2] = mins[2] - diff;
-        maxs[2] = maxs[2] + diff;
+        maxs[2] = diff + maxs[2];
     }
 }
 
@@ -3334,12 +3339,10 @@ float Vec3Normalize(float *v)
         float ilength; // [esp+Ch] [ebp-8h]
         float length; // [esp+10h] [ebp-4h]
 
-        length = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        // Preserve the original SSE accumulation order used by PM_Accelerate.
+        length = sqrtf((v[2] * v[2] + v[1] * v[1]) + v[0] * v[0]);
 
-        if (length > 0.0f)
-                ilength = (1.0f / length);
-        else
-                ilength = 1.0f;
+        ilength = 1.0f / (length <= 0.0f ? 1.0f : length);
 
         v[0] = v[0] * ilength;
         v[1] = v[1] * ilength;

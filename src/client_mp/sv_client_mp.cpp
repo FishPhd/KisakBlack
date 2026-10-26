@@ -271,7 +271,7 @@ void __cdecl SV_SetClientDIntStat(unsigned int clientNum, ddlState_t *searchStat
         if ( !cl->statsValidated )
         {
             StatsDDL = LiveStats_GetStatsDDL();
-            if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+            if ( !DDL_AssociateBuffer(buffer, STATS_BUFFER_SIZE, StatsDDL) )
             {
                 DDL_PrintError("DDL: Could not get stat. Buffer error.");
                 return;
@@ -318,7 +318,7 @@ void __cdecl SV_SetClientDStringStat(unsigned int clientNum, ddlState_t *searchS
         if ( !cl->statsValidated )
         {
             StatsDDL = LiveStats_GetStatsDDL();
-            if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+            if ( !DDL_AssociateBuffer(buffer, STATS_BUFFER_SIZE, StatsDDL) )
             {
                 DDL_PrintError("DDL: Could not get stat. Buffer error.");
                 return;
@@ -365,7 +365,7 @@ void __cdecl SV_SetClientDInt64Stat(unsigned int clientNum, ddlState_t *searchSt
         if ( !cl->statsValidated )
         {
             StatsDDL = LiveStats_GetStatsDDL();
-            if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+            if ( !DDL_AssociateBuffer(buffer, STATS_BUFFER_SIZE, StatsDDL) )
             {
                 DDL_PrintError("DDL: Could not get stat. Buffer error.");
                 return;
@@ -398,10 +398,6 @@ unsigned int __cdecl SV_GetClientDIntStat(unsigned int clientNum, ddlState_t *se
         __debugbreak();
     }
 
-#ifndef KISAK_STATS
-    iassert(0);
-#endif
-
     if (svs.clients[clientNum].statPacketsReceived != ALL_STATS_PACKETS_RECEIVED)
     {
         return 0;
@@ -416,7 +412,7 @@ unsigned int __cdecl SV_GetClientDIntStat(unsigned int clientNum, ddlState_t *se
     if ( !svs.clients[clientNum].statsValidated )
     {
         StatsDDL = LiveStats_GetStatsDDL();
-        if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+        if ( !DDL_AssociateBuffer(buffer, STATS_BUFFER_SIZE, StatsDDL) )
         {
             DDL_PrintError("DDL: Could not get stat. Buffer error.");
             return 0;
@@ -453,7 +449,7 @@ char *__cdecl SV_GetClientDStringStat(unsigned int clientNum, ddlState_t *search
     if ( !svs.clients[clientNum].statsValidated )
     {
         StatsDDL = LiveStats_GetStatsDDL();
-        if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+        if ( !DDL_AssociateBuffer(buffer, STATS_BUFFER_SIZE, StatsDDL) )
         {
             DDL_PrintError("DDL: Could not get stat. Buffer error.");
             return (char *)"";
@@ -463,7 +459,7 @@ char *__cdecl SV_GetClientDStringStat(unsigned int clientNum, ddlState_t *search
     return DDL_GetString(searchState, buffer);
 }
 
-unsigned int __cdecl SV_GetClientDInt64Stat(unsigned int clientNum, ddlState_t *searchState)
+unsigned __int64 __cdecl SV_GetClientDInt64Stat(unsigned int clientNum, ddlState_t *searchState)
 {
     ddlDef_t *StatsDDL; // eax
     char *buffer; // [esp+8h] [ebp-4Ch]
@@ -480,10 +476,6 @@ unsigned int __cdecl SV_GetClientDInt64Stat(unsigned int clientNum, ddlState_t *
         __debugbreak();
     }
 
-#ifndef KISAK_STATS
-    iassert(0);
-#endif
-
     iassert(svs.clients[clientNum].statPacketsReceived == ALL_STATS_PACKETS_RECEIVED);
     iassert(svs.clients[clientNum].header.state >= CS_RECONNECTING);
 
@@ -494,7 +486,7 @@ unsigned int __cdecl SV_GetClientDInt64Stat(unsigned int clientNum, ddlState_t *
     if ( !svs.clients[clientNum].statsValidated )
     {
         StatsDDL = LiveStats_GetStatsDDL();
-        if ( !DDL_AssociateBuffer(buffer, 40168, StatsDDL) )
+        if ( !DDL_AssociateBuffer(buffer, STATS_BUFFER_SIZE, StatsDDL) )
         {
             DDL_PrintError("DDL: Could not get stat. Buffer error.");
             return 0;

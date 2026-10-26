@@ -21,6 +21,7 @@
 #include <live/live_storage_pub.h>
 #include <universal/q_parse.h>
 #include <game_mp/g_main_mp.h>
+#include "sv_bot_mp.h"
 
 int sv_migrate;
 
@@ -183,11 +184,14 @@ cmd_function_s SV_RankUp_f_VAR;
 cmd_function_s SV_RankUp_f_VAR_SERVER;
 
 static bool initialized_0 = 0;
+static cmd_function_s botStatusCommand, botStatusServerCommand;
 void __cdecl SV_AddOperatorCommands()
 {
     if ( !initialized_0 )
     {
         initialized_0 = 1;
+        Cmd_AddCommandInternal("bot_status", Cbuf_AddServerText_f, &botStatusCommand);
+        Cmd_AddServerCommandInternal("bot_status", SV_BotStatus_f, &botStatusServerCommand);
         Cmd_AddCommandInternal("heartbeat", Cbuf_AddServerText_f, &SV_Heartbeat_f_VAR);
         Cmd_AddServerCommandInternal("heartbeat", SV_Heartbeat_f, &SV_Heartbeat_f_VAR_SERVER);
         Cmd_AddCommandInternal("onlykick", Cbuf_AddServerText_f, &SV_Drop_f_VAR);

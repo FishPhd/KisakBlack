@@ -76,6 +76,7 @@ const dvar_t *sv_botsForceStand;
 const dvar_t *sv_botsForceCrouch;
 const dvar_t *sv_botsForceProne;
 const dvar_t *sv_botsPressAttackBtn;
+const dvar_t *sv_botMeleeDist;
 const dvar_t *sv_botsPressMeleeBtn;
 const dvar_t *sv_botsForceFragOnly;
 const dvar_t *sv_botsForceSpecialOnly;
@@ -124,6 +125,35 @@ bot_info_t botInfos[32];
 float g_botFovCos;
 
 float botFov = -1.0f;
+void SV_BotStatus_f()
+{
+    if (!com_sv_running->current.enabled)
+    {
+        Com_Printf(0, "bot_status: no server running\n");
+        return;
+    }
+    Com_Printf(0, "bot_status time=%d nodes=%d debug_movement=%d debug_fire=%d debug_melee=%d friends=%d enemies=%d\n",
+        svs.time, gameWorldMp.path.nodeCount, sv_botsAllowMovement->current.enabled,
+        sv_botsPressAttackBtn->current.enabled, sv_botsPressMeleeBtn->current.enabled,
+        Dvar_GetInt("bot_friends"), Dvar_GetInt("bot_enemies"));
+    for (int i = 0; i < com_maxclients->current.integer; ++i)
+    {
+        const client_t &client = svs.clients[i];
+        if (client.header.state == CS_FREE || !client.gentity || !client.gentity->client)
+            continue;
+        const gclient_s &player = *client.gentity->client;
+        const bot_info_t &info = botInfos[i];
+        Com_Printf(0, "bot_status client=%d bot=%d name=%s state=%d team=%d health=%d flags=%x "
+            "origin=%.1f,%.1f,%.1f cmd=%d,%d time=%d path=%d enemy=%d kills=%d deaths=%d\n",
+            i, client.bIsTestClient, client.name, client.header.state, player.sess.cs.team,
+            client.gentity->health, player.flags, player.ps.origin[0], player.ps.origin[1],
+            player.ps.origin[2], client.lastUsercmd.forwardmove, client.lastUsercmd.rightmove,
+            client.lastUsercmd.serverTime, info.path.wPathLen,
+            info.threat.enemy ? info.threat.enemy->s.number : -1,
+            player.sess.cs.score.kills, player.sess.cs.score.deaths);
+    }
+}
+
 const char right_0[4] =
 { '\x81', '\xC0', '@', '\x7F' };
 
@@ -331,15 +361,16 @@ void __cdecl SV_BotThink(client_t *bot, usercmd_s *cmd)
     Bot_UpdateTimedAction(&botInfo->pitchEndTime);
     Bot_UpdateTimedAction(&botInfo->crouchEndTime);
     Bot_UpdateTimedAction(&botInfo->useButtonEndTime);
-    if ( (bot->gentity->client->flags & 4) != 0 )
+    if ( (bot->gentity->client->flags & 0x14) != 0 )
     {
         cmd->forwardmove = 0;
         cmd->rightmove = 0;
         if ( botInfo->useButtonEndTime )
         {
-            cmd->button_bits.setBit(9);
             cmd->button_bits.setBit(5);
         }
+        if (botInfo->weapon)
+            cmd->weapon = botInfo->weapon;
         bot->header.deltaMessage = bot->header.netchan.outgoingSequence - 1;
         return;
     }
@@ -356,9 +387,15 @@ void __cdecl SV_BotThink(client_t *bot, usercmd_s *cmd)
         {
             for ( j = 0; j < 2; ++j )
                 cmd->button_bits.array[j] = 0;
-            cmd->button_bits.setBit(9);
             cmd->button_bits.setBit(5);
         }
+        if (botInfo->flags & 0x1000)
+        {
+            cmd->button_bits.resetBit(1);
+            cmd->button_bits.setBit(0);
+            botInfo->flags &= ~0x1000;
+        }
+#ifdef _DEBUG
         if ( sv_botsForceStand->current.enabled )
         {
             cmd->button_bits.resetBit(9);
@@ -381,6 +418,7 @@ void __cdecl SV_BotThink(client_t *bot, usercmd_s *cmd)
             cmd->button_bits.resetBit(0x2C);
             cmd->button_bits.resetBit(0xC);
         }
+#endif
         bot->header.deltaMessage = bot->header.netchan.outgoingSequence - 1;
     }
 }
@@ -996,6 +1034,8 @@ void __cdecl Bot_UpdateMovement(bot_info_t *botInfo, const client_t *bot, usercm
     const gentity_s *enemy; // [esp+1Ch] [ebp-20h]
 
     //PIXBeginNamedEvent(-1, "Bot_UpdateMovement");
+#ifdef _DEBUG
+    // This developer gate is absent from retail Bot_UpdateMovement (0x874440).
     if ( !sv_botsAllowMovement->current.enabled )
     {
         cmd->forwardmove = 0;
@@ -1008,6 +1048,7 @@ void __cdecl Bot_UpdateMovement(bot_info_t *botInfo, const client_t *bot, usercm
         //    return;
         goto LABEL_31;
     }
+#endif
     if ( (bot->gentity->client->ps.pm_flags & 4) != 0 || (bot->gentity->client->ps.pm_flags & 0x4000) != 0 )
     {
         Bot_UpdateMantle(botInfo, bot, cmd);
@@ -2315,18 +2356,21 @@ LABEL_98:
         //    return;
         goto LABEL_98;
     }
-    if ( Bot_UpdateMelee(botInfo, bot, cmd) )
+    if ( Bot_UpdateMelee(botInfo, &ps->ps, cmd) )
     {
         //if ( GetCurrentThreadId() != g_DXDeviceThread )
         //    return;
         goto LABEL_98;
     }
+#ifdef _DEBUG
+    // Retail Bot_UpdateCombat (0x874a70) does not gate firing on this dvar.
     if ( !sv_botsPressAttackBtn->current.enabled )
     {
         //if ( g_DXDeviceThread != GetCurrentThreadId() )
         //    return;
         goto LABEL_98;
     }
+#endif
     weapDef = BG_GetWeaponDef(ps->ps.weapon);
     if ( (botInfo->flags & 0x20) != 0 || !weapDef->bDualWield && ps->ps.fWeaponPosFrac < 1.0 )
     {
@@ -2422,37 +2466,41 @@ LABEL_95:
         goto LABEL_98;
 }
 
-char __cdecl Bot_UpdateMelee(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd)
+char __cdecl Bot_UpdateMelee(bot_info_t *botInfo, const playerState_s *ps, usercmd_s *cmd)
 {
-    //PIXBeginNamedEvent(-1, "Bot_UpdateMelee");
-    if ( sv_botsPressMeleeBtn->current.enabled )
+#ifdef _DEBUG
+    if (!sv_botsPressMeleeBtn->current.enabled)
     {
-        if ( botInfo->sightHitNum )
-        {
-            //if ( g_DXDeviceThread == GetCurrentThreadId() )
-                //D3DPERF_EndEvent();
-            return 0;
-        }
-        else if ( (float)(40.0 * 40.0) <= botInfo->threat.distSq || random() >= 0.75 )
-        {
-            //if ( g_DXDeviceThread == GetCurrentThreadId() )
-                //D3DPERF_EndEvent();
-            return 0;
-        }
-        else
-        {
-            cmd->button_bits.setBit(2);
-            //if ( g_DXDeviceThread == GetCurrentThreadId() )
-                //D3DPERF_EndEvent();
-            return 1;
-        }
-    }
-    else
-    {
-        //if ( g_DXDeviceThread == GetCurrentThreadId() )
-            //D3DPERF_EndEvent();
+        cmd->button_bits.resetBit(2);
         return 0;
     }
+#endif
+    // Retail 0x874650: turret targets bypass the sight test, but weapon
+    // transitions and the strict melee-distance boundary still apply.
+    if ((!botInfo->threat.enemy || !botInfo->threat.enemy->pTurretInfo) && botInfo->sightHitNum)
+        goto noMelee;
+
+    switch (ps->weaponstate)
+    {
+    case 1: case 2: case 3: case 4: case 5:
+    case 6: case 7: case 8:
+    case 0x12: case 0x13: case 0x14: case 0x20:
+        goto noMelee;
+    default:
+        break;
+    }
+
+    if (!(sv_botMeleeDist->current.value * sv_botMeleeDist->current.value > botInfo->threat.distSq))
+        goto noMelee;
+    if (BG_GetAmmoInClip(ps, ps->weapon) && random() >= 0.75)
+        goto noMelee;
+
+    cmd->button_bits.setBit(2);
+    return 1;
+
+noMelee:
+    cmd->button_bits.resetBit(2);
+    return 0;
 }
 
 char __cdecl Bot_UpdateGrenadeThrow(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd)
@@ -2470,7 +2518,9 @@ char __cdecl Bot_UpdateGrenadeThrow(bot_info_t *botInfo, const client_t *bot, us
     int offHandIndex; // [esp+98h] [ebp-4h]
 
     //PIXBeginNamedEvent(-1, "Bot_UpdateGrenadeThrow");
+#ifdef _DEBUG
     if (sv_botsPressAttackBtn->current.enabled)
+#endif
     {
         ps = (const playerState_s *)G_GetPlayerState(bot->gentity->s.number);
         weapDef = BG_GetWeaponDef(ps->offHandIndex);
@@ -2581,12 +2631,12 @@ char __cdecl Bot_UpdateGrenadeThrow(bot_info_t *botInfo, const client_t *bot, us
             return 0;
         }
     }
+#ifdef _DEBUG
     else
     {
-        //if (GetCurrentThreadId() == g_DXDeviceThread)
-        //    D3DPERF_EndEvent();
         return 0;
     }
+#endif
 }
 
 char __cdecl Bot_GrenadeSightTrace(const client_t *bot, float projectileSpeed, float throwPitch)
@@ -3012,6 +3062,7 @@ void __cdecl SV_BotRegisterDvars()
                                                      0,
                                                      "Testclients will use names from the players' friends list");
     sv_botAllowGrenades = _Dvar_RegisterBool("sv_botAllowGrenades", 1, 0, "Allow the bots to throw grenades");
+    sv_botMeleeDist = _Dvar_RegisterFloat("sv_botMeleeDist", 80.0f, 0.0f, 256.0f, 0, "Bot melee distance");
     sv_botMinGrenadeTime = _Dvar_RegisterInt(
                                                      "sv_botMinGrenadeTime",
                                                      500,

@@ -131,7 +131,7 @@ int __cdecl LiveStats_GetDDLHeaderVersion(unsigned __int8 *statsBuffer)
 
 int __cdecl LiveStats_ValidateGlobalWithDDL(int controllerIndex)
 {
-    char backupBuffer[40172]; // [esp+0h] [ebp-9CF8h] BYREF
+    char backupBuffer[STATS_BUFFER_SIZE]; // [esp+0h] [ebp-9CF8h] BYREF
     char *buffer; // [esp+9CF0h] [ebp-8h]
     int bufferSize; // [esp+9CF4h] [ebp-4h]
 
@@ -147,8 +147,8 @@ int __cdecl LiveStats_ValidateGlobalWithDDL(int controllerIndex)
         LiveStorage_SetStatsDDLValidated(controllerIndex, STATS_LOCATION_NORMAL, 1);
         return 1;
     }
-    else if ( DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats.ddl", backupBuffer, 40168)
-                 || DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats_archive.ddl", backupBuffer, 40168) )
+    else if ( DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats.ddl", backupBuffer, STATS_BUFFER_SIZE)
+                 || DDL_FixBufferVersion(buffer, g_statsDDL, "ddl_mp/stats_archive.ddl", backupBuffer, STATS_BUFFER_SIZE) )
     {
         DDL_NoCheckPrintWarning(
             "DDL: Stats buffer updated to version %d for controller index %d.\n",
@@ -295,7 +295,7 @@ unsigned int __cdecl LiveStats_GetDIntStatFromBase(
     return DDL_GetInt(searchState, (char *)buffer);
 }
 
-unsigned int __cdecl LiveStats_GetDInt64Stat(int controllerIndex, ddlState_t *searchState)
+unsigned __int64 __cdecl LiveStats_GetDInt64Stat(int controllerIndex, ddlState_t *searchState)
 {
     bool v3; // [esp+3h] [ebp-9h]
     persistentStats *buffer; // [esp+8h] [ebp-4h]
@@ -453,7 +453,7 @@ unsigned int __cdecl LiveStats_GetDIntStatFromForcedBase(int controllerIndex, dd
         return 0;
 }
 
-unsigned int __cdecl LiveStats_GetDInt64StatFromForcedBase(int controllerIndex, ddlState_t *searchState, char *buffer)
+unsigned __int64 __cdecl LiveStats_GetDInt64StatFromForcedBase(int controllerIndex, ddlState_t *searchState, char *buffer)
 {
     if ( controllerIndex
         && !Assert_MyHandler(
@@ -812,7 +812,7 @@ void __cdecl LiveStats_SetStatChanged(int controllerIndex, const char *hexMsg)
             statChangeCommand[runCount] = hexMsg[i];
             if ( sizeFound && runCount == 2 * size - 1 )
             {
-                LiveStats_ProcessStatChangedData(controllerIndex, (char *)buffer, 40168, startOffset, size, statChangeCommand);
+                LiveStats_ProcessStatChangedData(controllerIndex, (char *)buffer, STATS_BUFFER_SIZE, startOffset, size, statChangeCommand);
                 runCount = 0;
                 offsetFound = 0;
                 sizeFound = 0;
@@ -4197,7 +4197,7 @@ unsigned __int64 __cdecl LiveStats_ReadXUIDFromStats()
     if ( DDL_MoveTo(&g_statsRootState, &searchState, 1, "PlayerXUID") )
     {
         buff = LiveStorage_GetStatsBuffer(0, STATS_LOCATION_NORMAL, 1);
-        LODWORD(v0) = DDL_GetInt64(&searchState, (char *)buff);
+        v0 = DDL_GetInt64(&searchState, (char *)buff);
         return v0;
     }
     else if ( !Assert_MyHandler(
@@ -4483,13 +4483,11 @@ void __cdecl LiveStats_GetNemesisXuid(int controllerIndex, unsigned __int64 *nem
 {
 #ifdef KISAK_LIVE_SERVICE
     const ddlState_t *RootDDLState; // eax
-    int v3; // edx
     ddlState_t ddlState; // [esp+0h] [ebp-10h] BYREF
 
     RootDDLState = LiveStats_GetRootDDLState();
     DDL_MoveTo(RootDDLState, &ddlState, 2, "AfterActionReportStats", "nemesisXuid");
-    *(unsigned int *)nemesisXuid = LiveStats_GetDInt64Stat(controllerIndex, &ddlState);
-    *((unsigned int *)nemesisXuid + 1) = v3;
+    *nemesisXuid = LiveStats_GetDInt64Stat(controllerIndex, &ddlState);
 #endif
 }
 

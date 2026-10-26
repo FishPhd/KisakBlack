@@ -24,6 +24,7 @@ def main():
     harness = r'''
 #include <ddl/ddl_api.h>
 #include <ddl/ddl_buffer.h>
+#include <live/stats_buffer.h>
 #include <cassert>
 #include <cstring>
 #include <cstdio>
@@ -31,10 +32,11 @@ def main():
 static bool offline = true;
 static bool archiveDefault = false;
 static int lookups = 0;
+static int bufferCapacity = 40168;
 static ddlRoot_t primary{}, archive{};
 constexpr int ASSET_TYPE_DDL = 0;
 struct AssetHeader { ddlRoot_t *ddlRoot; };
-int LiveStorage_GetStatsBufferSize() { return 40168; }
+int LiveStorage_GetStatsBufferSize() { return bufferCapacity; }
 bool Dvar_GetBool(const char *) { return offline; }
 bool DB_IsXAssetDefault(int, const char *name)
 {
@@ -107,7 +109,13 @@ int main()
     archive.ddlDef = &v98;
     archiveDefault = true;
     assert(LiveStats_SelectOfflineStatsDDL(&v100) == &v100);
-    puts("9 offline stats-schema selection checks passed");
+    // The restored PC retail capacity fits the actual v100 schema directly.
+    // Keep the smaller-capacity cases above as fallback boundary coverage.
+    bufferCapacity = STATS_BUFFER_SIZE;
+    lookups = 0;
+    assert(LiveStats_SelectOfflineStatsDDL(&v100) == &v100);
+    assert(lookups == 0);
+    puts("10 offline stats-schema selection checks passed");
 }
 '''
     with tempfile.TemporaryDirectory(prefix="kisak-stats-ddl-") as work:

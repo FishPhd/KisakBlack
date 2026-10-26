@@ -57,6 +57,7 @@ void __cdecl SV_BotPressUseButton(const client_t *bot, int msec);
 void __cdecl SV_BotPressAttackButton(const client_t *bot);
 void __cdecl SV_BotSetAttacker(const client_t *bot, const gentity_s *attacker);
 void __cdecl SV_BotThink(client_t *bot, usercmd_s *cmd);
+void SV_BotStatus_f();
 int __cdecl Com_HashString(const char *fname, int len); // KISAKTODO: move somewhere in qcommon
 void __cdecl Bot_UpdateTimedAction(int *timedAction);
 void __cdecl Bot_UpdateSight(bot_info_t *botInfo, const client_t *bot);
@@ -101,7 +102,7 @@ bool __cdecl Bot_IsFlashbanged(const client_t *bot);
 void __cdecl Bot_UpdateReload(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd);
 void __cdecl Bot_UpdateGlassSmash(const client_t *bot, usercmd_s *cmd);
 void __cdecl Bot_UpdateCombat(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd);
-char __cdecl Bot_UpdateMelee(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd);
+char __cdecl Bot_UpdateMelee(bot_info_t *botInfo, const playerState_s *ps, usercmd_s *cmd);
 char __cdecl Bot_UpdateGrenadeThrow(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd);
 char __cdecl Bot_GrenadeSightTrace(const client_t *bot, float projectileSpeed, float throwPitch);
 char __cdecl Bot_GrenadeInRange(

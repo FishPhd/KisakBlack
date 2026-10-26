@@ -686,7 +686,7 @@ void __cdecl Live_FileShare_GetLastPlayedGameDetails(int controllerIndex)
 
     RootDDLState = LiveStats_GetRootDDLState();
     DDL_MoveTo(RootDDLState, &localState, 2, "AfterActionReportStats", "demoFileID");
-    LODWORD(v2) = LiveStats_GetDInt64Stat(controllerIndex, &localState);
+    v2 = LiveStats_GetDInt64Stat(controllerIndex, &localState);
     s_lastPlayedGame.dwFileID.m_fileID = v2;
     if ( v2 && s_lastPlayedGame.dwFileID.m_fileID == s_lastPlayedGame.descriptor.m_fileID )
     {

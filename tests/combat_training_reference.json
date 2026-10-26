@@ -1,0 +1,217 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "image_base": "0x400000",
+  "functions": [
+    {
+      "name": "SV_BotThink",
+      "entry_rva": "0xdfe70",
+      "code": [
+        {
+          "rva": 917104,
+          "size": 741,
+          "sha256": "b89d2511411f242bb6ec3269efe1c40c7836083ee13218f954b9730f3c991237"
+        }
+      ],
+      "evidence": "Restored freeze mask0x14, use bit5, pending attack bit0, frozen weapon selection; guided-missile branch remains unqualified.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "Bot_UpdateMovement",
+      "entry_rva": "0x474440",
+      "code": [
+        {
+          "rva": 4670528,
+          "size": 217,
+          "sha256": "9c12bf1fc2f6372c33c77b9ec99164451108ce2d6c1037f29de820120e7a13ef"
+        }
+      ],
+      "evidence": "Retail has no developer movement-enable gate.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "Bot_UpdateCombat",
+      "entry_rva": "0x474a70",
+      "code": [
+        {
+          "rva": 4672112,
+          "size": 760,
+          "sha256": "bc0febf88c3073c1d71d14229d4fa64eaea49ef6b8c6ffcb184ac9a2c319fbbf"
+        }
+      ],
+      "evidence": "Retail has no developer fire-enable gate.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "Bot_UpdateMelee",
+      "entry_rva": "0x474650",
+      "code": [
+        {
+          "rva": 4671056,
+          "size": 186,
+          "sha256": "d1be6e8f3c20c513660b8d22e6f1a07f0a761a1021c3be59317b1875a415873b"
+        }
+      ],
+      "evidence": "3118 empty-clip native-original / qualified Unicorn / production C++ cases agree; nonempty-clip CRT RNG is outside that replay contract.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "Bot_UpdateGrenadeThrow",
+      "entry_rva": "0x474710",
+      "code": [
+        {
+          "rva": 4671248,
+          "size": 860,
+          "sha256": "2e7abf984daf986192af6d14978171fdc6abb29a7f21178486fab22fd0dd44d9"
+        }
+      ],
+      "evidence": "Retail has no developer fire-enable gate.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "SV_BotRegisterDvars",
+      "entry_rva": "0x4efc0",
+      "code": [
+        {
+          "rva": 323520,
+          "size": 1408,
+          "sha256": "65ed0e87a25320aa74f8c942ee5589e4bc7fa0b99a21fc5e4207902340caac21"
+        }
+      ],
+      "evidence": "sv_botMeleeDist default80, range0..256; developer gates absent.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "GScr_GetDStat",
+      "entry_rva": "0x44ad90",
+      "code": [
+        {
+          "rva": 4500880,
+          "size": 548,
+          "sha256": "e9fb23d081a1404b1b61f30bd29ac01989dd4fcfa5fb3874fa07000ccbc407d6"
+        }
+      ],
+      "evidence": "Local stat reading is not guarded by online-platform availability.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "SV_GetClientDInt64Stat",
+      "entry_rva": "0x1b1920",
+      "code": [
+        {
+          "rva": 1775904,
+          "size": 162,
+          "sha256": "c3686c5bbd2d263eaa5c8b3320e2ca9e49873cfb696ada45ae2c0341cc8100d4"
+        }
+      ],
+      "evidence": "Original preserves EDX:EAX, uses40960-byte stats buffers.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "LiveStats_GetDInt64Stat",
+      "entry_rva": "0x88110",
+      "code": [
+        {
+          "rva": 557328,
+          "size": 104,
+          "sha256": "76412950b621acda78fb5a44661e7178918cbcef0628030f675bc17008ded797"
+        }
+      ],
+      "evidence": "Original preserves EDX:EAX on successful DDL read.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "LiveStats_GetDInt64StatFromForcedBase",
+      "entry_rva": "0xec60",
+      "code": [
+        {
+          "rva": 60512,
+          "size": 39,
+          "sha256": "fa9b2b08a9438c65b25cf42137fecd5f2aa29b4cbc1d8a7a349fdb815377df23"
+        }
+      ],
+      "evidence": "Original preserves EDX:EAX on successful DDL read.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "LiveStats_ReadXUIDFromStats",
+      "entry_rva": "0x199930",
+      "code": [
+        {
+          "rva": 1677616,
+          "size": 87,
+          "sha256": "e2bb01dfd1eaf284cb2069f704716f40e12a49a535702e821833e7dfd55c011e"
+        }
+      ],
+      "evidence": "Original preserves EDX:EAX for PlayerXUID.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "DDL_Converter_CopyStates",
+      "entry_rva": "0x1254d0",
+      "code": [
+        {
+          "rva": 1201360,
+          "size": 233,
+          "sha256": "b74f21b876b68ee8c50d1f4ced440b74da1a7d67bc9e4c655e6abb74b394073e"
+        }
+      ],
+      "evidence": "Original pushes both EDX and EAX to DDL_SetInt64.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "LiveStorage_GetPersStatsBuffer",
+      "entry_rva": "0x50b8c0",
+      "code": [
+        {
+          "rva": 5290176,
+          "size": 149,
+          "sha256": "4d279b01db504bacd3a0db154360875d6e454d8ee6e8a5d3de45c4a2c2255fc8"
+        }
+      ],
+      "evidence": "Original data capacity0xa000; persistentStats stride0xa005, playerNetworkData stride0x3c024.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "CG_UpdateClientDobjPartBits",
+      "entry_rva": "0x3cea50",
+      "code": [
+        {
+          "rva": 3992144,
+          "size": 459,
+          "sha256": "6b5586a04c94bfd52e6d6268788811bcf67e87d641e4364f6441e567899bf56f"
+        }
+      ],
+      "evidence": "Original clientInfo stride0x5d0; corpse address=cgs+entityNum*0x5d0-0xa220=cgs.corpseinfo[entityNum-32].",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "CG_Vehicle_DoControllers",
+      "entry_rva": "0x3dfcc0",
+      "code": [
+        {
+          "rva": 4062400,
+          "size": 1477,
+          "sha256": "4baae2baf0634a7bdb9a1f58d2c2618b367ddbafc781ef06fad9d1ce4e7a41ad"
+        },
+        {
+          "rva": 4063888,
+          "size": 1114,
+          "sha256": "8e92d35601c01d44bd2e8c00d3dc132341f08f48645f7fdd50b76a45cc194be1"
+        },
+        {
+          "rva": 4065008,
+          "size": 211,
+          "sha256": "d1bff53408201ee9488161b6a398853913410afb2e9cc7e44cd66dccb2219758"
+        }
+      ],
+      "evidence": "Restored main/gunner/minigun vectors and invalid-bone checks. Wheel suspension and nitrous transforms remain outside this change and are not fully qualified.",
+      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    }
+  ],
+  "limits": [
+    "No claim of whole-game byte identity or complete online services.",
+    "Offline menu/platform exceptions remain intentional.",
+    "Debug-only controls are retained in Debug builds.",
+    "Original captures and historical failures remain under ignored build-re/; local tools/re workflow is intentionally ignored."
+  ]
+}

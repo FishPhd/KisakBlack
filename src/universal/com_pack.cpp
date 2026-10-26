@@ -2,6 +2,7 @@
 #include "com_math.h"
 
 #include <cfloat>
+#include <bit>
 #include "q_shared.h"
 
 PackedUnitVec __cdecl Vec3PackUnitVec(const float *unitVec)
@@ -125,7 +126,10 @@ int __cdecl FloatPack9S(float unitFloat)
 {
     float v1; // xmm0_4
 
-    v1 = (unitFloat - -49344.75294117647) / 16448.25098039216;
+    // Original Vec4PackQuat region: CVTPS2PD, SUBSD, MULSD, CVTPD2PS.
+    v1 = static_cast<float>((static_cast<double>(unitFloat)
+        - std::bit_cast<double>(0xc0e8181818181818ULL))
+        * std::bit_cast<double>(0x3f0fe00000000000ULL));
     return LOWORD(v1) & 0x1FF;
 }
 
@@ -133,7 +137,9 @@ int __cdecl FloatPack10S(float unitFloat)
 {
     float v1; // xmm0_4
 
-    v1 = (unitFloat - -24624.0939334638) / 8208.031311154598;
+    v1 = static_cast<float>((static_cast<double>(unitFloat)
+        - std::bit_cast<double>(0xc0d80c06030180c0ULL))
+        * std::bit_cast<double>(0x3f1ff00000000000ULL));
     return LOWORD(v1) & 0x3FF;
 }
 

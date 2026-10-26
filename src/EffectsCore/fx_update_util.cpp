@@ -396,6 +396,8 @@ void FX_GetVelocityAtTime(
     float rangeLerp[3]; // [esp+60h] [ebp-10h] BYREF
     float sampleLerp; // [esp+6Ch] [ebp-4h]
 
+#ifdef _DEBUG
+    // These diagnostic branches are absent from retail 0x4a6b30.
     if (!elemDef
         && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\EffectsCore\\fx_update_util.cpp", 310, 0, "%s", "elemDef"))
     {
@@ -422,7 +424,9 @@ void FX_GetVelocityAtTime(
     {
         __debugbreak();
     }
+#endif
     sampleTime = msecElapsed / msecLifeSpan;
+#ifdef _DEBUG
     if ((float)(msecElapsed / msecLifeSpan) < 0.0 || sampleTime >= 1.0)
     {
         v8 = va("%g: %g, %g", sampleTime, msecElapsed, msecLifeSpan);
@@ -435,6 +439,7 @@ void FX_GetVelocityAtTime(
             v8))
             __debugbreak();
     }
+#endif
     v13 = fx_randomTable[randomSeed];
     rangeLerp[0] = v13;
     v12 = fx_randomTable[randomSeed + 1];
@@ -447,6 +452,7 @@ void FX_GetVelocityAtTime(
     v9 = (int)*(float *)&v11;
     sampleIndex = v9;
     sampleLerp = samplePoint - (float)v9;
+#ifdef _DEBUG
     if (v9 < 0 || sampleIndex >= intervalCount)
     {
         v10 = va("%i for %g on %i intervals", sampleIndex, sampleTime, intervalCount);
@@ -462,6 +468,7 @@ void FX_GetVelocityAtTime(
             v13))
             __debugbreak();
     }
+#endif
     weight[1] = (float)intervalCount * sampleLerp;
     weight[0] = (float)intervalCount - weight[1];
     samples = &elemDef->velSamples[sampleIndex];

@@ -1471,7 +1471,11 @@ void __cdecl CG_UpdateClientDobjPartBits(centity_s *cent, unsigned int entnum, i
             else
             {
                 cgs = CG_GetLocalClientStaticGlobals(localClientNum);
-                ci = (clientInfo_t *)((char *)&cgs[-3] + 1480 * p_nextState->number - 3208);
+                // Retail 0x7ceaf9 uses the clientInfo_t stride (0x5d0),
+                // with corpse entity numbers starting at MAX_CLIENTS (32).
+                static_assert(sizeof(clientInfo_t) == 0x5D0);
+                static_assert(offsetof(cgs_t, corpseinfo) == 0x17E0);
+                ci = &cgs->corpseinfo[p_nextState->number - 32];
             }
             DObjGetHidePartBits(obj, oldPartBits);
             if ( ci->hideWeapon && p_nextState->clientNum == entnum )

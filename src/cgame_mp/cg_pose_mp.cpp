@@ -463,42 +463,40 @@ void CG_Vehicle_DoControllers(const cpose_t *pose, const DObj *obj, int *partBit
     float gunnerBarrelAngles[4][3] = { 0 };
 
     // Main vehicle angles
-    steerAnglesYaw[2] = pose->vehicle.pitch * 0.0054931641f;
-    bodyAngles[1] = pose->vehicle.roll * 0.0054931641f;
-    bodyAngles[2] = pose->vehicle.barrelPitch * 0.0054931641f;
-    turretAngles[0] = pose->vehicle.yaw * 0.0054931641f;
-    steerYaw = pose->vehicle.steerPitch * 0.0054931641f;
+    // Retail 0x7dfcc0 supplies complete three-component vectors to tag setters.
+    bodyAngles[0] = pose->vehicle.pitch * 0.0054931641f;
+    bodyAngles[2] = pose->vehicle.roll * 0.0054931641f;
+    barrelAngles[0] = pose->vehicle.barrelPitch * 0.0054931641f;
+    turretAngles[1] = pose->vehicle.yaw * 0.0054931641f;
+    steerYaw = pose->vehicle.steerYaw * 0.0054931641f;
+    steerAnglesPitch[0] = pose->vehicle.steerPitch * 0.0054931641f;
 
     // Set main tags
-    DObjSetLocalTag(obj, partBits, pose->vehicle.tag_body, vec3_origin, &steerAnglesYaw[2]);
-    DObjSetLocalTag(obj, partBits, pose->vehicle.tag_turret, vec3_origin, &barrelAngles[2]);
-    DObjSetLocalTag(obj, partBits, pose->vehicle.tag_barrel, vec3_origin, &bodyAngles[2]);
+    DObjSetLocalTag(obj, partBits, pose->vehicle.tag_body, vec3_origin, bodyAngles);
+    DObjSetLocalTag(obj, partBits, pose->vehicle.tag_turret, vec3_origin, turretAngles);
+    DObjSetLocalTag(obj, partBits, pose->vehicle.tag_barrel, vec3_origin, barrelAngles);
 
     // Barrel recoil
     if (pose->vehicle.barrelRecoil > 0.0f) {
-        barrelOffset[2] = pose->vehicle.barrelRecoil;
-        minigunAngles[2] = barrelOffset[2] * recoilVec[0];
-        barrelOffset[0] = barrelOffset[2] * recoilVec[1];
-        barrelOffset[1] = barrelOffset[2] * recoilVec[2];
-        DObjSetLocalTag(obj, partBits, pose->vehicle.tag_barrel_recoil, &minigunAngles[2], vec3_origin);
-    }
-
-    // Minigun spin
-    if (pose->vehicle.tag_minigun_spin != 254) {
-        float spin = pose->vehicle.minigun_rotation * 0.0054931641f;
-        minigunAngles[1] = spin;
-        DObjSetLocalTag(obj, partBits, pose->vehicle.tag_minigun_spin, vec3_origin, &spin);
+        barrelOffset[0] = pose->vehicle.barrelRecoil * recoilVec[0];
+        barrelOffset[1] = pose->vehicle.barrelRecoil * recoilVec[1];
+        barrelOffset[2] = pose->vehicle.barrelRecoil * recoilVec[2];
+        DObjSetLocalTag(obj, partBits, pose->vehicle.tag_barrel_recoil, barrelOffset, vec3_origin);
     }
 
     // Gunner wheels / turrets
     for (int i = 0; i < 4; ++i) {
-        int boneIndex = pose->vehicle.tag_gunner_turret[i];
-        gunnerTurretAngles[i * 3] = pose->vehicle.gunnerYaw[i] * 0.0054931641f;
-        gunnerTurretAngles[i * 3 + 2] = pose->vehicle.gunnerPitch[i] * 0.0054931641f;
+        gunnerTurretAngles[i * 3 + 1] = pose->vehicle.gunnerYaw[i] * 0.0054931641f;
+        gunnerBarrelAngles[i][0] = pose->vehicle.gunnerPitch[i] * 0.0054931641f;
+        // DObjSetLocalTag preserves retail's < 0xFE sentinel check.
+        DObjSetLocalTag(obj, partBits, pose->vehicle.tag_gunner_turret[i], vec3_origin, &gunnerTurretAngles[i * 3]);
+        DObjSetLocalTag(obj, partBits, pose->vehicle.tag_gunner_barrel[i], vec3_origin, gunnerBarrelAngles[i]);
+    }
 
-        if (DObjSetRotTransIndex(obj, partBits, boneIndex)) {
-            DObjSetLocalTagInternal(obj, vec3_origin, &gunnerTurretAngles[i * 3], boneIndex);
-        }
+    // Minigun spin
+    if (pose->vehicle.tag_minigun_spin != 254) {
+        minigunAngles[2] = pose->vehicle.minigun_rotation * 0.0054931641f;
+        DObjSetLocalTag(obj, partBits, pose->vehicle.tag_minigun_spin, vec3_origin, minigunAngles);
     }
 
     // Wheels
@@ -507,9 +505,10 @@ void CG_Vehicle_DoControllers(const cpose_t *pose, const DObj *obj, int *partBit
         float wheelHeight = pose->vehicle.wheelHeight[k];
         float wheelRotation = pose->vehicle.nitrousWheelRotation[k];
 
-        if (DObjSetRotTransIndex(obj, partBits, wheelBone)) {
+        if (wheelBone < 0xFE && DObjSetRotTransIndex(obj, partBits, wheelBone)) {
             float wheelPos[3] = { 0, 0, wheelHeight };
-            DObjSetLocalTagInternal(obj, wheelPos, &wheelRotation, wheelBone);
+            float wheelAngles[3] = { wheelRotation, 0, 0 };
+            DObjSetLocalTagInternal(obj, wheelPos, wheelAngles, wheelBone);
         }
     }
 
@@ -517,10 +516,10 @@ void CG_Vehicle_DoControllers(const cpose_t *pose, const DObj *obj, int *partBit
     for (int m = 0; m < 4; ++m) {
         int wheelBone = pose->vehicle.tag_extra_tank_wheels[m];
         float angle = pose->vehicle.nitrousWheelRotation[m] * pose->vehicle.extra_wheel_rot_scale;
-        float wheelAngles[3] = { 0, 0, angle };
+        float wheelAngles[3] = { angle, 0, 0 };
 
-        if (DObjSetRotTransIndex(obj, partBits, wheelBone)) {
-            DObjSetLocalTagInternal(obj, vec3_origin, &wheelAngles[2], wheelBone);
+        if (wheelBone < 0xFE && DObjSetRotTransIndex(obj, partBits, wheelBone)) {
+            DObjSetLocalTagInternal(obj, vec3_origin, wheelAngles, wheelBone);
         }
     }
 }

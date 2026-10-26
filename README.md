@@ -38,9 +38,10 @@ However, there is a non-zero chance of some type of binary exploitation when pla
 ## Troubleshooting
 - **Play menu says an internet connection is required**:
   - Builds without `KISAK_LIVE` default to `ui_offlinePlay 1`, allowing the existing Play menu to pass its sign-in and connecting-screen checks for local testing. Set `ui_offlinePlay 0` to require Steam sign-in and the original service-readiness checks instead. This is a menu/platform exception, not a restoration of Demonware matchmaking, downloaded stats, or playlists.
-  - Combat Training still needs valid local stats and successful map/game initialization; menu access alone does not verify a playable bot match.
+  - Use **Play > Combat Training > Start Match**, then choose a class. Release builds use the retail bot movement and combat paths; the developer `sv_botsAllowMovement` and attack switches only gate Debug builds. `bot_status` prints the roster, teams, positions, movement commands, paths, kills, and deaths for local diagnosis.
 - **Combat Training reports that the DDL needs 40548 bytes**:
-  - Later retail assets use stats schema v100 (40548 bytes), while this build uses 40168-byte stats buffers. With `ui_offlinePlay 1`, the game selects the newest fitting schema from `stats.ddl` and `stats_archive.ddl` (v98 with the tested assets). Buffer layouts and DDL bounds checks remain unchanged. If neither asset contains a compatible schema, validation still rejects the oversized data.
+  - The PC retail stats capacity is now restored to 40960 bytes, so schema v100 (40548 bytes) fits without an archive downgrade. Stats metadata and dirty-byte tracking use the matching capacity. The offline compatible-schema fallback remains available for oversized assets; DDL bounds checks still reject data when no compatible schema exists.
+  - If one team has no bots, check `sv_maxclients`: the default is 18, and a previously saved smaller value can exhaust the available slots before friendly bots join. Friendly count includes the human player; six friends and six enemies means five friendly bots and six enemy bots.
 - ***Can't Connect to Dedicated Server*** :
   -  Check `net_ip` and `net_port`, the server will increment the port if the preferred one isn't available but the client won't sweep upwards.
  - ***DLL Error upon launch*** :
