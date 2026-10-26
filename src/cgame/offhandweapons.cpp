@@ -170,9 +170,9 @@ bool __cdecl IsOffHandDisplayVisible(const cg_s *cgameGlob)
     if ( (cgameGlob->predictedPlayerState.eFlags & 0x4000) != 0 )
         return 0;
     return (cgameGlob->predictedPlayerState.eFlags & 0x300) == 0
-            || cgameGlob->predictedPlayerState.weaponstate == 35
-            || cgameGlob->predictedPlayerState.weaponstate == 36
-            || cgameGlob->predictedPlayerState.weaponstate == 37;
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYING
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYED
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_BREAKING_DOWN;
 }
 
 int __cdecl CalcOffHandAmmo(const playerState_s *predictedPlayerState, int weaponType)

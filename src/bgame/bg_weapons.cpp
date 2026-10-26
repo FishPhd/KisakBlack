@@ -357,7 +357,7 @@ int __cdecl BG_TakePlayerWeapon(playerState_s *ps, unsigned int weaponIndex)
         if ( weaponIndex == ps->weapon )
             ps->weapon = 0;
     }
-    if ( ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37 )
+    if ( ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN )
     {
         ps->eFlags &= 0xFFFFFCFF;
         PM_ResetWeaponState(ps);
@@ -567,7 +567,7 @@ LABEL_17:
                 {
                     if ( !player_disableWeaponsInWater->current.enabled || ps->waterlevel < 3 || ps->pm_type == 1 )
                     {
-                        if ( ps->weaponstate < 20 || ps->weaponstate > 25 )
+                        if ( ps->weaponstate < WEAPON_OFFHAND_INIT || ps->weaponstate > WEAPON_OFFHAND_END )
                         {
                             if ( ps->weaponstate == 1
                                 || ps->weaponstate == 2
@@ -577,7 +577,7 @@ LABEL_17:
                             {
                                 result = 0;
                             }
-                            else if ( ps->weaponstate < 40 || ps->weaponstate > 42 )
+                            else if ( ps->weaponstate < WEAPON_DTP_IN || ps->weaponstate > WEAPON_DTP_OUT )
                             {
                                 result = (ps->pm_flags & 4) == 0
                                             && (ps->weapFlags & 0x20) == 0
@@ -722,14 +722,14 @@ void __cdecl PM_UpdateAimDownSightLerp(pmove_t *pm, pml_t *pml)
         adsRequested = 0;
         if ( !weapDef->bReloadWhileAds
             && !weapDef->bSegmentedReload
-            && ps->weaponstate == 10
+            && ps->weaponstate == WEAPON_RELOADING
             && ps->weaponTime - weapDef->iPositionReloadTransTime > 0
             || !weapDef->bReloadWhileAds
             && weapDef->bSegmentedReload
-            && (ps->weaponstate == 10
-             || !weapDef->bReloadWhileAds && ps->weaponstate == 11
-             || !weapDef->bReloadWhileAds && (ps->weaponstate == 12 || ps->weaponstate == 13)
-             || !weapDef->bReloadWhileAds && ps->weaponstate == 14 && ps->weaponTime - weapDef->iPositionReloadTransTime > 0)
+            && (ps->weaponstate == WEAPON_RELOADING
+             || !weapDef->bReloadWhileAds && ps->weaponstate == WEAPON_RELOADING_INTERUPT
+             || !weapDef->bReloadWhileAds && (ps->weaponstate == WEAPON_RELOAD_START || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT)
+             || !weapDef->bReloadWhileAds && ps->weaponstate == WEAPON_RELOAD_END && ps->weaponTime - weapDef->iPositionReloadTransTime > 0)
             || !weapDef->bRechamberWhileAds && ps->weaponstate == 7 )
         {
             adsRequested = 0;
@@ -744,7 +744,7 @@ void __cdecl PM_UpdateAimDownSightLerp(pmove_t *pm, pml_t *pml)
         }
         if ( weapDef->adsFireOnly
             && (ps->weaponDelay || weapDef->fireType == WEAPON_FIRETYPE_STACKED && (ps->weapFlags & 0x400) != 0)
-            && (ps->weaponstate == 6 || ps->weaponstate == 31) )
+            && (ps->weaponstate == 6 || ps->weaponstate == WEAPON_CONT_FIRE_LOOP) )
         {
             adsRequested = 1;
         }
@@ -841,27 +841,27 @@ bool __cdecl BG_UsingSniperScope(const playerState_s *ps)
 int __cdecl PM_InteruptWeaponWithProneMove(playerState_s *ps)
 {
     if ( ps->weaponstate < 6u
-        || ps->weaponstate == 10
-        || ps->weaponstate == 12
-        || ps->weaponstate == 14
-        || ps->weaponstate == 13
-        || ps->weaponstate == 11
-        || ps->weaponstate == 15
-        || ps->weaponstate == 16
+        || ps->weaponstate == WEAPON_RELOADING
+        || ps->weaponstate == WEAPON_RELOAD_START
+        || ps->weaponstate == WEAPON_RELOAD_END
+        || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT
+        || ps->weaponstate == WEAPON_RELOADING_INTERUPT
+        || ps->weaponstate == WEAPON_RELOAD_QUICK
+        || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY
         || ps->weaponstate == 7 )
     {
         return 1;
     }
-    if ( ps->weaponstate == 26
+    if ( ps->weaponstate == WEAPON_DETONATING
         || ps->weaponstate == 6
         || ps->weaponstate == 7
-        || ps->weaponstate == 31
-        || ps->weaponstate == 17
-        || ps->weaponstate == 18
-        || ps->weaponstate == 19
-        || ps->weaponstate >= 20 && ps->weaponstate <= 25
-        || ps->weaponstate == 33
-        || ps->weaponstate == 34 )
+        || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
+        || ps->weaponstate == WEAPON_MELEE_INIT
+        || ps->weaponstate == WEAPON_MELEE_FIRE
+        || ps->weaponstate == WEAPON_MELEE_END
+        || ps->weaponstate >= WEAPON_OFFHAND_INIT && ps->weaponstate <= WEAPON_OFFHAND_END
+        || ps->weaponstate == WEAPON_NIGHTVISION_WEAR
+        || ps->weaponstate == WEAPON_NIGHTVISION_REMOVE )
     {
         return 0;
     }
@@ -966,16 +966,18 @@ char __cdecl BG_IsQuickSwitch(unsigned int oldweapon, unsigned int newweapon, in
     return quick;
 }
 
-static float BG_GetQuickScopeSpread(const playerState_s *ps)
+__declspec(noinline) static float __vectorcall BG_GetQuickScopeSpread(const playerState_s *ps);
+
+static float __vectorcall BG_GetQuickScopeSpread(const playerState_s *ps)
 {
     if ( !bg_aqs->current.enabled
         || ps->aimSpreadScale > player_aqs_spread_max->current.value
         || ps->quickScopeScale <= 1.0f )
         return 0.0f;
-    volatile float durationMs = player_aqs_time->current.value * 1000.0f;
+    float durationMs = player_aqs_time->current.value * 1000.0f;
     if ( ps->quickScopeTimer != (int)durationMs )
         return 0.0f;
-    volatile float amplitude = ps->quickScopeScale - 1.0f;
+    float amplitude = ps->quickScopeScale - 1.0f;
     return amplitude * player_aqs_spread_multiplier->current.value;
 }
 
@@ -994,8 +996,6 @@ void __cdecl PM_AdjustAimSpreadScale(pmove_t *pm, pml_t *pml)
     float viewchange; // [esp+4Ch] [ebp-4h]
 
     ps = pm->ps;
-    if ( !pm->ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 2437, 0, "%s", "ps") )
-        __debugbreak();
     weapDef = BG_GetWeaponDef(ps->weapon);
     spreadOverrideScale = 1.0f;
     wpnScale = weapDef->fHipSpreadDecayRate;
@@ -1035,13 +1035,14 @@ void __cdecl PM_AdjustAimSpreadScale(pmove_t *pm, pml_t *pml)
         else
         {
             decrease = wpnScale * pml->frametime;
-            if ( ps->fWeaponPosFrac == 1.0 )
+            if ( ps->fWeaponPosFrac == 1.0f
+                && (!bg_aqs->current.enabled || ps->quickScopeTimer == 0) )
             {
                 increase = 0.0f;
             }
             else
             {
-                viewchange = 0.0f;
+                viewchange = BG_GetQuickScopeSpread(ps);
                 if ( weapDef->fHipSpreadTurnAdd != 0.0 )
                 {
                     for ( i = 0; i < 2; ++i )
@@ -1097,13 +1098,6 @@ bool __cdecl ShotLimitReached(playerState_s *ps, const WeaponDef *weapDef)
     bool result; // al
     unsigned int *weaponShotCount; // [esp+4h] [ebp-4h]
 
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 2543, 0, "%s", "ps") )
-        __debugbreak();
-    if ( !weapDef
-        && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 2544, 0, "%s", "weapDef") )
-    {
-        __debugbreak();
-    }
     weaponShotCount = BG_GetWeaponShotCount(ps, ps->bRunLeftGun);
     switch ( weapDef->fireType )
     {
@@ -1195,10 +1189,10 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
     weapDef = BG_GetWeaponDef(ps->weapon);
     if ( !ps->bRunLeftGun || weapDef->bDualWield )
     {
-        if ( ps->weaponstate != 21
-            && ps->weaponstate != 23
-            && ps->weaponstate != 22
+        if ( ps->weaponstate != 22
             && ps->weaponstate != 24
+            && ps->weaponstate != 23
+            && ps->weaponstate != 25
             && ps->weaponstate != 1
             && ps->weaponstate != 2
             && ps->weaponstate != 3
@@ -1225,22 +1219,22 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
                     delayedAction = PM_Weapon_WeaponTimeAdjust(pm, pml);
                     if ( !BurstFirePending(ps) )
                         PM_Weapon_CheckForMelee(pm, pml, delayedAction);
-                    if ( ps->weaponstate == 38
-                        || ps->weaponstate >= 20 && ps->weaponstate < 25
-                        || ps->weaponstate >= 17 && ps->weaponstate < 19 )
+                    if ( ps->weaponstate == 39
+                        || ps->weaponstate >= 21 && ps->weaponstate < 26
+                        || ps->weaponstate >= 18 && ps->weaponstate < 20 )
                     {
-                        if ( ps->weaponstate == 38 && (ps->weapFlags & 0x2000) != 0 )
+                        if ( ps->weaponstate == 39 && (ps->weapFlags & 0x2000) != 0 )
                         {
                             ps->weapFlags &= ~0x2000u;
                         }
-                        else if ( ps->weaponstate == 38 )
+                        else if ( ps->weaponstate == 39 )
                         {
                             return;
                         }
                     }
                     else
                     {
-                        ps->weaponTime = ps->weaponstate != 39 ? 0 : 0x3E8;
+                        ps->weaponTime = ps->weaponstate != 40 ? 0 : 0x3E8;
                         ps->weaponstate = WEAPON_SWIM_IN;
                         ps->weaponDelay = 0;
                         ps->weapFlags |= 0x2000u;
@@ -1250,7 +1244,7 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
                     }
                 }
             }
-            else if ( ps->weaponstate == 38 )
+            else if ( ps->weaponstate == 39 )
             {
                 ps->weaponstate = WEAPON_SWIM_OUT;
                 ps->weaponTime = 1000;
@@ -1300,9 +1294,9 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
                 if ( !PM_Weapon_CheckForRechamber(ps, delayedActiona) )
                 {
                     if ( (ps->pm_flags & 1) != 0 && (pm->cmd.forwardmove || pm->cmd.rightmove) && ps->fWeaponPosFrac != 1.0
-                        || ps->weaponstate == 17
                         || ps->weaponstate == 18
-                        || ps->weaponstate == 19 )
+                        || ps->weaponstate == 19
+                        || ps->weaponstate == 20 )
                     {
                         ps->aimSpreadScale = 255.0f;
                     }
@@ -1330,8 +1324,8 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
                     {
 LABEL_103:
                         if ( ps->bRunLeftGun
-                            && (weaponstateLeft = ps->weaponstateLeft, weaponstateLeft >= 10)
-                            && weaponstateLeft <= 11 )
+                            && (weaponstateLeft = ps->weaponstateLeft, weaponstateLeft >= 11)
+                            && weaponstateLeft <= 12 )
                         {
 LABEL_106:
                             PM_Weapon_FinishReload(pm, delayedActiona);
@@ -1342,7 +1336,7 @@ LABEL_106:
                             {
                                 if ( !PM_Weapon_CheckGrenadeHold(pm, delayedActiona)
                                     && (ps->pm_flags & 0x800) == 0
-                                    && ps->weaponstate != 35 )
+                                    && ps->weaponstate != 36 )
                                 {
                                     PM_Weapon_FireWeapon(pm, delayedActiona);
                                     if ( (ps->weaponTime < 0 || ps->weaponDelay < 0)
@@ -1363,90 +1357,90 @@ LABEL_106:
                     {
                         switch ( ps->weaponstate )
                         {
-                            case 1:
-                            case 2:
+                            case WEAPON_RAISING:
+                            case WEAPON_RAISING_ALTSWITCH:
                                 PM_Weapon_FinishWeaponRaise(ps);
                                 break;
-                            case 3:
-                            case 4:
-                            case 5:
+                            case WEAPON_DROPPING:
+                            case WEAPON_DROPPING_QUICK:
+                            case WEAPON_DROPPING_ALTSWITCH:
                                 PM_Weapon_FinishWeaponChange(pm, ps->weaponstate);
                                 break;
-                            case 0xA:
-                            case 0xB:
+                            case WEAPON_RELOADING:
+                            case WEAPON_RELOADING_INTERUPT:
                                 goto LABEL_106;
-                            case 0xC:
-                            case 0xD:
+                            case WEAPON_RELOAD_START:
+                            case WEAPON_RELOAD_START_INTERUPT:
                                 PM_Weapon_FinishReloadStart(pm, delayedActiona);
                                 break;
-                            case 0xE:
+                            case WEAPON_RELOAD_END:
                                 PM_Weapon_FinishReloadEnd(ps);
                                 break;
-                            case 0x11:
+                            case WEAPON_MELEE_INIT:
                                 PM_Weapon_MeleeFire(ps);
                                 break;
-                            case 0x12:
+                            case WEAPON_MELEE_FIRE:
                                 PM_Weapon_MeleeEnd(ps);
                                 break;
-                            case 0x13:
-                            case 0x19:
-                            case 0x1D:
-                            case 0x20:
-                            case 0x2A:
-                            case 0x2B:
-                            case 0x2E:
+                            case WEAPON_MELEE_END:
+                            case WEAPON_OFFHAND_END:
+                            case WEAPON_SPRINT_DROP:
+                            case WEAPON_CONT_FIRE_OUT:
+                            case WEAPON_DTP_OUT:
+                            case WEAPON_SLIDE_IN:
+                            case WEAPON_JAMMED:
                                 PM_Weapon_Idle(ps);
                                 break;
-                            case 0x14:
+                            case WEAPON_OFFHAND_INIT:
                                 PM_Weapon_OffHandPrepare(pm);
                                 break;
-                            case 0x15:
+                            case WEAPON_OFFHAND_PREPARE:
                                 PM_Weapon_OffHandHold(ps);
                                 break;
-                            case 0x16:
+                            case WEAPON_OFFHAND_HOLD:
                                 PM_Weapon_OffHand(pm);
                                 break;
-                            case 0x17:
+                            case WEAPON_OFFHAND_START:
                                 PM_Weapon_OffHandStart(pm);
                                 break;
-                            case 0x18:
+                            case WEAPON_OFFHAND:
                                 PM_Weapon_OffHandEnd(ps);
                                 break;
-                            case 0x1A:
+                            case WEAPON_DETONATING:
                                 PM_Detonate(ps, delayedActiona);
                                 break;
-                            case 0x1B:
+                            case WEAPON_SPRINT_RAISE:
                                 Sprint_State_Loop(ps);
                                 break;
-                            case 0x1C:
-                            case 0x24:
+                            case WEAPON_SPRINT_LOOP:
+                            case WEAPON_DEPLOYED:
                                 return;
-                            case 0x1E:
+                            case WEAPON_CONT_FIRE_IN:
                                 ContinuousFire_State_Loop(ps);
                                 goto LABEL_103;
-                            case 0x21:
+                            case WEAPON_NIGHTVISION_WEAR:
                                 PM_Weapon_FinishNightVisionWear(ps);
                                 break;
-                            case 0x22:
+                            case WEAPON_NIGHTVISION_REMOVE:
                                 PM_Weapon_FinishNightVisionRemove(ps);
                                 break;
-                            case 0x23:
+                            case WEAPON_DEPLOYING:
                                 PM_AddEvent(ps, 0x26u);
                                 break;
-                            case 0x25:
+                            case WEAPON_BREAKING_DOWN:
                                 PM_Weapon_Idle(ps);
                                 PM_AddEvent(ps, 0x28u);
                                 break;
-                            case 0x26:
+                            case WEAPON_SWIM_IN:
                                 PM_WeaponSwimIn(ps);
                                 break;
-                            case 0x27:
+                            case WEAPON_SWIM_OUT:
                                 PM_WeaponSwimOut(ps);
                                 break;
-                            case 0x28:
+                            case WEAPON_DTP_IN:
                                 Dtp_State_Loop(ps);
                                 break;
-                            case 0x29:
+                            case WEAPON_DTP_LOOP:
                                 if ( Dtp_IsSliding(ps) || (ps->pm_flags & 0x400000) == 0 )
                                     Dtp_State_Out(ps);
                                 break;
@@ -1542,8 +1536,8 @@ void __cdecl PM_EndHoldBreath(playerState_s *ps)
 
 int __cdecl PM_Weapon_CheckForRechamber(playerState_s *ps, int delayedAction)
 {
-    // Original MP raw states; the legacy enum's later values are not aligned yet.
-    constexpr weaponstate_t rechamberFinish = static_cast<weaponstate_t>(8);
+    // Original MP delayed rechamber completion uses its own state.
+    constexpr weaponstate_t rechamberFinish = WEAPON_RECHAMBERING_FINISH;
     const WeaponDef *weapDef = BG_GetWeaponDef(ps->weapon);
     if ( ps->weaponstate >= 21 && ps->weaponstate <= 26 )
         return 0;
@@ -1920,8 +1914,8 @@ void __cdecl PM_Weapon_FinishReloadStart(pmove_t *pm, int delayedAction)
         __debugbreak();
     weapDef = BG_GetWeaponDef(ps->weapon);
     weapVarDef = BG_GetWeaponVariantDef(ps->weapon);
-    if ( ps->weaponstate != 12
-        && ps->weaponstate != 13
+    if ( ps->weaponstate != WEAPON_RELOAD_START
+        && ps->weaponstate != WEAPON_RELOAD_START_INTERUPT
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp",
                     2122,
@@ -2007,10 +2001,10 @@ void __cdecl PM_SetReloadingState(playerState_s *ps)
             }
             PM_AddEvent(ps, 0x13u);
         }
-        if ( *weaponState == 13 )
-            *weaponState = 11;
+        if ( *weaponState == WEAPON_RELOAD_START_INTERUPT )
+            *weaponState = WEAPON_RELOADING_INTERUPT;
         else
-            *weaponState = 10;
+            *weaponState = WEAPON_RELOADING;
         PM_SetWeaponReloadAddAmmoDelay(ps);
     }
 }
@@ -2050,7 +2044,7 @@ void __cdecl PM_SetWeaponReloadAddAmmoDelay(playerState_s *ps)
     weaponState = BG_GetWeaponState(ps, ps->bRunLeftGun);
     weaponTime = BG_GetWeaponTime(ps, ps->bRunLeftGun);
     weaponDelay = BG_GetWeaponDelay(ps, ps->bRunLeftGun);
-    if ( *weaponState == 12 || *weaponState == 13 )
+    if ( *weaponState == WEAPON_RELOAD_START || *weaponState == WEAPON_RELOAD_START_INTERUPT )
     {
         if ( weapDef->iReloadStartAddTime )
         {
@@ -2187,11 +2181,11 @@ void __cdecl PM_Weapon_ReloadDelayedAction(playerState_s *ps)
     {
         BG_PlayerWeaponSetNeedsRechamber(ps, weaponIndex, 0);
         PM_AddEvent(ps, 0x22u);
-        if ( *weaponState != 12 && *weaponState != 13 || weapDef->iReloadStartAddTime )
+        if ( *weaponState != WEAPON_RELOAD_START && *weaponState != WEAPON_RELOAD_START_INTERUPT || weapDef->iReloadStartAddTime )
         {
             if ( !*weaponTime )
                 goto LABEL_28;
-            if ( *weaponState == 12 || *weaponState == 13 )
+            if ( *weaponState == WEAPON_RELOAD_START || *weaponState == WEAPON_RELOAD_START_INTERUPT )
             {
                 if ( !weapDef->iReloadStartAddTime
                     && !Assert_MyHandler(
@@ -2267,8 +2261,8 @@ void __cdecl PM_Weapon_FinishReload(pmove_t *pm, int delayedAction)
         __debugbreak();
     weaponState = BG_GetWeaponState(ps, ps->bRunLeftGun);
     weaponTime = BG_GetWeaponTime(ps, ps->bRunLeftGun);
-    if ( *weaponState != 10
-        && *weaponState != 11
+    if ( *weaponState != WEAPON_RELOADING
+        && *weaponState != WEAPON_RELOADING_INTERUPT
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp",
                     2172,
@@ -2286,18 +2280,18 @@ void __cdecl PM_Weapon_FinishReload(pmove_t *pm, int delayedAction)
         if ( !*weaponTime )
         {
             if ( weapDef->bSegmentedReload && pm->cmd.button_bits.testBit(0) )
-                *weaponState = 11;
+                *weaponState = WEAPON_RELOADING_INTERUPT;
             BG_PlayerWeaponSetNeedsRechamber(ps, ps->weapon, 0);
             if ( !weapDef->bSegmentedReload )
                 goto LABEL_20;
-            if ( *weaponState != 11 && PM_Weapon_AllowReload(ps) )
+            if ( *weaponState != WEAPON_RELOADING_INTERUPT && PM_Weapon_AllowReload(ps) )
             {
                 PM_SetReloadingState(ps);
                 return;
             }
             if ( weapDef->iReloadEndTime )
             {
-                *weaponState = 14;
+                *weaponState = WEAPON_RELOAD_END;
                 PM_StartWeaponAnim(ps, 18, 0);
                 *weaponTime = weapDef->iReloadEndTime;
                 PM_AddEvent(ps, 0x15u);
@@ -2314,7 +2308,7 @@ LABEL_20:
 
 void __cdecl PM_Weapon_FinishReloadEnd(playerState_s *ps)
 {
-    if ( ps->weaponstate != 14
+    if ( ps->weaponstate != WEAPON_RELOAD_END
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp",
                     2229,
@@ -2341,7 +2335,7 @@ void __cdecl PM_Weapon_CheckFuelTime(pmove_t *pm, pml_t *pml)
     weapDef = BG_GetWeaponDef(ps->weapon);
     weapVarDef = BG_GetWeaponVariantDef(ps->weapon);
     weaponState = BG_GetWeaponState(ps, ps->bRunLeftGun);
-    if ( weapDef->fuelTankWeapon && (*weaponState == 6 || *weaponState == 7 || *weaponState == 31) )
+    if ( weapDef->fuelTankWeapon && (*weaponState == 6 || *weaponState == 7 || *weaponState == WEAPON_CONT_FIRE_LOOP) )
     {
         BG_AddFuelTankTime(ps, ps->weapon, pml->msec);
         if ( BG_GetFuelTankTime(ps, ps->weapon) > weapDef->iTankLifeTime )
@@ -2375,17 +2369,17 @@ void __cdecl PM_Weapon_CheckForReload(pmove_t *pm)
     weapVarDef = BG_GetWeaponVariantDef(weaponIndex);
     if ( !weapDef->bDualWield )
         ps->weapFlags &= ~0x10000u;
-    if ( *weaponState == 19 && PM_WeaponClipEmpty(ps) && !BG_IsUseAsMeleeWeapon(weaponIndex) )
+    if ( *weaponState == WEAPON_MELEE_END && PM_WeaponClipEmpty(ps) && !BG_IsUseAsMeleeWeapon(weaponIndex) )
     {
         *weaponState = (*weaponState == 5) + 1;
         *weaponTime = weapDef->iEmptyRaiseTime;
         PM_StartWeaponAnim(ps, 26, 0);
     }
-    else if ( (*weaponState < 20 || *weaponState > 25)
-                 && *weaponState != 17
-                 && *weaponState != 18
-                 && *weaponState != 19
-                 && (*weaponState < 40 || *weaponState > 42)
+    else if ( (*weaponState < WEAPON_OFFHAND_INIT || *weaponState > WEAPON_OFFHAND_END)
+                 && *weaponState != WEAPON_MELEE_INIT
+                 && *weaponState != WEAPON_MELEE_FIRE
+                 && *weaponState != WEAPON_MELEE_END
+                 && (*weaponState < WEAPON_DTP_IN || *weaponState > WEAPON_DTP_OUT)
                  && (ps->pm_flags & 4) == 0
                  && (ps->waterlevel < 3 || !player_disableWeaponsInWater->current.enabled) )
     {
@@ -2405,20 +2399,20 @@ void __cdecl PM_Weapon_CheckForReload(pmove_t *pm)
             }
         }
         if ( weapDef->bSegmentedReload
-            && (*weaponState == 12 || *weaponState == 10)
+            && (*weaponState == WEAPON_RELOAD_START || *weaponState == WEAPON_RELOADING)
             && pm->cmd.button_bits.testBit(0)
             && !pm->oldcmd.button_bits.testBit(0) )
         {
             static const float MY_RELOADSTART_INTERUPT_IGNORE_FRAC = 0.4f;
 
-            if ( *weaponState == 12 && weapDef->iReloadStartTime )
+            if ( *weaponState == WEAPON_RELOAD_START && weapDef->iReloadStartTime )
             {
                 if ( (float)((float)(weapDef->iReloadStartTime - *weaponTime) / (float)weapDef->iReloadStartTime) > MY_RELOADSTART_INTERUPT_IGNORE_FRAC )
-                    *weaponState = 13;
+                    *weaponState = WEAPON_RELOAD_START_INTERUPT;
             }
-            else if ( *weaponState == 10 )
+            else if ( *weaponState == WEAPON_RELOADING )
             {
-                *weaponState = 11;
+                *weaponState = WEAPON_RELOADING_INTERUPT;
             }
         }
         if ( reloadRequested && PM_Weapon_AllowReload(ps) )
@@ -2471,10 +2465,10 @@ void __cdecl PM_BeginWeaponReload(pmove_t *pm)
     weapDef = BG_GetWeaponDef(weaponIndex);
     if ( (!*weaponState
          || *weaponState == 6
-         || *weaponState == 31
+         || *weaponState == WEAPON_CONT_FIRE_LOOP
          || *weaponState == 7
-         || *weaponState >= 27 && *weaponState <= 29
-         || *weaponState >= 47 && *weaponState <= 49)
+         || *weaponState >= WEAPON_SPRINT_RAISE && *weaponState <= WEAPON_SPRINT_DROP
+         || *weaponState >= WEAPON_LOWREADY_RAISE && *weaponState <= WEAPON_LOWREADY_DROP)
         && weaponIndex
         && weaponIndex < BG_GetNumWeapons()
         && (ps->eFlags2 & 0x10000000) == 0
@@ -2487,7 +2481,7 @@ void __cdecl PM_BeginWeaponReload(pmove_t *pm)
         {
             PM_StartWeaponAnim(ps, 17, ps->bRunLeftGun);
             *weaponTime = weapDef->iReloadStartTime;
-            *weaponState = 12;
+            *weaponState = WEAPON_RELOAD_START;
             PM_AddEvent(ps, 0x14u);
             PM_SetWeaponReloadAddAmmoDelay(ps);
         }
@@ -2513,8 +2507,8 @@ bool __cdecl BG_PlayDWThirdPersonReload(playerState_s *ps)
     if ( !weapDef->bDualWield )
         return 0;
     weapVariantDefDW = BG_GetWeaponVariantDef(weapDef->dualWieldWeaponIndex);
-    return ps->weaponstate == 10
-            && ps->weaponstateLeft == 10
+    return ps->weaponstate == WEAPON_RELOADING
+            && ps->weaponstateLeft == WEAPON_RELOADING
             && ps->weaponTime > weapVariantDef->iReloadTime >> 1
             && ps->weaponTimeLeft > weapVariantDefDW->iReloadTime >> 1;
 }
@@ -2534,14 +2528,14 @@ bool __cdecl PM_CheckForReloadInterferingWeaponStates(pmove_t *pm, playerState_s
         case 3:
         case 4:
         case 5:
-        case 10:
-        case 11:
-        case 14:
-        case 38:
+        case WEAPON_RELOADING:
+        case WEAPON_RELOADING_INTERUPT:
+        case WEAPON_RELOAD_END:
+        case WEAPON_SWIM_IN:
             result = 0;
             break;
-        case 12:
-        case 13:
+        case WEAPON_RELOAD_START:
+        case WEAPON_RELOAD_START_INTERUPT:
             if ( pm->proneChange )
             {
                 if ( weapDef->bDualWield && BG_PlayDWThirdPersonReload(ps) && !BG_WeaponIsClipOnly(weaponIndex) )
@@ -2552,13 +2546,13 @@ bool __cdecl PM_CheckForReloadInterferingWeaponStates(pmove_t *pm, playerState_s
             result = 0;
             break;
         default:
-            if ( weaponState == 6 || weaponState == 31 )
+            if ( weaponState == 6 || weaponState == WEAPON_CONT_FIRE_LOOP )
             {
                 result = 0;
             }
-            else if ( weaponState < 27 || weaponState > 29 )
+            else if ( weaponState < WEAPON_SPRINT_RAISE || weaponState > WEAPON_SPRINT_DROP )
             {
-                if ( weaponState == 35 || weaponState == 36 || weaponState == 37 )
+                if ( weaponState == WEAPON_DEPLOYING || weaponState == WEAPON_DEPLOYED || weaponState == WEAPON_BREAKING_DOWN )
                 {
                     result = 0;
                 }
@@ -2695,13 +2689,13 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
             weaponRestrictKickTime = ps->weaponRestrictKickTime;
         ps->weaponRestrictKickTime = weaponRestrictKickTime;
     }
-    if ( (*weaponState == 10
-         || *weaponState == 12
-         || *weaponState == 14
-         || *weaponState == 13
-         || *weaponState == 11
-         || *weaponState == 15
-         || *weaponState == 16)
+    if ( (*weaponState == WEAPON_RELOADING
+         || *weaponState == WEAPON_RELOAD_START
+         || *weaponState == WEAPON_RELOAD_END
+         || *weaponState == WEAPON_RELOAD_START_INTERUPT
+         || *weaponState == WEAPON_RELOADING_INTERUPT
+         || *weaponState == WEAPON_RELOAD_QUICK
+         || *weaponState == WEAPON_RELOAD_QUICK_EMPTY)
         && (ps->perks[0] & 0x40000) != 0 )
     {
         if ( perk_weapReloadMultiplier->current.value == 0.0 )
@@ -2721,13 +2715,13 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
     }
     else if ( (*weaponState == 6
                     || *weaponState == 7
-                    || *weaponState == 31
-                    || *weaponState == 17
-                    || *weaponState == 18
-                    || *weaponState == 19)
-                 && *weaponState != 17
-                 && *weaponState != 18
-                 && *weaponState != 19
+                    || *weaponState == WEAPON_CONT_FIRE_LOOP
+                    || *weaponState == WEAPON_MELEE_INIT
+                    || *weaponState == WEAPON_MELEE_FIRE
+                    || *weaponState == WEAPON_MELEE_END)
+                 && *weaponState != WEAPON_MELEE_INIT
+                 && *weaponState != WEAPON_MELEE_FIRE
+                 && *weaponState != WEAPON_MELEE_END
                  && weapVariantDef->bRapidFire )
     {
         if ( perk_weapRateMultiplier->current.value == 0.0 )
@@ -2758,7 +2752,7 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
         }
         msec = (int)((float)((float)pml->msec / perk_weapSwitchMultiplier->current.value) + 9.313225746154785e-10);
     }
-    else if ( *weaponState == 19 && (ps->perks[0] & 0x20000) != 0 )
+    else if ( *weaponState == WEAPON_MELEE_END && (ps->perks[0] & 0x20000) != 0 )
     {
         if ( perk_weapMeleeMultiplier->current.value <= 0.0
             && !Assert_MyHandler(
@@ -2773,13 +2767,13 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
         }
         msec = (int)((float)((float)pml->msec / perk_weapMeleeMultiplier->current.value) + 9.313225746154785e-10);
     }
-    else if ( (*weaponState == 10
-                    || *weaponState == 12
-                    || *weaponState == 14
-                    || *weaponState == 13
-                    || *weaponState == 11
-                    || *weaponState == 15
-                    || *weaponState == 16)
+    else if ( (*weaponState == WEAPON_RELOADING
+                    || *weaponState == WEAPON_RELOAD_START
+                    || *weaponState == WEAPON_RELOAD_END
+                    || *weaponState == WEAPON_RELOAD_START_INTERUPT
+                    || *weaponState == WEAPON_RELOADING_INTERUPT
+                    || *weaponState == WEAPON_RELOAD_QUICK
+                    || *weaponState == WEAPON_RELOAD_QUICK_EMPTY)
                  && ui_gv_reloadSpeedModifier->current.value != 0.0 )
     {
         msec = (int)((float)((float)pml->msec * ui_gv_reloadSpeedModifier->current.value) + 9.313225746154785e-10);
@@ -2795,7 +2789,7 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
             *weaponTime = 0;
         if ( *weaponTime <= 0 )
         {
-            if ( (*weaponState == 6 || *weaponState == 31) && WeaponUsesBurstCooldown(weaponIndex) && !BurstFirePending(ps) )
+            if ( (*weaponState == 6 || *weaponState == WEAPON_CONT_FIRE_LOOP) && WeaponUsesBurstCooldown(weaponIndex) && !BurstFirePending(ps) )
             {
                 if ( player_burstFireCooldown->current.value == 0.0 )
                     *weaponTime = 1;
@@ -2811,20 +2805,20 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
                 holdingFireBtn = pm->cmd.button_bits.testBit(0x18u);
             else
                 holdingFireBtn = pm->cmd.button_bits.testBit(0);
-            if ( (*weaponState < 20 || *weaponState > 25)
+            if ( (*weaponState < WEAPON_OFFHAND_INIT || *weaponState > WEAPON_OFFHAND_END)
                 && (v4 || v3)
                 && holdingFireBtn
                 && ps->weapon == pm->cmd.weapon
                 && (PM_WeaponAmmoAvailable(ps) || weapDef->unlimitedAmmo) )
             {
                 *weaponTime = 1;
-                if ( *weaponState == 10
-                    || *weaponState == 12
-                    || *weaponState == 14
-                    || *weaponState == 13
-                    || *weaponState == 11
-                    || *weaponState == 15
-                    || *weaponState == 16 )
+                if ( *weaponState == WEAPON_RELOADING
+                    || *weaponState == WEAPON_RELOAD_START
+                    || *weaponState == WEAPON_RELOAD_END
+                    || *weaponState == WEAPON_RELOAD_START_INTERUPT
+                    || *weaponState == WEAPON_RELOADING_INTERUPT
+                    || *weaponState == WEAPON_RELOAD_QUICK
+                    || *weaponState == WEAPON_RELOAD_QUICK_EMPTY )
                 {
                     if ( G_IsServerGameSystem(ps->clientNum) )
                         Com_Printf(19, "end weapon (timeout)\n");
@@ -2837,10 +2831,10 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
                 }
                 else if ( *weaponState == 6
                              || *weaponState == 7
-                             || *weaponState == 31
-                             || *weaponState == 17
-                             || *weaponState == 18
-                             || *weaponState == 19 )
+                             || *weaponState == WEAPON_CONT_FIRE_LOOP
+                             || *weaponState == WEAPON_MELEE_INIT
+                             || *weaponState == WEAPON_MELEE_FIRE
+                             || *weaponState == WEAPON_MELEE_END )
                 {
                     PM_ContinueWeaponAnim(ps, 0, 0);
                     *weaponState = 0;
@@ -2884,30 +2878,30 @@ void __cdecl PM_Weapon_CheckForChangeWeapon(pmove_t *pm)
     if ( !pm->ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 2879, 0, "%s", "ps") )
         __debugbreak();
     if ( (ps->waterlevel < 3 || !player_disableWeaponsInWater->current.enabled)
-        && ps->weaponstate != 17
-        && ps->weaponstate != 18
-        && ps->weaponstate != 19
-        && (ps->weaponstate < 40 || ps->weaponstate > 42)
-        && ps->weaponstate != 33
-        && ps->weaponstate != 34
+        && ps->weaponstate != WEAPON_MELEE_INIT
+        && ps->weaponstate != WEAPON_MELEE_FIRE
+        && ps->weaponstate != WEAPON_MELEE_END
+        && (ps->weaponstate < WEAPON_DTP_IN || ps->weaponstate > WEAPON_DTP_OUT)
+        && ps->weaponstate != WEAPON_NIGHTVISION_WEAR
+        && ps->weaponstate != WEAPON_NIGHTVISION_REMOVE
         && (ps->eFlags2 & 0x10000000) == 0
         && (ps->weapFlags & 0x100000) == 0
         && !Mantle_IsWeaponEquipped(ps)
         && (!ps->weaponTime
-         || ps->weaponstate == 10
-         || ps->weaponstate == 12
-         || ps->weaponstate == 14
-         || ps->weaponstate == 13
-         || ps->weaponstate == 11
-         || ps->weaponstate == 15
-         || ps->weaponstate == 16
+         || ps->weaponstate == WEAPON_RELOADING
+         || ps->weaponstate == WEAPON_RELOAD_START
+         || ps->weaponstate == WEAPON_RELOAD_END
+         || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT
+         || ps->weaponstate == WEAPON_RELOADING_INTERUPT
+         || ps->weaponstate == WEAPON_RELOAD_QUICK
+         || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY
          || ps->weaponstate == 7
          || ps->weaponstate != 6
          && ps->weaponstate != 7
-         && ps->weaponstate != 31
-         && ps->weaponstate != 17
-         && ps->weaponstate != 18
-         && ps->weaponstate != 19
+         && ps->weaponstate != WEAPON_CONT_FIRE_LOOP
+         && ps->weaponstate != WEAPON_MELEE_INIT
+         && ps->weaponstate != WEAPON_MELEE_FIRE
+         && ps->weaponstate != WEAPON_MELEE_END
          && !ps->weaponDelay) )
     {
         if (Mantle_IsWeaponInactive(ps) || door_breach_weapondrop->current.enabled && (ps->pm_flags & 0x1000000) != 0)
@@ -2937,7 +2931,7 @@ void __cdecl PM_Weapon_CheckForChangeWeapon(pmove_t *pm)
                 if ( BG_GetWeaponDef(pm->cmd.weapon)->bCanUseInVehicle )
                 {
                     if ( ps->weapon != pm->cmd.weapon
-                        && ps->weaponstate != 35
+                        && ps->weaponstate != WEAPON_DEPLOYING
                         && ((ps->pm_flags & 0xC00) == 0 || !ps->weapon)
                         && (!pm->cmd.weapon || BG_IsWeaponValid(ps, pm->cmd.weapon)) )
                     {
@@ -2951,10 +2945,10 @@ void __cdecl PM_Weapon_CheckForChangeWeapon(pmove_t *pm)
             }
         }
         else if ( ps->weapon == pm->cmd.weapon
-                     || ps->weaponstate == 35
+                     || ps->weaponstate == WEAPON_DEPLOYING
                      || (ps->pm_flags & 0xC00) != 0 && ps->weapon
                      || pm->cmd.weapon && !BG_IsWeaponValid(ps, pm->cmd.weapon)
-                     || ps->weaponstate >= 20 && ps->weaponstate <= 25 )
+                     || ps->weaponstate >= WEAPON_OFFHAND_INIT && ps->weaponstate <= WEAPON_OFFHAND_END )
         {
             if ( ps->weapon == pm->cmd.weapon && (ps->weaponstate == 3 || ps->weaponstate == 4 || ps->weaponstate == 5) )
             {
@@ -2966,9 +2960,9 @@ void __cdecl PM_Weapon_CheckForChangeWeapon(pmove_t *pm)
                 PM_BeginWeaponChange(pm, 0, 0);
             }
         }
-        else if ( ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37 )
+        else if ( ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN )
         {
-            if ( ps->weaponstate == 36 && (ps->weapFlags & 0x1000) == 0 )
+            if ( ps->weaponstate == WEAPON_DEPLOYED && (ps->weapFlags & 0x1000) == 0 )
                 ps->eFlags &= 0xFFFFFCFF;
         }
         else if ( (ps->eFlags & 0x300) != 0 )
@@ -3018,13 +3012,13 @@ void __cdecl PM_BeginWeaponChange(pmove_t *pm, unsigned int newweapon, bool quic
         && ps->weaponstate != 4
         && ps->weaponstate != 5 )
     {
-        if ( ps->weaponstate == 10
-            || ps->weaponstate == 12
-            || ps->weaponstate == 14
-            || ps->weaponstate == 13
-            || ps->weaponstate == 11
-            || ps->weaponstate == 15
-            || ps->weaponstate == 16 )
+        if ( ps->weaponstate == WEAPON_RELOADING
+            || ps->weaponstate == WEAPON_RELOAD_START
+            || ps->weaponstate == WEAPON_RELOAD_END
+            || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT
+            || ps->weaponstate == WEAPON_RELOADING_INTERUPT
+            || ps->weaponstate == WEAPON_RELOAD_QUICK
+            || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY )
         {
             BG_AddPredictableEventToPlayerstate(2u, ps->weaponstate, ps);
         }
@@ -3220,7 +3214,7 @@ void __cdecl PM_Weapon_FireWeapon(pmove_t *pm, int delayedAction)
     weaponShotCount = BG_GetWeaponShotCount(ps, ps->bRunLeftGun);
     if (ps->waterlevel < 3
         || !player_disableWeaponsInWater->current.enabled
-        || ps->weaponstate == 17 && ps->weaponstate == 18 && ps->weaponstate == 19)
+        || ps->weaponstate == WEAPON_MELEE_INIT && ps->weaponstate == WEAPON_MELEE_FIRE && ps->weaponstate == WEAPON_MELEE_END)
     {
         if (weapDef->weapType != WEAPTYPE_MINE)
             goto LABEL_62;
@@ -3294,7 +3288,7 @@ void __cdecl PM_Weapon_FireWeapon(pmove_t *pm, int delayedAction)
                         }
                         else
                         {
-                            if (ps->weaponstate < 30 || ps->weaponstate > 32)
+                            if (ps->weaponstate < WEAPON_CONT_FIRE_IN || ps->weaponstate > WEAPON_CONT_FIRE_OUT)
                                 PM_Weapon_SetFPSFireAnim(ps);
                             if (weapDef->guidedMissileType == MISSILE_GUIDANCE_TVGUIDED)
                                 ps->weapFlags |= 0x8000u;
@@ -3428,7 +3422,7 @@ LABEL_34:
         *weaponTime = weapDef->iFireTime;
     if ( weapDef->bBoltAction )
         BG_PlayerWeaponSetNeedsRechamber(ps, weaponIndex, 1);
-    if ( *weaponState != 6 && *weaponState != 31 )
+    if ( *weaponState != 6 && *weaponState != WEAPON_CONT_FIRE_LOOP )
     {
         *weaponDelay = weapDef->iFireDelay;
         if ( ps->fWeaponPosFrac < 1.0 )
@@ -3450,7 +3444,7 @@ LABEL_34:
         goto LABEL_34;
 LABEL_35:
     PM_SetProneMovementOverride(ps);
-    if ( *weaponState < 30 || *weaponState > 32 )
+    if ( *weaponState < WEAPON_CONT_FIRE_IN || *weaponState > WEAPON_CONT_FIRE_OUT )
         *weaponState = 6;
     if ( !*weaponDelay && weapDef->fireType && ++*weaponShotCount > 7 )
         *weaponShotCount = 7;
@@ -3720,7 +3714,7 @@ void __cdecl PM_Weapon_MeleeEnd(playerState_s *ps)
     }
     else
     {
-        ps->weaponstate = static_cast<weaponstate_t>(20); // Original MP melee-end state.
+        ps->weaponstate = WEAPON_MELEE_END;
         ps->weaponTime = weapDef->quickRaiseTime;
         ps->weaponDelay = 0;
         if ( ps->waterlevel < 3 )
@@ -3742,7 +3736,7 @@ void __cdecl PM_Weapon_MeleeFire(playerState_s *ps)
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 3738, 0, "%s", "ps") )
         __debugbreak();
     PM_Weapon_GetMeleeWeapDef(ps);
-    ps->weaponstate = static_cast<weaponstate_t>(19); // Original MP melee-fire state.
+    ps->weaponstate = WEAPON_MELEE_FIRE;
     PM_AddEvent(ps, 0x24u);
     PM_SetProneMovementOverride(ps);
 }
@@ -3773,24 +3767,24 @@ void __cdecl PM_Weapon_CheckForMelee(pmove_t *pm, pml_t *pml, int delayedAction)
             weapVariantDef = BG_GetWeaponVariantDef(ps->meleeWeapon);
             weapDef = BG_GetWeaponDef(ps->meleeWeapon);
         }
-        if ( ps->weaponstate != 17
-            && ps->weaponstate != 18
+        if ( ps->weaponstate != 18
             && ps->weaponstate != 19
-            && (ps->weaponstate < 20 || ps->weaponstate > 25)
-            && ps->weaponstate != 33
+            && ps->weaponstate != 20
+            && (ps->weaponstate < 21 || ps->weaponstate > 26)
             && ps->weaponstate != 34
-            && (ps->weaponstate < 40 || ps->weaponstate > 42)
+            && ps->weaponstate != 35
+            && (ps->weaponstate < 41 || ps->weaponstate > 43)
             && (ps->pm_flags & 4) == 0
             && weapDef->iMeleeDamage
             && !delayedAction
             && (!ps->weaponDelay
-             || ps->weaponstate == 10
-             || ps->weaponstate == 12
-             || ps->weaponstate == 14
-             || ps->weaponstate == 13
              || ps->weaponstate == 11
+             || ps->weaponstate == 13
              || ps->weaponstate == 15
-             || ps->weaponstate == 16)
+             || ps->weaponstate == 14
+             || ps->weaponstate == 12
+             || ps->weaponstate == 16
+             || ps->weaponstate == 17)
             && pm->cmd.button_bits.testBit(2u)
             && !pm->oldcmd.button_bits.testBit(2u)
             && (ps->fWeaponPosFrac <= 0.0 || primaryWeapDef->overlayReticle == WEAPOVERLAYRETICLE_NONE) )
@@ -3912,7 +3906,7 @@ void __cdecl PM_Weapon_OffHandHold(playerState_s *ps)
     {
         __debugbreak();
     }
-    ps->weaponstate = static_cast<weaponstate_t>(24); // Original MP offhand-start state.
+    ps->weaponstate = WEAPON_OFFHAND_START;
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     ps->weapFlags |= 2u;
@@ -4057,7 +4051,7 @@ void __cdecl PM_Weapon_OffHandEnd(playerState_s *ps)
     }
     ps->throwBackGrenadeTimeLeft = 0;
     ps->throwBackGrenadeOwner = 1023;
-    ps->weaponstate = static_cast<weaponstate_t>(26); // Original MP offhand-end state.
+    ps->weaponstate = WEAPON_OFFHAND_END;
     ps->weapFlags &= ~0x20002u;
     ps->pm_flags &= ~0x200u;
 }
@@ -4090,9 +4084,9 @@ void __cdecl PM_Weapon_CheckForOffHand(pmove_t *pm)
         && ps->weaponstate != 3
         && ps->weaponstate != 4
         && ps->weaponstate != 5
-        && (ps->weaponstate < 20 || ps->weaponstate > 24)
-        && (ps->weaponstate < 40 || ps->weaponstate > 42)
-        && (ps->weaponstate < 47 || ps->weaponstate > 49)
+        && (ps->weaponstate < WEAPON_OFFHAND_INIT || ps->weaponstate > WEAPON_OFFHAND)
+        && (ps->weaponstate < WEAPON_DTP_IN || ps->weaponstate > WEAPON_DTP_OUT)
+        && (ps->weaponstate < WEAPON_LOWREADY_RAISE || ps->weaponstate > WEAPON_LOWREADY_DROP)
         && (ps->eFlags2 & 0x10000000) == 0
         && (ps->weapFlags & 0x100000) == 0 )
     {
@@ -4173,7 +4167,7 @@ void __cdecl PM_Weapon_CheckForOffHand(pmove_t *pm)
                     v8 = BG_WeaponName(ps->offHandIndex);
                     Com_Error(ERR_DROP, "[%s] No offhand class set\n", v8);
                 }
-                if ( ps->cursorHintEntIndex == 1023 && (!ps->weapon || ps->weaponstate == 25) )
+                if ( ps->cursorHintEntIndex == 1023 && (!ps->weapon || ps->weaponstate == WEAPON_OFFHAND_END) )
                     PM_Weapon_OffHandPrepare(pm);
                 else
                     PM_Weapon_OffHandInit(ps);
@@ -4264,7 +4258,7 @@ char __cdecl PM_UpdateGrenadeThrow(playerState_s *ps, pml_t *pml)
         return 0;
     if ( weapDef->bCookOffHold )
         ps->grenadeTimeLeft -= pml->msec;
-    if ( ps->waterlevel >= 3 && (ps->weapFlags & 2) != 0 && ps->weaponstate == 23 )
+    if ( ps->waterlevel >= 3 && (ps->weapFlags & 2) != 0 && ps->weaponstate == WEAPON_OFFHAND_START )
     {
         ps->weaponstate = WEAPON_OFFHAND_HOLD;
         PM_WeaponUseAmmo(ps, weapIndex, 1);
@@ -4328,30 +4322,30 @@ void __cdecl PM_Weapon_CheckForDetonation(pmove_t *pm)
         }
         if ( (weapDef->weapType == WEAPTYPE_GRENADE || weapDef->weapType == WEAPTYPE_MINE)
             && weapDef->hasDetonator
-            && ps->weaponstate != 26
-            && ps->weaponstate != 10
-            && ps->weaponstate != 12
-            && ps->weaponstate != 14
-            && ps->weaponstate != 13
-            && ps->weaponstate != 11
-            && ps->weaponstate != 15
-            && ps->weaponstate != 16
+            && ps->weaponstate != WEAPON_DETONATING
+            && ps->weaponstate != WEAPON_RELOADING
+            && ps->weaponstate != WEAPON_RELOAD_START
+            && ps->weaponstate != WEAPON_RELOAD_END
+            && ps->weaponstate != WEAPON_RELOAD_START_INTERUPT
+            && ps->weaponstate != WEAPON_RELOADING_INTERUPT
+            && ps->weaponstate != WEAPON_RELOAD_QUICK
+            && ps->weaponstate != WEAPON_RELOAD_QUICK_EMPTY
             && ps->weaponstate != 6
             && ps->weaponstate != 7
-            && ps->weaponstate != 31
-            && ps->weaponstate != 17
-            && ps->weaponstate != 18
-            && ps->weaponstate != 19
-            && ps->weaponstate != 17
-            && ps->weaponstate != 18
-            && ps->weaponstate != 19
+            && ps->weaponstate != WEAPON_CONT_FIRE_LOOP
+            && ps->weaponstate != WEAPON_MELEE_INIT
+            && ps->weaponstate != WEAPON_MELEE_FIRE
+            && ps->weaponstate != WEAPON_MELEE_END
+            && ps->weaponstate != WEAPON_MELEE_INIT
+            && ps->weaponstate != WEAPON_MELEE_FIRE
+            && ps->weaponstate != WEAPON_MELEE_END
             && ps->weaponstate != 1
             && ps->weaponstate != 2
             && ps->weaponstate != 3
             && ps->weaponstate != 4
             && ps->weaponstate != 5
-            && (ps->weaponstate < 20 || ps->weaponstate > 25)
-            && (ps->weaponstate < 40 || ps->weaponstate > 42) )
+            && (ps->weaponstate < WEAPON_OFFHAND_INIT || ps->weaponstate > WEAPON_OFFHAND_END)
+            && (ps->weaponstate < WEAPON_DTP_IN || ps->weaponstate > WEAPON_DTP_OUT) )
         {
             if ( pm->cmd.button_bits.testBit(0) )
             {
@@ -4374,7 +4368,7 @@ void __cdecl PM_Weapon_CheckForGrenadeThrowCancel(pmove_t *pm)
     if ( !pm && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4444, 0, "%s", "pm") )
         __debugbreak();
     ps = pm->ps;
-    if ( pm->ps->weaponstate == 21 )
+    if ( pm->ps->weaponstate == WEAPON_OFFHAND_PREPARE )
     {
         weapDef = BG_GetWeaponDef(ps->offHandIndex);
         if ( !weapDef
@@ -4394,7 +4388,7 @@ void __cdecl PM_Weapon_CheckForGrenadeThrowCancel(pmove_t *pm)
         PM_Weapon_OffHandEnd(ps);
         goto LABEL_23;
     }
-    if ( ps->weaponstate != 20 )
+    if ( ps->weaponstate != WEAPON_OFFHAND_INIT )
         goto LABEL_23;
     weapDefa = BG_GetWeaponDef(ps->offHandIndex);
     if ( !weapDefa
@@ -4405,7 +4399,7 @@ void __cdecl PM_Weapon_CheckForGrenadeThrowCancel(pmove_t *pm)
     if ( !weapDefa->offhandHoldIsCancelable )
     {
 LABEL_23:
-        if ( ps->weaponstate < 20 || ps->weaponstate > 25 )
+        if ( ps->weaponstate < WEAPON_OFFHAND_INIT || ps->weaponstate > WEAPON_OFFHAND_END )
             weapDefb = BG_GetWeaponDef(ps->weapon);
         else
             weapDefb = BG_GetWeaponDef(ps->offHandIndex);
@@ -4419,10 +4413,10 @@ LABEL_23:
              || ps->weapon
              && (ps->weaponstate == 6
                 || ps->weaponstate == 7
-                || ps->weaponstate == 31
-                || ps->weaponstate == 17
-                || ps->weaponstate == 18
-                || ps->weaponstate == 19)
+                || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
+                || ps->weaponstate == WEAPON_MELEE_INIT
+                || ps->weaponstate == WEAPON_MELEE_FIRE
+                || ps->weaponstate == WEAPON_MELEE_END)
              && weapDefb->holdButtonToThrow)
             && !pm->cmd.button_bits.testBit(0)
             && (!weapDefb->offhandHoldIsCancelable || pm->cmd.button_bits.testBit(0x31u)) )
@@ -4475,7 +4469,7 @@ void __cdecl PM_Weapon_FinishNightVisionWear(playerState_s *ps)
 {
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4602, 0, "%s", "ps") )
         __debugbreak();
-    if ( ps->weaponstate != 33
+    if ( ps->weaponstate != WEAPON_NIGHTVISION_WEAR
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp",
                     4603,
@@ -4496,7 +4490,7 @@ void __cdecl PM_Weapon_FinishNightVisionRemove(playerState_s *ps)
 {
     if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4614, 0, "%s", "ps") )
         __debugbreak();
-    if ( ps->weaponstate != 34
+    if ( ps->weaponstate != WEAPON_NIGHTVISION_REMOVE
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp",
                     4615,
@@ -4531,9 +4525,7 @@ void __cdecl PM_WeaponSwimOut(playerState_s *ps)
 
 void __cdecl Sprint_State_Loop(playerState_s *ps)
 {
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4670, 0, "%s", "ps") )
-        __debugbreak();
-    ps->weaponstate = static_cast<weaponstate_t>(29); // Original MP sprint-loop state.
+    ps->weaponstate = WEAPON_SPRINT_LOOP;
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     if ( PM_WeaponClipEmpty(ps) )
@@ -4550,9 +4542,7 @@ void __cdecl Sprint_State_Loop(playerState_s *ps)
 
 void __cdecl ContinuousFire_State_Loop(playerState_s *ps)
 {
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4737, 0, "%s", "ps") )
-        __debugbreak();
-    ps->weaponstate = static_cast<weaponstate_t>(32); // Original MP continuous-fire loop.
+    ps->weaponstate = WEAPON_CONT_FIRE_LOOP;
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 37, 0);
@@ -4563,7 +4553,7 @@ void __cdecl Dtp_State_Out(playerState_s *ps)
     const WeaponDef *WeaponDef; // eax
 
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(43); // Original MP DTP-out state.
+    ps->weaponstate = WEAPON_DTP_OUT;
     ps->weaponstateLeft = 43;
     ps->weaponTime = WeaponDef->dtpOutTime;
     ps->weaponDelay = 0;
@@ -4582,7 +4572,7 @@ void __cdecl Dtp_State_Out(playerState_s *ps)
 void __cdecl Dtp_State_Loop(playerState_s *ps)
 {
     BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(42); // Original MP DTP-loop state.
+    ps->weaponstate = WEAPON_DTP_LOOP;
     ps->weaponstateLeft = 42;
     ps->weaponTime = 0;
     ps->weaponDelay = 0;
@@ -4611,34 +4601,33 @@ void __cdecl PM_Weapon_CheckForSprint(pmove_t *pm)
         && pm->cmd.weapon
         && ps->weaponstate != 6
         && ps->weaponstate != 7
-        && ps->weaponstate != 31
-        && ps->weaponstate != 17
+        && ps->weaponstate != 8
+        && ps->weaponstate != 32
         && ps->weaponstate != 18
         && ps->weaponstate != 19
+        && ps->weaponstate != 20
         && ps->weaponstateLeft != 6
         && ps->weaponstateLeft != 7
-        && ps->weaponstateLeft != 31
-        && ps->weaponstateLeft != 17
+        && ps->weaponstateLeft != 8
+        && ps->weaponstateLeft != 32
         && ps->weaponstateLeft != 18
         && ps->weaponstateLeft != 19
-        && ps->weaponstate != 17
-        && ps->weaponstate != 18
-        && ps->weaponstate != 19
+        && ps->weaponstateLeft != 20
         && ps->weaponstate != 1
         && ps->weaponstate != 2
         && ps->weaponstate != 3
         && ps->weaponstate != 4
         && ps->weaponstate != 5
-        && (ps->weaponstate < 20 || ps->weaponstate > 25)
-        && (ps->weaponstate < 40 || ps->weaponstate > 42)
-        && ps->weaponstate != 26
+        && (ps->weaponstate < 21 || ps->weaponstate > 26)
+        && (ps->weaponstate < 41 || ps->weaponstate > 43)
+        && ps->weaponstate != 27
         && (ps->pm_flags & 0x400000) == 0 )
     {
-        if ( (ps->pm_flags & 0x8000) != 0 && (ps->weaponstate < 27 || ps->weaponstate > 29) )
+        if ( (ps->pm_flags & 0x8000) != 0 && (ps->weaponstate < 28 || ps->weaponstate > 30) )
         {
             Sprint_State_Raise(ps);
         }
-        else if ( (ps->pm_flags & 0x8000) == 0 && (ps->weaponstate == 27 || ps->weaponstate == 28) )
+        else if ( (ps->pm_flags & 0x8000) == 0 && (ps->weaponstate == 28 || ps->weaponstate == 29) )
         {
             Sprint_State_Drop(ps);
         }
@@ -4709,31 +4698,32 @@ void __cdecl PM_Weapon_CheckForContinuousFire(pmove_t *pm, int delayedAction)
             && (ps->waterlevel < 3 || !player_disableWeaponsInWater->current.enabled)
             && (ps->weaponstate != 6
              && ps->weaponstate != 7
-             && ps->weaponstate != 31
-             && ps->weaponstate != 17
+             && ps->weaponstate != 8
+             && ps->weaponstate != 32
              && ps->weaponstate != 18
              && ps->weaponstate != 19
-             || ps->weaponstate == 31)
-            && ps->weaponstate != 17
+             && ps->weaponstate != 20
+             || ps->weaponstate == 32)
             && ps->weaponstate != 18
             && ps->weaponstate != 19
+            && ps->weaponstate != 20
             && ps->weaponstate != 1
             && ps->weaponstate != 2
             && ps->weaponstate != 3
             && ps->weaponstate != 4
             && ps->weaponstate != 5
-            && (ps->weaponstate < 20 || ps->weaponstate > 25)
-            && (ps->weaponstate < 40 || ps->weaponstate > 42)
-            && ps->weaponstate != 26 )
+            && (ps->weaponstate < 21 || ps->weaponstate > 26)
+            && (ps->weaponstate < 41 || ps->weaponstate > 43)
+            && ps->weaponstate != 27 )
         {
             shouldBeFiring = PM_Weapon_ShouldBeFiring(pm, delayedAction, 1);
             if ( weapDef->overheatWeapon && BG_PlayerWeaponOverheating(ps, ps->weapon) )
                 shouldBeFiring = 0;
-            if ( shouldBeFiring && (ps->weaponstate < 30 || ps->weaponstate > 32) )
+            if ( shouldBeFiring && (ps->weaponstate < 31 || ps->weaponstate > 33) )
             {
                 ContinuousFire_State_In(ps);
             }
-            else if ( !shouldBeFiring && (ps->weaponstate == 30 || ps->weaponstate == 31) )
+            else if ( !shouldBeFiring && (ps->weaponstate == 31 || ps->weaponstate == 32) )
             {
                 ContinuousFire_State_Out(ps);
             }
@@ -4745,10 +4735,8 @@ void __cdecl ContinuousFire_State_In(playerState_s *ps)
 {
     const WeaponDef *WeaponDef; // eax
 
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4724, 0, "%s", "ps") )
-        __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(31); // Original MP continuous-fire entry.
+    ps->weaponstate = WEAPON_CONT_FIRE_IN;
     ps->weaponTime = WeaponDef->contFireInTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 36, 0);
@@ -4758,10 +4746,8 @@ void __cdecl ContinuousFire_State_Out(playerState_s *ps)
 {
     const WeaponDef *WeaponDef; // eax
 
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4750, 0, "%s", "ps") )
-        __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(33); // Original MP continuous-fire exit.
+    ps->weaponstate = WEAPON_CONT_FIRE_OUT;
     ps->weaponTime = WeaponDef->contFireOutTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 38, 0);
@@ -4780,20 +4766,18 @@ void __cdecl PM_Weapon_CheckForDtp(pmove_t *pm)
         && pm->cmd.weapon
         && ps->weaponstate != 6
         && ps->weaponstate != 7
-        && ps->weaponstate != 31
-        && ps->weaponstate != 17
+        && ps->weaponstate != 8
+        && ps->weaponstate != 32
         && ps->weaponstate != 18
         && ps->weaponstate != 19
-        && ps->weaponstate != 17
-        && ps->weaponstate != 18
-        && ps->weaponstate != 19
+        && ps->weaponstate != 20
         && ps->weaponstate != 1
         && ps->weaponstate != 2
         && ps->weaponstate != 3
         && ps->weaponstate != 4
         && ps->weaponstate != 5
-        && (ps->weaponstate < 20 || ps->weaponstate > 25)
-        && (ps->weaponstate < 40 || ps->weaponstate > 42)
+        && (ps->weaponstate < 21 || ps->weaponstate > 26)
+        && (ps->weaponstate < 41 || ps->weaponstate > 43)
         && (ps->pm_flags & 0x400000) != 0
         && !Dtp_IsSliding(ps) )
     {
@@ -4806,7 +4790,7 @@ void __cdecl Dtp_State_In(playerState_s *ps)
     const WeaponDef *WeaponDef; // eax
 
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(41); // Original MP DTP-in state.
+    ps->weaponstate = WEAPON_DTP_IN;
     ps->weaponstateLeft = 41;
     ps->weaponTime = WeaponDef->dtpInTime;
     ps->weaponDelay = 0;
@@ -4860,7 +4844,7 @@ void __cdecl Slide_State_In(playerState_s *ps)
     const WeaponDef *WeaponDef; // eax
 
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(44); // Original MP slide-entry state.
+    ps->weaponstate = WEAPON_SLIDE_IN;
     ps->weaponTime = WeaponDef->slideInTime;
     ps->weaponDelay = 0;
     PM_ContinueWeaponAnim(ps, 51, 0);
@@ -4876,22 +4860,22 @@ void __cdecl PM_Weapon_CheckForDeploy(pmove_t *pm)
     if ( !pm->ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 5120, 0, "%s", "ps") )
         __debugbreak();
     if ( BG_GetWeaponDef(ps->weapon)->mountableWeapon
-        && (ps->weaponstate < 20 || ps->weaponstate > 25)
+        && (ps->weaponstate < 21 || ps->weaponstate > 26)
         && ps->weaponstate != 1
         && ps->weaponstate != 2
         && ps->weaponstate != 3
         && ps->weaponstate != 4
         && ps->weaponstate != 5
-        && (ps->weaponstate < 40 || ps->weaponstate > 42) )
+        && (ps->weaponstate < 41 || ps->weaponstate > 43) )
     {
         if ( (ps->weapFlags & 0x800) == 0
-            || ps->weaponstate == 10
-            || ps->weaponstate == 12
-            || ps->weaponstate == 14
-            || ps->weaponstate == 13
             || ps->weaponstate == 11
+            || ps->weaponstate == 13
             || ps->weaponstate == 15
+            || ps->weaponstate == 14
+            || ps->weaponstate == 12
             || ps->weaponstate == 16
+            || ps->weaponstate == 17
             || BG_GetAmmoInClip(ps, ps->weapon) <= 0 )
         {
             if ( (ps->weapFlags & 0x1000) != 0 )
@@ -4913,10 +4897,8 @@ void __cdecl Deploy_State_Deploy(playerState_s *ps)
 {
     const WeaponDef *WeaponDef; // eax
 
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4871, 0, "%s", "ps") )
-        __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(36); // Original MP deploying state.
+    ps->weaponstate = WEAPON_DEPLOYING;
     ps->weaponTime = WeaponDef->deployTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 43, 0);
@@ -4926,10 +4908,8 @@ void __cdecl Deploy_State_Breakdown(playerState_s *ps)
 {
     const WeaponDef *WeaponDef; // eax
 
-    if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 4886, 0, "%s", "ps") )
-        __debugbreak();
     WeaponDef = BG_GetWeaponDef(ps->weapon);
-    ps->weaponstate = static_cast<weaponstate_t>(38); // Original MP breakdown state.
+    ps->weaponstate = WEAPON_BREAKING_DOWN;
     ps->weaponTime = WeaponDef->breakdownTime;
     ps->weaponDelay = 0;
     PM_StartWeaponAnim(ps, 44, 0);
@@ -4946,7 +4926,7 @@ void __cdecl PM_Weapon_CheckForMantle(pmove_t *pm)
         __debugbreak();
     if ( Mantle_IsWeaponEquipped(ps) )
     {
-        if ( ps->weaponstate == 29 )
+        if ( ps->weaponstate == WEAPON_SPRINT_DROP )
             ps->weaponTime = 0;
         PM_ContinueWeaponAnim(ps, 52, 0);
     }
@@ -4962,30 +4942,30 @@ int __cdecl BG_CheckForUniversalActionDW(playerState_s *ps)
 
     switch ( ps->weaponstate )
     {
-        case 1:
-        case 3:
-        case 4:
-        case 0xB:
-        case 0xC:
-        case 0xD:
-        case 0xE:
-        case 0x11:
-        case 0x12:
-        case 0x13:
-        case 0x15:
-        case 0x16:
-        case 0x17:
-        case 0x18:
-        case 0x1A:
-        case 0x1B:
-        case 0x1C:
-        case 0x1D:
-        case 0x1E:
-        case 0x1F:
-        case 0x20:
-        case 0x28:
-        case 0x29:
-        case 0x2A:
+        case WEAPON_RAISING:
+        case WEAPON_DROPPING:
+        case WEAPON_DROPPING_QUICK:
+        case WEAPON_RELOADING_INTERUPT:
+        case WEAPON_RELOAD_START:
+        case WEAPON_RELOAD_START_INTERUPT:
+        case WEAPON_RELOAD_END:
+        case WEAPON_MELEE_INIT:
+        case WEAPON_MELEE_FIRE:
+        case WEAPON_MELEE_END:
+        case WEAPON_OFFHAND_PREPARE:
+        case WEAPON_OFFHAND_HOLD:
+        case WEAPON_OFFHAND_START:
+        case WEAPON_OFFHAND:
+        case WEAPON_DETONATING:
+        case WEAPON_SPRINT_RAISE:
+        case WEAPON_SPRINT_LOOP:
+        case WEAPON_SPRINT_DROP:
+        case WEAPON_CONT_FIRE_IN:
+        case WEAPON_CONT_FIRE_LOOP:
+        case WEAPON_CONT_FIRE_OUT:
+        case WEAPON_DTP_IN:
+        case WEAPON_DTP_LOOP:
+        case WEAPON_DTP_OUT:
             result = 0;
             break;
         default:
@@ -5052,7 +5032,7 @@ void __cdecl BG_WeaponFireRecoil(const playerState_s *ps, float *recoilSpeed, fl
         if (weapDef2->bDualWield)
         {
             weapDefDW = BG_GetWeaponDef(weapDef2->dualWieldWeaponIndex);
-            if ((ps->weaponstate == 6 || ps->weaponstate == 31) && (ps->weaponstateLeft == 6 || ps->weaponstateLeft == 31))
+            if ((ps->weaponstate == 6 || ps->weaponstate == WEAPON_CONT_FIRE_LOOP) && (ps->weaponstateLeft == 6 || ps->weaponstateLeft == WEAPON_CONT_FIRE_LOOP))
             {
                 fPitchKick = bgs->Random()
                     * (weapDef2->fHipViewKickPitchMax
@@ -5070,7 +5050,7 @@ void __cdecl BG_WeaponFireRecoil(const playerState_s *ps, float *recoilSpeed, fl
                     + weapDefDW->fHipViewKickYawMin;
                 goto LABEL_18;
             }
-            if (ps->weaponstateLeft == 6 || ps->weaponstateLeft == 31)
+            if (ps->weaponstateLeft == 6 || ps->weaponstateLeft == WEAPON_CONT_FIRE_LOOP)
             {
                 fPitchKick = bgs->Random()
                     * (weapDefDW->fHipViewKickPitchMax - weapDefDW->fHipViewKickPitchMin)
@@ -5114,7 +5094,7 @@ LABEL_18:
         if (weapDef2->bDualWield)
         {
             weapDef = BG_GetWeaponDef(weapDef2->dualWieldWeaponIndex);
-            if ((ps->weaponstate == 6 || ps->weaponstate == 31) && (ps->weaponstateLeft == 6 || ps->weaponstateLeft == 31))
+            if ((ps->weaponstate == 6 || ps->weaponstate == WEAPON_CONT_FIRE_LOOP) && (ps->weaponstateLeft == 6 || ps->weaponstateLeft == WEAPON_CONT_FIRE_LOOP))
             {
                 fPitchKickb = bgs->Random()
                     * (weapDef2->fHipGunKickPitchMax
@@ -5132,7 +5112,7 @@ LABEL_18:
                     + weapDef->fHipGunKickYawMin;
                 goto LABEL_34;
             }
-            if (ps->weaponstateLeft == 6 || ps->weaponstateLeft == 31)
+            if (ps->weaponstateLeft == 6 || ps->weaponstateLeft == WEAPON_CONT_FIRE_LOOP)
             {
                 fPitchKickb = bgs->Random()
                     * (weapDef->fHipGunKickPitchMax - weapDef->fHipGunKickPitchMin)

@@ -31,7 +31,7 @@
 #include <flame/flame_class_stream.h>
 #include <cgame/cg_local.h>
 
-const char *WeaponStateNames[50] =
+const char *WeaponStateNames[WEAPONSTATES_NUM] =
 {
   "WEAPON_READY",
   "WEAPON_RAISING",
@@ -41,6 +41,7 @@ const char *WeaponStateNames[50] =
   "WEAPON_DROPPING_ALTSWITCH",
   "WEAPON_FIRING",
   "WEAPON_RECHAMBERING",
+  "WEAPON_RECHAMBERING_FINISH",
   "WEAPON_RELOADING_RIGHT",
   "WEAPON_RELOADING_LEFT",
   "WEAPON_RELOADING",

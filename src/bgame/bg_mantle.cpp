@@ -1174,17 +1174,17 @@ bool __cdecl Mount_CanPlayerDeployTurret(playerState_s *ps)
 {
     int pmflags; // [esp+8h] [ebp-8h]
 
-    if ( ps->weaponstate == 10
-        || ps->weaponstate == 12
-        || ps->weaponstate == 14
-        || ps->weaponstate == 13
-        || ps->weaponstate == 11
-        || ps->weaponstate == 15
-        || ps->weaponstate == 16 )
+    if ( ps->weaponstate == WEAPON_RELOADING
+        || ps->weaponstate == WEAPON_RELOAD_START
+        || ps->weaponstate == WEAPON_RELOAD_END
+        || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT
+        || ps->weaponstate == WEAPON_RELOADING_INTERUPT
+        || ps->weaponstate == WEAPON_RELOAD_QUICK
+        || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY )
     {
         return 0;
     }
-    if ( ps->weaponstate == 17 || ps->weaponstate == 18 || ps->weaponstate == 19 )
+    if ( ps->weaponstate == WEAPON_MELEE_INIT || ps->weaponstate == WEAPON_MELEE_FIRE || ps->weaponstate == WEAPON_MELEE_END )
         return 0;
     if ( ps->weaponstate == 1
         || ps->weaponstate == 2
@@ -1198,11 +1198,11 @@ bool __cdecl Mount_CanPlayerDeployTurret(playerState_s *ps)
         return 0;
     if ( ps->weaponstate == 1 || ps->weaponstate == 2 )
         return 0;
-    if ( ps->weaponstate >= 27 && ps->weaponstate <= 29 )
+    if ( ps->weaponstate >= WEAPON_SPRINT_RAISE && ps->weaponstate <= WEAPON_SPRINT_DROP )
         return 0;
-    if ( ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37 )
+    if ( ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN )
         return 0;
-    if ( ps->weaponstate >= 20 && ps->weaponstate <= 25 )
+    if ( ps->weaponstate >= WEAPON_OFFHAND_INIT && ps->weaponstate <= WEAPON_OFFHAND_END )
         return 0;
     if ( (ps->eFlags & 0x300) != 0 )
         return 0;

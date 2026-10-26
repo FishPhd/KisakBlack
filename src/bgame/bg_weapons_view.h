@@ -36,10 +36,11 @@ void __cdecl BG_CalculateWeaponMovement_Base_Internal_WeaponState(
                 const weaponState_t *ws,
                 float *targetPos,
                 float *targetAngles);
-double __cdecl BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws, const WeaponDef *weapDef);
-double __cdecl BG_CalculateWeaponMovement_GetLowReadyLerp(const weaponState_t *ws, const WeaponDef *weapDef);
-double __cdecl BG_CalculateWeaponMovement_GetDTPLerp(const weaponState_t *ws, const WeaponDef *weapDef);
-double __cdecl BG_CalculateWeaponMovement_GetSlideLerp(const weaponState_t *ws, const WeaponDef *weapDef);
+// Preserve the three original helper calls and their SSE float return register.
+__declspec(noinline) float __vectorcall BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws, const WeaponDef *weapDef);
+__declspec(noinline) float __vectorcall BG_CalculateWeaponMovement_GetLowReadyLerp(const weaponState_t *ws, const WeaponDef *weapDef);
+__declspec(noinline) float __vectorcall BG_CalculateWeaponMovement_GetDTPLerp(const weaponState_t *ws, const WeaponDef *weapDef);
+float __cdecl BG_CalculateWeaponMovement_GetSlideLerp(const weaponState_t *ws, const WeaponDef *weapDef);
 void __cdecl BG_CalculateWeaponMovement_Base_Internal_Stance(
                 const weaponState_t *ws,
                 float *targetPos,

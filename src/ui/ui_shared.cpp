@@ -10631,7 +10631,7 @@ void __cdecl Menu_PaintAll_AppendToVisibleList(char *stringBegin, unsigned int s
 
     if (!lastNewline)
     {
-        // No newline in string — treat start as line beginning
+        // No newline in string ï¿½ treat start as line beginning
         lastNewline = stringBegin - 1;
     }
 

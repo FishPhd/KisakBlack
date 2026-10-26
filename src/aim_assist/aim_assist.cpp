@@ -982,7 +982,7 @@ void __cdecl AimAssist_UpdateGamePadInput(const AimInput *input, AimOutput *outp
         AimAssist_UpdateTweakables(input->localClientNum);
         AimAssist_UpdateAdsLerp(input);
         AimAssist_ApplyTurnRates(input, output);
-        if ( aaGlob->ps.weaponstate < 47 || aaGlob->ps.weaponstate > 49 )
+        if ( aaGlob->ps.weaponstate < WEAPON_LOWREADY_RAISE || aaGlob->ps.weaponstate > WEAPON_LOWREADY_DROP )
         {
             AimAssist_ApplyAutoAim(input, output);
             AimAssist_ApplyAutoMelee(input, output);
@@ -1372,7 +1372,7 @@ void __cdecl AimAssist_CalcSlowdown(const AimInput *input, float *pitchScale, fl
     *yawScale = 1.0f;
     aaGlob->aimSlowdownActive = 0;
     aaGlob->aimSlowdownTargetEnt = 1023;
-    if ( AimAssist_IsSlowdownActive(&aaGlob->ps) && (aaGlob->ps.weaponstate < 47 || aaGlob->ps.weaponstate > 49) )
+    if ( AimAssist_IsSlowdownActive(&aaGlob->ps) && (aaGlob->ps.weaponstate < WEAPON_LOWREADY_RAISE || aaGlob->ps.weaponstate > WEAPON_LOWREADY_DROP) )
     {
         if ( !aaGlob->ps.weapIndex
             && !Assert_MyHandler(
@@ -1570,13 +1570,13 @@ void __cdecl AimAssist_ApplyAutoAim(const AimInput *input, AimOutput *output)
     {
         if ( !aaGlob->autoAimPressed && input->button_bits.testBit(11) )
         {
-            if ( aaGlob->ps.weaponstate != 10
-                && aaGlob->ps.weaponstate != 12
-                && aaGlob->ps.weaponstate != 14
-                && aaGlob->ps.weaponstate != 13
-                && aaGlob->ps.weaponstate != 11
-                && aaGlob->ps.weaponstate != 15
-                && aaGlob->ps.weaponstate != 16 )
+            if ( aaGlob->ps.weaponstate != WEAPON_RELOADING
+                && aaGlob->ps.weaponstate != WEAPON_RELOAD_START
+                && aaGlob->ps.weaponstate != WEAPON_RELOAD_END
+                && aaGlob->ps.weaponstate != WEAPON_RELOAD_START_INTERUPT
+                && aaGlob->ps.weaponstate != WEAPON_RELOADING_INTERUPT
+                && aaGlob->ps.weaponstate != WEAPON_RELOAD_QUICK
+                && aaGlob->ps.weaponstate != WEAPON_RELOAD_QUICK_EMPTY )
             {
                 if ( BG_IsAimDownSightWeapon(aaGlob->ps.weapIndex) )
                 {
@@ -1963,12 +1963,12 @@ LABEL_24:
             }
         }
     }
-    if ( aaGlob->autoMeleeState == AMS_TARGET_AQUIRED && aaGlob->ps.weaponstate == 17 )
+    if ( aaGlob->autoMeleeState == AMS_TARGET_AQUIRED && aaGlob->ps.weaponstate == WEAPON_MELEE_INIT )
         aaGlob->autoMeleeState = AMS_TARGETING;
     if ( aaGlob->autoMeleeState == AMS_TARGETING )
     {
-        if ( aaGlob->ps.weaponstate != 18
-            && (aaGlob->ps.weaponstate == 17 || aaGlob->ps.weaponstate == 18 || aaGlob->ps.weaponstate == 19)
+        if ( aaGlob->ps.weaponstate != WEAPON_MELEE_FIRE
+            && (aaGlob->ps.weaponstate == WEAPON_MELEE_INIT || aaGlob->ps.weaponstate == WEAPON_MELEE_FIRE || aaGlob->ps.weaponstate == WEAPON_MELEE_END)
             && AimAssist_UpdateAutoMeleeTarget(aaGlob, input->localClientNum) )
         {
             newPitch = DiffTrackAngle(

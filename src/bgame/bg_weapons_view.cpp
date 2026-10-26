@@ -145,7 +145,7 @@ void __cdecl BG_CalculateWeaponMovement_Base(weaponState_t *ws)
         __debugbreak();
     }
     v2 = ws->xyspeed > minSpeed && (float)ps->speed > minSpeed;
-    v1 = ps->weaponstate == 10 || ps->weaponstateLeft == 10;
+    v1 = ps->weaponstate == WEAPON_RELOADING || ps->weaponstateLeft == WEAPON_RELOADING;
     isClimbingLadder = (ps->pm_flags & 8) != 0;
     if ( isProne || isCrouched )
         BG_CalculateWeaponMovement_Base_Internal_Stance(ws, targetPos, targetAngles);
@@ -167,8 +167,6 @@ void __cdecl BG_CalculateWeaponMovement_Base_Internal_WeaponState(
     const playerState_s *ps; // [esp+58h] [ebp-8h]
     const WeaponDef *weapDef; // [esp+5Ch] [ebp-4h]
 
-    if ( !ws && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons_view.cpp", 409, 0, "%s", "ws") )
-        __debugbreak();
     ps = ws->ps;
     weapIndex = BG_GetViewmodelWeaponIndex(ws->ps);
     weapDef = BG_GetWeaponDef(weapIndex);
@@ -224,7 +222,7 @@ void __cdecl BG_CalculateWeaponMovement_Base_Internal_WeaponState(
     }
 }
 
-double __cdecl BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws, const WeaponDef *weapDef)
+float __vectorcall BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws, const WeaponDef *weapDef)
 {
     int sprintInTime; // [esp+10h] [ebp-18h]
     int sprintOutTime; // [esp+14h] [ebp-14h]
@@ -257,7 +255,7 @@ double __cdecl BG_CalculateWeaponMovement_GetSprintLerp(const weaponState_t *ws,
     return fFrac;
 }
 
-double __cdecl BG_CalculateWeaponMovement_GetLowReadyLerp(const weaponState_t *ws, const WeaponDef *weapDef)
+float __vectorcall BG_CalculateWeaponMovement_GetLowReadyLerp(const weaponState_t *ws, const WeaponDef *weapDef)
 {
     int lowReadyInTime; // [esp+0h] [ebp-14h]
     int lowReadyOutTime; // [esp+4h] [ebp-10h]
@@ -280,7 +278,7 @@ double __cdecl BG_CalculateWeaponMovement_GetLowReadyLerp(const weaponState_t *w
     }
 }
 
-double __cdecl BG_CalculateWeaponMovement_GetDTPLerp(const weaponState_t *ws, const WeaponDef *weapDef)
+float __vectorcall BG_CalculateWeaponMovement_GetDTPLerp(const weaponState_t *ws, const WeaponDef *weapDef)
 {
     int dtpInTime; // [esp+0h] [ebp-10h]
     int dtpOutTime; // [esp+4h] [ebp-Ch]
@@ -303,7 +301,7 @@ double __cdecl BG_CalculateWeaponMovement_GetDTPLerp(const weaponState_t *ws, co
     }
 }
 
-double __cdecl BG_CalculateWeaponMovement_GetSlideLerp(const weaponState_t *ws, const WeaponDef *weapDef)
+float __cdecl BG_CalculateWeaponMovement_GetSlideLerp(const weaponState_t *ws, const WeaponDef *weapDef)
 {
     int slideInTime; // [esp+0h] [ebp-Ch]
 

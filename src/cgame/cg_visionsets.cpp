@@ -1276,12 +1276,12 @@ char __cdecl CG_LookingThroughNightVision(int localClientNum)
     ps = &CG_GetLocalClientGlobals(localClientNum)->predictedPlayerState;
     weapIndex = BG_GetViewmodelWeaponIndex(ps);
     weapDef = BG_GetWeaponDef(weapIndex);
-    if ( ps->weaponstate == 33 )
+    if ( ps->weaponstate == WEAPON_NIGHTVISION_WEAR )
     {
         if ( weapDef->nightVisionWearTime - ps->weaponTime >= weapDef->nightVisionWearTimePowerUp )
             return 1;
     }
-    else if ( ps->weaponstate == 34 )
+    else if ( ps->weaponstate == WEAPON_NIGHTVISION_REMOVE )
     {
         if ( weapDef->nightVisionRemoveTime - ps->weaponTime <= weapDef->nightVisionRemoveTimePowerDown )
             return 1;

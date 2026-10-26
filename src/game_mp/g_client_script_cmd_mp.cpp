@@ -1364,11 +1364,11 @@ void PlayerCmd_IsFiring(scr_entref_t entref)
 
     if (weapState == WEAPON_FIRING
         || weapState == WEAPON_RECHAMBERING
-        || weapState == WEAPON_RELOADING_RIGHT
-        || weapState == WEAPON_CONT_FIRE_OUT
+        || weapState == WEAPON_RECHAMBERING_FINISH
+        || weapState == WEAPON_CONT_FIRE_LOOP
+        || weapState == WEAPON_MELEE_INIT
         || weapState == WEAPON_MELEE_FIRE
-        || weapState == WEAPON_MELEE_END
-        || weapState == WEAPON_OFFHAND_INIT)
+        || weapState == WEAPON_MELEE_END)
     {
         return Scr_AddInt(1, SCRIPTINSTANCE_SERVER);
     }
@@ -1407,7 +1407,7 @@ void PlayerCmd_IsMeleeing(scr_entref_t entref)
 
     weaponstate_t weapState = pSelf->client->ps.weaponstate;
 
-    if (weapState == WEAPON_MELEE_FIRE || weapState == WEAPON_MELEE_END || weapState == WEAPON_OFFHAND_INIT)
+    if (weapState == WEAPON_MELEE_INIT || weapState == WEAPON_MELEE_FIRE || weapState == WEAPON_MELEE_END)
         return Scr_AddInt(1, SCRIPTINSTANCE_SERVER);
     else
         return Scr_AddInt(0, SCRIPTINSTANCE_SERVER);
@@ -3494,7 +3494,7 @@ void __cdecl PlayerCmd_hasAGrenadePulledBack(scr_entref_t entref)
     if ( !pSelf->client )
         Scr_Error("Entity is not a player", 0);
     weaponstate = pSelf->client->ps.weaponstate;
-    if ( weaponstate < 20 || weaponstate > 24 )
+    if ( weaponstate < WEAPON_OFFHAND_INIT || weaponstate > WEAPON_OFFHAND )
         Scr_AddInt(0, SCRIPTINSTANCE_SERVER);
     else
         Scr_AddInt(1, SCRIPTINSTANCE_SERVER);
@@ -4050,9 +4050,9 @@ void __cdecl PlayerCmd_finishPlayerDamage(scr_entref_t entref)
                 v7 = level.time + 500;
                 G_GetClientState(pSelf->s.number)->lastStandStartTime = v7;
                 if ( (pSelf->client->ps.eFlags & 0x300) != 0
-                    || pSelf->client->ps.weaponstate == 35
-                    || pSelf->client->ps.weaponstate == 36
-                    || pSelf->client->ps.weaponstate == 37 )
+                    || pSelf->client->ps.weaponstate == WEAPON_DEPLOYING
+                    || pSelf->client->ps.weaponstate == WEAPON_DEPLOYED
+                    || pSelf->client->ps.weaponstate == WEAPON_BREAKING_DOWN )
                 {
                     turret = &g_entities[pSelf->client->ps.viewlocked_entNum];
                     if ( turret->s.eType == 11 )

@@ -7,7 +7,8 @@ struct flameTable;
 struct Material;
 
 enum weaponstate_t : __int32
-{                                       // XREF: CG_StopWeaponSound/r
+{
+    // Original MP state 8 finishes rechambering; all later states follow it.
     WEAPON_READY                 = 0x0,
     WEAPON_RAISING               = 0x1,
     WEAPON_RAISING_ALTSWITCH     = 0x2,
@@ -16,49 +17,50 @@ enum weaponstate_t : __int32
     WEAPON_DROPPING_ALTSWITCH    = 0x5,
     WEAPON_FIRING                = 0x6,
     WEAPON_RECHAMBERING          = 0x7,
-    WEAPON_RELOADING_RIGHT       = 0x8,
-    WEAPON_RELOADING_LEFT        = 0x9,
-    WEAPON_RELOADING             = 0xA,
-    WEAPON_RELOADING_INTERUPT    = 0xB,
-    WEAPON_RELOAD_START          = 0xC,
-    WEAPON_RELOAD_START_INTERUPT = 0xD,
-    WEAPON_RELOAD_END            = 0xE,
-    WEAPON_RELOAD_QUICK          = 0xF,
-    WEAPON_RELOAD_QUICK_EMPTY    = 0x10,
-    WEAPON_MELEE_INIT            = 0x11,
-    WEAPON_MELEE_FIRE            = 0x12,
-    WEAPON_MELEE_END             = 0x13,
-    WEAPON_OFFHAND_INIT          = 0x14,
-    WEAPON_OFFHAND_PREPARE       = 0x15,
-    WEAPON_OFFHAND_HOLD          = 0x16,
-    WEAPON_OFFHAND_START         = 0x17,
-    WEAPON_OFFHAND               = 0x18,
-    WEAPON_OFFHAND_END           = 0x19,
-    WEAPON_DETONATING            = 0x1A,
-    WEAPON_SPRINT_RAISE          = 0x1B,
-    WEAPON_SPRINT_LOOP           = 0x1C,
-    WEAPON_SPRINT_DROP           = 0x1D,
-    WEAPON_CONT_FIRE_IN          = 0x1E,
-    WEAPON_CONT_FIRE_LOOP        = 0x1F,
-    WEAPON_CONT_FIRE_OUT         = 0x20,
-    WEAPON_NIGHTVISION_WEAR      = 0x21,
-    WEAPON_NIGHTVISION_REMOVE    = 0x22,
-    WEAPON_DEPLOYING             = 0x23,
-    WEAPON_DEPLOYED              = 0x24,
-    WEAPON_BREAKING_DOWN         = 0x25,
-    WEAPON_SWIM_IN               = 0x26,
-    WEAPON_SWIM_OUT              = 0x27,
-    WEAPON_DTP_IN                = 0x28,
-    WEAPON_DTP_LOOP              = 0x29,
-    WEAPON_DTP_OUT               = 0x2A,
-    WEAPON_SLIDE_IN              = 0x2B,
-    WEAPON_FIRING_LEFT           = 0x2C,
-    WEAPON_FIRING_BOTH           = 0x2D,
-    WEAPON_JAMMED                = 0x2E,
-    WEAPON_LOWREADY_RAISE        = 0x2F,
-    WEAPON_LOWREADY_LOOP         = 0x30,
-    WEAPON_LOWREADY_DROP         = 0x31,
-    WEAPONSTATES_NUM             = 0x32,
+    WEAPON_RECHAMBERING_FINISH   = 0x8,
+    WEAPON_RELOADING_RIGHT       = 0x9,
+    WEAPON_RELOADING_LEFT        = 0xA,
+    WEAPON_RELOADING             = 0xB,
+    WEAPON_RELOADING_INTERUPT    = 0xC,
+    WEAPON_RELOAD_START          = 0xD,
+    WEAPON_RELOAD_START_INTERUPT = 0xE,
+    WEAPON_RELOAD_END            = 0xF,
+    WEAPON_RELOAD_QUICK          = 0x10,
+    WEAPON_RELOAD_QUICK_EMPTY    = 0x11,
+    WEAPON_MELEE_INIT            = 0x12,
+    WEAPON_MELEE_FIRE            = 0x13,
+    WEAPON_MELEE_END             = 0x14,
+    WEAPON_OFFHAND_INIT          = 0x15,
+    WEAPON_OFFHAND_PREPARE       = 0x16,
+    WEAPON_OFFHAND_HOLD          = 0x17,
+    WEAPON_OFFHAND_START         = 0x18,
+    WEAPON_OFFHAND               = 0x19,
+    WEAPON_OFFHAND_END           = 0x1A,
+    WEAPON_DETONATING            = 0x1B,
+    WEAPON_SPRINT_RAISE          = 0x1C,
+    WEAPON_SPRINT_LOOP           = 0x1D,
+    WEAPON_SPRINT_DROP           = 0x1E,
+    WEAPON_CONT_FIRE_IN          = 0x1F,
+    WEAPON_CONT_FIRE_LOOP        = 0x20,
+    WEAPON_CONT_FIRE_OUT         = 0x21,
+    WEAPON_NIGHTVISION_WEAR      = 0x22,
+    WEAPON_NIGHTVISION_REMOVE    = 0x23,
+    WEAPON_DEPLOYING             = 0x24,
+    WEAPON_DEPLOYED              = 0x25,
+    WEAPON_BREAKING_DOWN         = 0x26,
+    WEAPON_SWIM_IN               = 0x27,
+    WEAPON_SWIM_OUT              = 0x28,
+    WEAPON_DTP_IN                = 0x29,
+    WEAPON_DTP_LOOP              = 0x2A,
+    WEAPON_DTP_OUT               = 0x2B,
+    WEAPON_SLIDE_IN              = 0x2C,
+    WEAPON_FIRING_LEFT           = 0x2D,
+    WEAPON_FIRING_BOTH           = 0x2E,
+    WEAPON_JAMMED                = 0x2F,
+    WEAPON_LOWREADY_RAISE        = 0x30,
+    WEAPON_LOWREADY_LOOP         = 0x31,
+    WEAPON_LOWREADY_DROP         = 0x32,
+    WEAPONSTATES_NUM             = 0x33,
 };
 
 enum weapType_t : __int32
@@ -962,8 +964,8 @@ void __cdecl BG_GetSpreadForWeapon(
 void __cdecl PM_UpdateAimDownSightFlag(pmove_t *pm, pml_t *pml);
 bool __cdecl PM_IsAdsAllowed(pmove_t *pm, pml_t *pml);
 void __cdecl PM_ExitAimDownSight(playerState_s *ps);
-void __cdecl PM_UpdateScopeZoom(pmove_t *pm);
-void __cdecl PM_UpdateSpinLerp(pmove_t *pm, pml_t *pml);
+__declspec(noinline) void __cdecl PM_UpdateScopeZoom(pmove_t *pm);
+__declspec(noinline) void __cdecl PM_UpdateSpinLerp(pmove_t *pm, pml_t *pml);
 void __cdecl PM_UpdateAimDownSightLerp(pmove_t *pm, pml_t *pml);
 bool __cdecl BG_UsingVehicleWeapon(const playerState_s *ps);
 bool __cdecl BG_ADSFullyUp(const playerState_s *ps);
@@ -978,7 +980,7 @@ bool __cdecl BG_IsAltSwitch(playerState_s *ps, unsigned int lastWeapon, unsigned
 bool __cdecl BG_CanFastSwitch(const WeaponDef *weapDef, int weaponState);
 char __cdecl BG_IsQuickSwitch(unsigned int oldweapon, unsigned int newweapon, int weaponState);
 void __cdecl PM_AdjustAimSpreadScale(pmove_t *pm, pml_t *pml);
-bool __cdecl ShotLimitReached(playerState_s *ps, const WeaponDef *weapDef);
+__declspec(noinline) bool __cdecl ShotLimitReached(playerState_s *ps, const WeaponDef *weapDef);
 unsigned int *__cdecl BG_GetWeaponShotCount(playerState_s *ps, bool leftGun);
 int __cdecl PM_GetWeaponFireButton(unsigned int weapon);
 void __cdecl PM_Weapon_Idle(playerState_s *ps);
@@ -989,7 +991,7 @@ void __cdecl PM_EndHoldBreath(playerState_s *ps);
 int __cdecl PM_Weapon_CheckForRechamber(playerState_s *ps, int delayedAction);
 bool __cdecl BG_PlayerWeaponNeedsRechambered(const playerState_s *ps, unsigned int weaponIndex);
 void __cdecl BG_PlayerWeaponSetNeedsRechamber(playerState_s *ps, unsigned int weaponIndex, bool needsRechamber);
-void __cdecl PM_Weapon_FinishRechamber(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_FinishRechamber(playerState_s *ps);
 void __cdecl PM_ContinueWeaponAnim(playerState_s *ps, int anim, int leftAnim);
 void __cdecl PM_Weapon_FinishWeaponChange(pmove_t *pm, int previousWeaponState);
 bool __cdecl BG_PlayerEverHadWeapon(const playerState_s *ps, unsigned int weaponIndex);
@@ -1007,7 +1009,7 @@ unsigned __int16 __cdecl BG_GetValidPrimaryWeaponForAltMode(
                 const playerState_s *ps,
                 unsigned int newWeapon,
                 unsigned int lastWeaponAltModeSwitch);
-void __cdecl PM_Weapon_FinishWeaponRaise(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_FinishWeaponRaise(playerState_s *ps);
 void __cdecl PM_Weapon_FinishReloadStart(pmove_t *pm, int delayedAction);
 void __cdecl PM_SetReloadingState(playerState_s *ps);
 bool __cdecl BG_PlayerWeaponQuickReload(const playerState_s *ps, unsigned int weaponIndex);
@@ -1020,15 +1022,15 @@ void __cdecl PM_Weapon_ReloadDelayedAction(playerState_s *ps);
 void __cdecl BG_PlayerSetWeaponQuickReload(playerState_s *ps, unsigned int weaponIndex, bool quickReload);
 void __cdecl PM_Weapon_FinishReload(pmove_t *pm, int delayedAction);
 void __cdecl PM_Weapon_FinishReloadEnd(playerState_s *ps);
-void __cdecl PM_Weapon_CheckFuelTime(pmove_t *pm, pml_t *pml);
+__declspec(noinline) void __cdecl PM_Weapon_CheckFuelTime(pmove_t *pm, pml_t *pml);
 void __cdecl PM_Weapon_CheckForReload(pmove_t *pm);
 int __cdecl BG_PlayerFuelTankTime(const playerState_s *ps, unsigned int weaponIndex);
 void __cdecl PM_BeginWeaponReload(pmove_t *pm);
 bool __cdecl BG_PlayDWThirdPersonReload(playerState_s *ps);
 bool __cdecl PM_CheckForReloadInterferingWeaponStates(pmove_t *pm, playerState_s *ps, int weaponState);
 bool __cdecl BurstFirePending(playerState_s *ps);
-void __cdecl UpdatePendingTriggerPull(pmove_t *pm);
-void __cdecl CheckStackedFire(pmove_t *pm);
+__declspec(noinline) void __cdecl UpdatePendingTriggerPull(pmove_t *pm);
+__declspec(noinline) void __cdecl CheckStackedFire(pmove_t *pm);
 int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml);
 bool __cdecl WeaponUsesBurstCooldown(unsigned int weaponIdx);
 void __cdecl PM_Weapon_CheckForChangeWeapon(pmove_t *pm);
@@ -1048,47 +1050,48 @@ char __cdecl PM_WeaponAllowPlant(pmove_t *pm);
 void __cdecl Vec2NormalizeFast(float *v);
 void __cdecl DrawPlantDebug(float *start, float *end);
 bool __cdecl PM_Weapon_IsHoldingGrenade(pmove_t *pm);
-void __cdecl PM_Weapon_MeleeEnd(playerState_s *ps);
+// Retain the original transition-handler call references in desktop Release.
+__declspec(noinline) void __cdecl PM_Weapon_MeleeEnd(playerState_s *ps);
 const WeaponDef *__cdecl PM_Weapon_GetMeleeWeapDef(playerState_s *ps);
-void __cdecl PM_Weapon_MeleeFire(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_MeleeFire(playerState_s *ps);
 void __cdecl PM_Weapon_CheckForMelee(pmove_t *pm, pml_t *pml, int delayedAction);
 void __cdecl PM_Weapon_MeleeInit(pmove_t *pm);
-void __cdecl PM_Weapon_OffHandPrepare(pmove_t *pm);
-void __cdecl PM_Weapon_OffHandHold(playerState_s *ps);
-void __cdecl PM_Weapon_OffHandStart(pmove_t *pm);
-void __cdecl PM_Weapon_OffHand(pmove_t *pm);
-void __cdecl PM_Weapon_OffHandEnd(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_OffHandPrepare(pmove_t *pm);
+__declspec(noinline) void __cdecl PM_Weapon_OffHandHold(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_OffHandStart(pmove_t *pm);
+__declspec(noinline) void __cdecl PM_Weapon_OffHand(pmove_t *pm);
+__declspec(noinline) void __cdecl PM_Weapon_OffHandEnd(playerState_s *ps);
 void __cdecl PM_Weapon_CheckForOffHand(pmove_t *pm);
-void __cdecl PM_Weapon_OffHandInit(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_OffHandInit(playerState_s *ps);
 void __cdecl PM_SendEmtpyOffhandEvent(playerState_s *ps, OffhandSlot offhandSlot);
-char __cdecl PM_UpdateGrenadeThrow(playerState_s *ps, pml_t *pml);
+__declspec(noinline) char __cdecl PM_UpdateGrenadeThrow(playerState_s *ps, pml_t *pml);
 char __cdecl PM_Weapon_CheckGrenadeHold(pmove_t *pm, int delayedAction);
 void __cdecl PM_Weapon_CheckForDetonation(pmove_t *pm);
 void __cdecl PM_Weapon_CheckForGrenadeThrowCancel(pmove_t *pm);
 void __cdecl PM_Detonate(playerState_s *ps, int delayedAction);
-void __cdecl PM_Weapon_CheckForNightVision(pmove_t *pm);
+__declspec(noinline) void __cdecl PM_Weapon_CheckForNightVision(pmove_t *pm);
 void __cdecl PM_Weapon_FinishNightVisionWear(playerState_s *ps);
 void __cdecl PM_Weapon_FinishNightVisionRemove(playerState_s *ps);
-void __cdecl PM_WeaponSwimIn(playerState_s *ps);
-void __cdecl PM_WeaponSwimOut(playerState_s *ps);
-void __cdecl Sprint_State_Loop(playerState_s *ps);
-void __cdecl ContinuousFire_State_Loop(playerState_s *ps);
-void __cdecl Dtp_State_Out(playerState_s *ps);
-void __cdecl Dtp_State_Loop(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_WeaponSwimIn(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_WeaponSwimOut(playerState_s *ps);
+__declspec(noinline) void __cdecl Sprint_State_Loop(playerState_s *ps);
+__declspec(noinline) void __cdecl ContinuousFire_State_Loop(playerState_s *ps);
+__declspec(noinline) void __cdecl Dtp_State_Out(playerState_s *ps);
+__declspec(noinline) void __cdecl Dtp_State_Loop(playerState_s *ps);
 void __cdecl PM_Weapon_CheckForSprint(pmove_t *pm);
 void __cdecl Sprint_State_Raise(playerState_s *ps);
 void __cdecl Sprint_State_Drop(playerState_s *ps);
 void __cdecl PM_Weapon_CheckForContinuousFire(pmove_t *pm, int delayedAction);
-void __cdecl ContinuousFire_State_In(playerState_s *ps);
-void __cdecl ContinuousFire_State_Out(playerState_s *ps);
-void __cdecl PM_Weapon_CheckForDtp(pmove_t *pm);
-void __cdecl Dtp_State_In(playerState_s *ps);
+__declspec(noinline) void __cdecl ContinuousFire_State_In(playerState_s *ps);
+__declspec(noinline) void __cdecl ContinuousFire_State_Out(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_CheckForDtp(pmove_t *pm);
+__declspec(noinline) void __cdecl Dtp_State_In(playerState_s *ps);
 void __cdecl PM_Weapon_CheckForSlide(pmove_t *pm);
-void __cdecl Slide_State_In(playerState_s *ps);
+__declspec(noinline) void __cdecl Slide_State_In(playerState_s *ps);
 void __cdecl PM_Weapon_CheckForDeploy(pmove_t *pm);
-void __cdecl Deploy_State_Deploy(playerState_s *ps);
-void __cdecl Deploy_State_Breakdown(playerState_s *ps);
-void __cdecl PM_Weapon_CheckForMantle(pmove_t *pm);
+__declspec(noinline) void __cdecl Deploy_State_Deploy(playerState_s *ps);
+__declspec(noinline) void __cdecl Deploy_State_Breakdown(playerState_s *ps);
+__declspec(noinline) void __cdecl PM_Weapon_CheckForMantle(pmove_t *pm);
 int __cdecl BG_CheckForUniversalActionDW(playerState_s *ps);
 void __cdecl PM_Weapon_Turret(pmove_t *pm, pml_t *pml);
 void __cdecl PM_ResetWeaponState(playerState_s *ps);

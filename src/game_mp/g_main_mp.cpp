@@ -700,7 +700,7 @@ void __cdecl    G_InitGame(int levelTime, int randomSeed, int restart, int regis
     PROF_SCOPED("G_InitGame");
 
     Com_Printf(15, "------- Game Initialization -------\n");
-    Com_Printf(15, "gamename: %s\n", "Call of Duty®");
+    Com_Printf(15, "gamename: %s\n", "Call of Dutyï¿½");
     Com_Printf(15, "gamedate: %s\n", "Nov    5 2010");
     Rope_InitRopes();
     Swap_Init();
@@ -3265,7 +3265,7 @@ void __cdecl G_ClientDoPerFrameNotifies(gentity_s *ent)
     }
     if ( client->ps.lastDtpEnd && client->ps.lastDtpEnd == client->ps.commandTime )
         Scr_Notify(ent, scr_const.dtp_end, 0);
-    if ( (client->ps.weaponstate == 6 || client->ps.weaponstate == 31) && client->ps.pm_type < 9 )
+    if ( (client->ps.weaponstate == 6 || client->ps.weaponstate == WEAPON_CONT_FIRE_LOOP) && client->ps.pm_type < 9 )
         v2 = DoPerFrameNotify(ent, 1, client->previouslyFiring, scr_const.begin_firing, scr_const.end_firing);
     else
         v2 = DoPerFrameNotify(ent, 0, client->previouslyFiring, scr_const.begin_firing, scr_const.end_firing);

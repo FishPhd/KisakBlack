@@ -86,4 +86,4 @@ void __cdecl CG_AddSceneTracerBeams(int localClientNum);
 void __cdecl CG_GenerateSceneCodeMeshes(int localClientNum);
 void __cdecl CG_GenerateSceneVerts(int localClientNum);
 
-extern const char *WeaponStateNames[50];
+extern const char *WeaponStateNames[];

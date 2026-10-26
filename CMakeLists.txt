@@ -55,8 +55,10 @@ target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/steam
 target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib")
 target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi")
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT  /O2 /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
-set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MTd /Od /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
+# Select the static CRT through CMake so the generator cannot append /MD after /MT.
+set_property(TARGET KisakBlack PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
+set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /Od /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
 
 if (MSVC AND WIN32 AND NOT MSVC_VERSION VERSION_LESS 142)
     target_link_options(KisakBlack PRIVATE $<$<CONFIG:Debug>:/INCREMENTAL>)
@@ -92,6 +94,12 @@ target_link_libraries(KisakBlack PUBLIC $<$<CONFIG:Debug>:d3dx9d.lib>)
 # ----- Release Links -----
 target_link_libraries(KisakBlack PUBLIC $<$<CONFIG:Release>:d3dx9.lib>)
 target_link_options(KisakBlack PRIVATE /machine:x86)
+# The prebuilt libvpx uses /MD. Pull in the static CRT thread entry so its import
+# resolves locally, and keep the old MSVCRT exception handler out of Release.
+target_link_options(KisakBlack PRIVATE
+    $<$<CONFIG:Release>:/NODEFAULTLIB:MSVCRT>
+    $<$<CONFIG:Release>:/INCLUDE:__beginthreadex>
+)
 
 # ----- Linker Options -----
 # /DYNAMICBASE:NO - Turning this off causes directx to crash "directx has encountered an unrecoverable error". 

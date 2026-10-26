@@ -828,7 +828,7 @@ void    Weapon_Overheat_Update(gentity_s *ent)
             weapDef = BG_GetWeaponDef(weaponIndex);
             if ( weapDef->overheatWeapon )
             {
-                if ( (ps->ps.weaponstate == 6 || ps->ps.weaponstate == 31)
+                if ( (ps->ps.weaponstate == 6 || ps->ps.weaponstate == WEAPON_CONT_FIRE_LOOP)
                     && ps->ps.weapon == weaponIndex
                     && ps->ps.waterlevel < 3 )
                 {
@@ -837,7 +837,7 @@ void    Weapon_Overheat_Update(gentity_s *ent)
                         weaponIndex,
                         (float)((float)frametime * weapDef->overheatRate) / 1000.0);
                 }
-                if ( ps->ps.weaponstate != 6 && ps->ps.weaponstate != 31
+                if ( ps->ps.weaponstate != 6 && ps->ps.weaponstate != WEAPON_CONT_FIRE_LOOP
                     || ps->ps.weapon != weaponIndex
                     || weapDef->coolWhileFiring
                     || ps->ps.waterlevel >= 3 )

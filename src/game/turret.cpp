@@ -181,7 +181,7 @@ void __cdecl turret_track(gentity_s *self, gentity_s *other)
     {
         turretInfo->fireTime = 0;
         if ( (other->client->ps.pm_flags & 0x800) != 0
-            || other->client->ps.weaponstate == 35
+            || other->client->ps.weaponstate == WEAPON_DEPLOYING
             //|| !bitarray<51>::testBit(&other->client->button_bits, 0)
             || !other->client->button_bits.testBit(0)
             || turret_is_overheating(self) )
@@ -547,7 +547,7 @@ void __cdecl turret_shoot_internal(gentity_s *self, gentity_s *other)
         if ( other->client )
         {
             Fire_Lead(self, other);
-            if ( other->client->ps.weaponstate == 36 )
+            if ( other->client->ps.weaponstate == WEAPON_DEPLOYED )
             {
                 other->client->ps.viewlocked = PLAYERVIEWLOCK_WEAPONJITTER;
                 WeaponVariantDef = BG_GetWeaponVariantDef(other->client->ps.weapon);

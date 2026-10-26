@@ -194,7 +194,7 @@ void __cdecl CG_DrawPlayerWeaponAmmoStock(
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     ps = &cgameGlob->predictedPlayerState;
     if ( (cgameGlob->predictedPlayerState.eFlags & 0x4000) == 0
-        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37) )
+        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN) )
     {
         colorMod[0] = *color;
         colorMod[1] = color[1];
@@ -337,7 +337,7 @@ void __cdecl CG_DrawFuelTankPercentage(
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     ps = &cgameGlob->predictedPlayerState;
     if ( (cgameGlob->predictedPlayerState.eFlags & 0x4000) == 0
-        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37) )
+        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN) )
     {
         colorMod[0] = *color;
         colorMod[1] = color[1];
@@ -413,7 +413,7 @@ void __cdecl CG_DrawPlayerWeaponAmmoClip(
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     ps = &cgameGlob->predictedPlayerState;
     if ( (cgameGlob->predictedPlayerState.eFlags & 0x4000) == 0
-        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37) )
+        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN) )
     {
         colorMod[0] = *color;
         colorMod[1] = color[1];
@@ -508,7 +508,7 @@ void __cdecl CG_DrawPlayerWeaponAmmoClipDualWield(
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     ps = &cgameGlob->predictedPlayerState;
     if ( (cgameGlob->predictedPlayerState.eFlags & 0x4000) == 0
-        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37) )
+        && ((ps->eFlags & 0x300) == 0 || ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN) )
     {
         colorMod[0] = *color;
         colorMod[1] = color[1];
@@ -1375,9 +1375,9 @@ void __cdecl CG_DrawPlayerWeaponAmmoClipGraphic(int localClientNum, const rectDe
     colorMod[3] = AmmoCounterFadeAlpha(localClientNum, cgameGlob) * colorMod[3];
     if ( colorMod[3] != 0.0
         && ((cgameGlob->predictedPlayerState.eFlags & 0x300) == 0
-         || cgameGlob->predictedPlayerState.weaponstate == 35
-         || cgameGlob->predictedPlayerState.weaponstate == 36
-         || cgameGlob->predictedPlayerState.weaponstate == 37)
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYING
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYED
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_BREAKING_DOWN)
         && (cgameGlob->predictedPlayerState.eFlags & 0x4000) == 0 )
     {
         weapIdx = GetWeaponIndex(cgameGlob);
@@ -1792,9 +1792,9 @@ void __cdecl CG_DrawPlayerWeaponAmmoClipGraphicDualWield(int localClientNum, con
     colorMod[3] = AmmoCounterFadeAlpha(localClientNum, cgameGlob) * colorMod[3];
     if (colorMod[3] != 0.0
         && ((cgameGlob->predictedPlayerState.eFlags & 0x300) == 0
-            || cgameGlob->predictedPlayerState.weaponstate == 35
-            || cgameGlob->predictedPlayerState.weaponstate == 36
-            || cgameGlob->predictedPlayerState.weaponstate == 37)
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYING
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYED
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_BREAKING_DOWN)
         && (cgameGlob->predictedPlayerState.eFlags & 0x4000) == 0)
     {
         weapIdx = GetWeaponIndex(cgameGlob);
@@ -1929,13 +1929,13 @@ void __cdecl CG_DrawPlayerWeaponLowAmmoWarning(
         && cgameGlob->predictedPlayerState.waterlevel < 3
         && cgameGlob->predictedPlayerState.pm_type != 4
         && (cgameGlob->predictedPlayerState.eFlags & 0x300) == 0
-        && cgameGlob->predictedPlayerState.weaponstate != 10
-        && cgameGlob->predictedPlayerState.weaponstate != 12
-        && cgameGlob->predictedPlayerState.weaponstate != 14
-        && cgameGlob->predictedPlayerState.weaponstate != 13
-        && cgameGlob->predictedPlayerState.weaponstate != 11
-        && cgameGlob->predictedPlayerState.weaponstate != 15
-        && cgameGlob->predictedPlayerState.weaponstate != 16 )
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOADING
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOAD_START
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOAD_END
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOAD_START_INTERUPT
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOADING_INTERUPT
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOAD_QUICK
+        && cgameGlob->predictedPlayerState.weaponstate != WEAPON_RELOAD_QUICK_EMPTY )
     {
         if ( cgameGlob->predictedPlayerState.weapon )
         {

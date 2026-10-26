@@ -244,20 +244,20 @@ void __cdecl StartWeaponAnim(
     if ( newPlayerstate )
         timeFrac = GetWeaponAnimTimeFrac(localClientNum, weapVariantDef, anims, animIndex);
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
-    if ( (cgameGlob->predictedPlayerState.weaponstate == 10
-         || cgameGlob->predictedPlayerState.weaponstate == 12
-         || cgameGlob->predictedPlayerState.weaponstate == 14
-         || cgameGlob->predictedPlayerState.weaponstate == 13
-         || cgameGlob->predictedPlayerState.weaponstate == 11
-         || cgameGlob->predictedPlayerState.weaponstate == 15
-         || cgameGlob->predictedPlayerState.weaponstate == 16
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 10
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 12
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 14
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 13
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 11
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 15
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 16)
+    if ( (cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOADING
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_START
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_END
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_START_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOADING_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_QUICK
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_QUICK_EMPTY
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOADING
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_START
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_END
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_START_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOADING_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_QUICK
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_QUICK_EMPTY)
         && (cgameGlob->predictedPlayerState.perks[0] & 0x40000) != 0 )
     {
         if ( perk_weapReloadMultiplier->current.value == 0.0 )
@@ -290,7 +290,7 @@ void __cdecl StartWeaponAnim(
         rate = rate / perk_weapSwitchMultiplier->current.value;
     }
     else if ( (cgameGlob->predictedPlayerState.perks[0] & 0x20000) != 0
-                 && cgameGlob->predictedPlayerState.weaponstate == 19 )
+                 && cgameGlob->predictedPlayerState.weaponstate == WEAPON_MELEE_END )
     {
         if ( perk_weapMeleeMultiplier->current.value <= 0.0
             && !Assert_MyHandler(
@@ -305,7 +305,7 @@ void __cdecl StartWeaponAnim(
         }
         rate = rate / perk_weapMeleeMultiplier->current.value;
     }
-    else if ( cgameGlob->predictedPlayerState.weaponstate == 29
+    else if ( cgameGlob->predictedPlayerState.weaponstate == WEAPON_SPRINT_DROP
                  && (cgameGlob->predictedPlayerState.perks[1] & 0x4000) != 0 )
     {
         if ( 0.0 == perk_sprintRecoveryMultiplier->current.value )
@@ -313,20 +313,20 @@ void __cdecl StartWeaponAnim(
         else
             rate = rate / perk_sprintRecoveryMultiplier->current.value;
     }
-    if ( (cgameGlob->predictedPlayerState.weaponstate == 10
-         || cgameGlob->predictedPlayerState.weaponstate == 12
-         || cgameGlob->predictedPlayerState.weaponstate == 14
-         || cgameGlob->predictedPlayerState.weaponstate == 13
-         || cgameGlob->predictedPlayerState.weaponstate == 11
-         || cgameGlob->predictedPlayerState.weaponstate == 15
-         || cgameGlob->predictedPlayerState.weaponstate == 16
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 10
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 12
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 14
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 13
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 11
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 15
-         || cgameGlob->predictedPlayerState.weaponstateLeft == 16)
+    if ( (cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOADING
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_START
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_END
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_START_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOADING_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_QUICK
+         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_QUICK_EMPTY
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOADING
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_START
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_END
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_START_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOADING_INTERUPT
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_QUICK
+         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_RELOAD_QUICK_EMPTY)
         && ui_gv_reloadSpeedModifier->current.value != 0.0 )
     {
         rate = (float)(rate * ui_gv_reloadSpeedModifier->current.value)
@@ -2436,16 +2436,16 @@ void __cdecl CG_AddPlayerWeapon(
                     if ( weapDef->bDualWield )
                     {
                         if ( ps->weaponstate == 6
-                            || ps->weaponstate == 31
-                            || ps->weaponstate == 41 && ((*((unsigned int *)cent + 201) >> 2) & 1) != 0 )
+                            || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
+                            || ps->weaponstate == WEAPON_DTP_LOOP && ((*((unsigned int *)cent + 201) >> 2) & 1) != 0 )
                         {
                             fLeanDist = scr_const.tag_flash;
                             v5 = CG_WeaponDObjHandle(localClientNum);
                             WeaponFlash(localClientNum, v5, weaponNum, 1, fLeanDist);
                         }
                         if ( ps->weaponstateLeft == 6
-                            || ps->weaponstateLeft == 31
-                            || ps->weaponstateLeft == 41 && ((*((unsigned int *)cent + 201) >> 3) & 1) != 0 )
+                            || ps->weaponstateLeft == WEAPON_CONT_FIRE_LOOP
+                            || ps->weaponstateLeft == WEAPON_DTP_LOOP && ((*((unsigned int *)cent + 201) >> 3) & 1) != 0 )
                         {
                             fLeanDista = scr_const.tag_flash1;
                             v6 = CG_WeaponDObjHandle(localClientNum);
@@ -2915,7 +2915,7 @@ void __cdecl WeaponRunXModelAnims(
     weapDef = BG_GetWeaponDef(weaponIndex);
     if ( weapDef->aimDownSight )
     {
-        v6 = ps->weaponstate == 10 && ps->weaponTime - weapDef->iPositionReloadTransTime > 0;
+        v6 = ps->weaponstate == WEAPON_RELOADING && ps->weaponTime - weapDef->iPositionReloadTransTime > 0;
         v5 = (ps->pm_flags & 0x10) != 0 && (ps->weapFlags & 2) == 0;
         v4 = !v6 && v5;
         PlayADSAnim(ps->fWeaponPosFrac, weaponIndex, obj, 65 - v4);
@@ -3679,13 +3679,13 @@ bool __cdecl ViewmodelRocketShouldBeAttached(int localClientNum, unsigned int we
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     if ( BG_GetAmmoInClip(&cgameGlob->predictedPlayerState, cgameGlob->predictedPlayerState.weapon) )
         return 1;
-    return (cgameGlob->predictedPlayerState.weaponstate == 10
-             || cgameGlob->predictedPlayerState.weaponstate == 12
-             || cgameGlob->predictedPlayerState.weaponstate == 14
-             || cgameGlob->predictedPlayerState.weaponstate == 13
-             || cgameGlob->predictedPlayerState.weaponstate == 11
-             || cgameGlob->predictedPlayerState.weaponstate == 15
-             || cgameGlob->predictedPlayerState.weaponstate == 16)
+    return (cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOADING
+             || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_START
+             || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_END
+             || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_START_INTERUPT
+             || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOADING_INTERUPT
+             || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_QUICK
+             || cgameGlob->predictedPlayerState.weaponstate == WEAPON_RELOAD_QUICK_EMPTY)
             && weapVariantDef->iReloadTime - cgameGlob->predictedPlayerState.weaponTime > weapDef->reloadShowRocketTime;
 }
 
@@ -4000,7 +4000,7 @@ bool __cdecl WeaponCycleAllowed(cg_s *cgameGlob)
     }
     if ( Demo_IsPlaying() )
         return 0;
-    if ( (cgameGlob->predictedPlayerState.pm_flags & 0xC00) != 0 || cgameGlob->predictedPlayerState.weaponstate == 35 )
+    if ( (cgameGlob->predictedPlayerState.pm_flags & 0xC00) != 0 || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYING )
         return 0;
     if ( (cgameGlob->predictedPlayerState.weapFlags & 0x80) != 0 )
         return 0;
@@ -4033,8 +4033,8 @@ char __cdecl CG_CancelOffhand(cg_s *cgameGlob)
     {
         __debugbreak();
     }
-    if ( cgameGlob->predictedPlayerState.weaponstate < 20
-        || cgameGlob->predictedPlayerState.weaponstate > 24
+    if ( cgameGlob->predictedPlayerState.weaponstate < WEAPON_OFFHAND_INIT
+        || cgameGlob->predictedPlayerState.weaponstate > WEAPON_OFFHAND
         || !BG_GetWeaponDef(cgameGlob->predictedPlayerState.offHandIndex)->offhandHoldIsCancelable )
     {
         return 0;
@@ -4503,7 +4503,7 @@ void __cdecl CG_ActionSlotDown_f()
                     }
                     else if ( BG_PlayerHasWeapon(ps, weapon)
                                  && ps->weapon != weapon
-                                 && (ps->weaponstate < 20 || ps->weaponstate > 25) )
+                                 && (ps->weaponstate < WEAPON_OFFHAND_INIT || ps->weaponstate > WEAPON_OFFHAND_END) )
                     {
                         weapDef = BG_GetWeaponDef(weapon);
                         v0 = !BG_GetAmmoInClip(ps, weapon) && !BG_GetAmmoNotInClip(ps, weapon) && !weapDef->unlimitedAmmo;
@@ -4615,7 +4615,7 @@ bool __cdecl ActionSlotUsageAllowed(cg_s *cgameGlob)
     {
         return 0;
     }
-    if ( (cgameGlob->predictedPlayerState.pm_flags & 0xC00) != 0 || cgameGlob->predictedPlayerState.weaponstate == 35 )
+    if ( (cgameGlob->predictedPlayerState.pm_flags & 0xC00) != 0 || cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYING )
         return 0;
     if ( (cgameGlob->nextSnap->ps.otherFlags & 4) == 0 )
         return 0;

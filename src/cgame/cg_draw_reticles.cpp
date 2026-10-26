@@ -156,7 +156,7 @@ bool __cdecl ShouldDrawCrosshair(const cg_s *cgameGlob, const playerState_s *ps)
 {
     if ( cgameGlob->cameraMode == 1 )
         return 0;
-    if ( ps->weaponstate >= 47 && ps->weaponstate <= 49 )
+    if ( ps->weaponstate >= WEAPON_LOWREADY_RAISE && ps->weaponstate <= WEAPON_LOWREADY_DROP )
         return 0;
     if ( cgameGlob->renderingThirdPerson == TP_FOR_MODEL && (ps->eFlags & 0x4000) == 0 )
         return 0;
@@ -1055,18 +1055,18 @@ bool __cdecl AllowedToDrawCrosshair(int localClientNum, const playerState_s *pre
         return 0;
     if ( (predictedPlayerState->locationSelectionInfo & 0xF) != 0 )
         return 0;
-    if ( predictedPlayerState->weaponstate == 17
-        || predictedPlayerState->weaponstate == 18
-        || predictedPlayerState->weaponstate == 19 )
+    if ( predictedPlayerState->weaponstate == WEAPON_MELEE_INIT
+        || predictedPlayerState->weaponstate == WEAPON_MELEE_FIRE
+        || predictedPlayerState->weaponstate == WEAPON_MELEE_END )
     {
         return 0;
     }
     if ( BG_GetWeaponDef(predictedPlayerState->weapon)->bDualWield )
     {
-        if ( predictedPlayerState->weaponstate == 10 && predictedPlayerState->weaponstateLeft == 10 )
+        if ( predictedPlayerState->weaponstate == WEAPON_RELOADING && predictedPlayerState->weaponstateLeft == WEAPON_RELOADING )
             return 0;
     }
-    else if ( predictedPlayerState->weaponstate == 10 )
+    else if ( predictedPlayerState->weaponstate == WEAPON_RELOADING )
     {
         return 0;
     }

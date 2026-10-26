@@ -799,7 +799,7 @@ void __cdecl PM_UpdateLean(
     leaning = 0;
     leanofs = 0.0f;
     //col_context_t::col_context_t(&context);
-    if ( ps->weaponstate != 35
+    if ( ps->weaponstate != WEAPON_DEPLOYING
         && (cmd->button_bits.testBit(6u) || cmd->button_bits.testBit(7u))
         && (ps->pm_flags & 0x800) == 0
         && ps->pm_type < 9
@@ -1692,7 +1692,7 @@ void __cdecl PmoveSingle(pmove_t *pm)
         pm->cmd.forwardmove = 127;
         pm->cmd.rightmove = 0;
     }
-    if ( (ps->pm_flags & 0x800) != 0 || ps->weaponstate == 35 )
+    if ( (ps->pm_flags & 0x800) != 0 || ps->weaponstate == WEAPON_DEPLOYING )
     {
         bitarray<51> mask_bits(12, 8, 9, -1); // [esp+F0h] [ebp-A8h] BYREF
         //bitarray<51>::bitarray<51>(&mask_bits, 12, 8, 9, -1);
@@ -1772,11 +1772,11 @@ void __cdecl PmoveSingle(pmove_t *pm)
                  && (pm->cmd.rightmove == pm->oldcmd.rightmove
                     || fabs((float)pm->cmd.rightmove) <= fabs((float)pm->oldcmd.rightmove)) )
     {
-        if ( (ps->pm_flags & 0x10) == 0 && (ps->weaponstate < 6u || ps->weaponstate == 10) )
+        if ( (ps->pm_flags & 0x10) == 0 && (ps->weaponstate < 6u || ps->weaponstate == WEAPON_RELOADING) )
         {
             if ( BG_GetWeaponDef(ps->weapon)->bDualWield
                 && (!ps->weaponstateLeft
-                 || ps->weaponstateLeft == 10
+                 || ps->weaponstateLeft == WEAPON_RELOADING
                  || ps->weaponstate == 1
                  || ps->weaponstate == 2
                  || ps->weaponstate == 3
@@ -1820,7 +1820,7 @@ void __cdecl PmoveSingle(pmove_t *pm)
         }
         else if ( (ps->eFlags & 0x300) == 0 )
         {
-            if ( (!ps->weaponstate || ps->weaponstate == 6 || ps->weaponstate == 31)
+            if ( (!ps->weaponstate || ps->weaponstate == 6 || ps->weaponstate == WEAPON_CONT_FIRE_LOOP)
                 && (PM_WeaponAmmoAvailable(ps) || weapDef->unlimitedAmmo)
                 && !BG_PlayerWeaponOverheating(ps, ps->weapon)
                 && (ps->weapFlags & 8) == 0 )
@@ -1834,7 +1834,7 @@ void __cdecl PmoveSingle(pmove_t *pm)
                     ps->eFlags |= 0x40u;
                 }
             }
-            if ( weapDef->bDualWield && (!ps->weaponstateLeft || ps->weaponstateLeft == 6 || ps->weaponstateLeft == 31) )
+            if ( weapDef->bDualWield && (!ps->weaponstateLeft || ps->weaponstateLeft == 6 || ps->weaponstateLeft == WEAPON_CONT_FIRE_LOOP) )
             {
                 weapDefDW = BG_GetWeaponDef(weapDef->dualWieldWeaponIndex);
                 if ( (BG_GetAmmoInClip(ps, weapDef->dualWieldWeaponIndex) || weapDefDW->unlimitedAmmo)
@@ -1978,14 +1978,14 @@ void __cdecl PmoveSingle(pmove_t *pm)
             break;
         case 6:
         case 7:
-            if ( ps->weaponstate == 35 )
+            if ( ps->weaponstate == WEAPON_DEPLOYING )
                 PM_ResetWeaponState(ps);
             PM_ClearLadderFlag(ps);
             ps->eFlags &= 0xFFFFFCFF;
             goto LABEL_151;
         default:
 LABEL_151:
-            if ( pm->ps->weaponstate == 35 && (pm->ps->eFlags & 0x300) != 0 )
+            if ( pm->ps->weaponstate == WEAPON_DEPLOYING && (pm->ps->eFlags & 0x300) != 0 )
                 ps->weaponstate = WEAPON_DEPLOYED;
             if ( pm->ps->weaponstate == WEAPON_DEPLOYED
                 && (pm->ps->weapFlags & 0x1000) == 0
@@ -2011,7 +2011,7 @@ LABEL_151:
                 PM_CheckDuck(pm, &pml);
                 PM_UpdateAimDownSightLerp(pm, &pml);
                 PM_Footsteps(pm, &pml);
-                if ( pm->ps->weaponstate != 35 && pm->ps->weaponstate != 36 && pm->ps->weaponstate != 37 )
+                if ( pm->ps->weaponstate != WEAPON_DEPLOYING && pm->ps->weaponstate != WEAPON_DEPLOYED && pm->ps->weaponstate != WEAPON_BREAKING_DOWN )
                     PM_ResetWeaponState(ps);
                 PM_Weapon_Turret(pm, &pml);
             }
@@ -2208,7 +2208,7 @@ void __cdecl PM_UpdateSprint(pmove_t *pm, const pml_t *pml)
     p_sprintState = &ps->sprintState;
     if ( ps->sprintState.sprintButtonUpRequired && !pm->cmd.button_bits.testBit(1u) )
         p_sprintState->sprintButtonUpRequired = 0;
-    if ( ps->pm_type < 2u && (ps->weaponstate < 47 || ps->weaponstate > 49) && BG_GetMaxSprintTime(ps) > 0 )
+    if ( ps->pm_type < 2u && (ps->weaponstate < WEAPON_LOWREADY_RAISE || ps->weaponstate > WEAPON_LOWREADY_DROP) && BG_GetMaxSprintTime(ps) > 0 )
     {
         if ( (ps->pm_flags & 0x8000) != 0 )
         {
@@ -2315,20 +2315,20 @@ bool __cdecl PM_SprintStartInterferingButtons(const playerState_s *ps, int forwa
         return 1;
     if ( (ps->pm_flags & 0x4000) != 0 && !ps->pm_time )
         return 0;
-    if ( ps->weaponstate == 17
-        || ps->weaponstate == 18
-        || ps->weaponstate == 19
-        || ps->weaponstate >= 20 && ps->weaponstate <= 25 )
+    if ( ps->weaponstate == WEAPON_MELEE_INIT
+        || ps->weaponstate == WEAPON_MELEE_FIRE
+        || ps->weaponstate == WEAPON_MELEE_END
+        || ps->weaponstate >= WEAPON_OFFHAND_INIT && ps->weaponstate <= WEAPON_OFFHAND_END )
     {
         return 1;
     }
     if ( BG_GetWeaponDef(ps->weapon)->offhandSlot == OFFHAND_SLOT_EQUIPMENT
         && (ps->weaponstate == 6
          || ps->weaponstate == 7
-         || ps->weaponstate == 31
-         || ps->weaponstate == 17
-         || ps->weaponstate == 18
-         || ps->weaponstate == 19) )
+         || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
+         || ps->weaponstate == WEAPON_MELEE_INIT
+         || ps->weaponstate == WEAPON_MELEE_FIRE
+         || ps->weaponstate == WEAPON_MELEE_END) )
     {
         return 1;
     }
@@ -2370,12 +2370,12 @@ bool __cdecl PM_SprintEndingButtons(const pmove_t *pm)
     {
         return 1;
     }
-    if ( pm->ps->weaponstate == 17
-        || pm->ps->weaponstate == 18
-        || pm->ps->weaponstate == 19
-        || pm->ps->weaponstate >= 20 && pm->ps->weaponstate <= 25
-        || pm->ps->weaponstate == 33
-        || pm->ps->weaponstate == 34 )
+    if ( pm->ps->weaponstate == WEAPON_MELEE_INIT
+        || pm->ps->weaponstate == WEAPON_MELEE_FIRE
+        || pm->ps->weaponstate == WEAPON_MELEE_END
+        || pm->ps->weaponstate >= WEAPON_OFFHAND_INIT && pm->ps->weaponstate <= WEAPON_OFFHAND_END
+        || pm->ps->weaponstate == WEAPON_NIGHTVISION_WEAR
+        || pm->ps->weaponstate == WEAPON_NIGHTVISION_REMOVE )
     {
         return 1;
     }
@@ -3797,10 +3797,10 @@ bool __cdecl PM_IsPlayerFrozenByWeapon(const playerState_s *ps)
 {
     return (ps->weaponstate == 6
              || ps->weaponstate == 7
-             || ps->weaponstate == 31
-             || ps->weaponstate == 17
-             || ps->weaponstate == 18
-             || ps->weaponstate == 19)
+             || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
+             || ps->weaponstate == WEAPON_MELEE_INIT
+             || ps->weaponstate == WEAPON_MELEE_FIRE
+             || ps->weaponstate == WEAPON_MELEE_END)
             && ps->weapon
             && BG_GetWeaponDef(ps->weapon)->freezeMovementWhenFiring;
 }
@@ -3931,7 +3931,7 @@ LABEL_25:
         {
             ps->pm_flags &= 0xFFFFFFFC;
         }
-        else if ( (ps->pm_flags & 0xC00) == 0 && !PM_IsPlayerFrozenByWeapon(ps) && ps->weaponstate != 35 )
+        else if ( (ps->pm_flags & 0xC00) == 0 && !PM_IsPlayerFrozenByWeapon(ps) && ps->weaponstate != WEAPON_DEPLOYING )
         {
             if ( ps->pm_type == 6 || ps->pm_type == 7 )
             {
@@ -5177,13 +5177,13 @@ void __cdecl PM_UpdatePlayerWalkingFlag(pmove_t *pm)
         {
             if ( (ps->pm_flags & 1) == 0
                 && (ps->pm_flags & 0x10) != 0
-                && ps->weaponstate != 10
-                && ps->weaponstate != 12
-                && ps->weaponstate != 14
-                && ps->weaponstate != 13
-                && ps->weaponstate != 11
-                && ps->weaponstate != 15
-                && ps->weaponstate != 16 )
+                && ps->weaponstate != WEAPON_RELOADING
+                && ps->weaponstate != WEAPON_RELOAD_START
+                && ps->weaponstate != WEAPON_RELOAD_END
+                && ps->weaponstate != WEAPON_RELOAD_START_INTERUPT
+                && ps->weaponstate != WEAPON_RELOADING_INTERUPT
+                && ps->weaponstate != WEAPON_RELOAD_QUICK
+                && ps->weaponstate != WEAPON_RELOAD_QUICK_EMPTY )
             {
                 ps->pm_flags |= 0x40u;
                 if ( (ps->otherFlags & 4) == 0

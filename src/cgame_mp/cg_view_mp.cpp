@@ -4571,16 +4571,16 @@ void __cdecl CG_KickAngles(cg_s *cgameGlob)
                                 {
                                     weapVariantDefDW = BG_GetWeaponVariantDef(weapDef->dualWieldWeaponIndex);
                                     if ( (cgameGlob->predictedPlayerState.weaponstate == 6
-                                         || cgameGlob->predictedPlayerState.weaponstate == 31)
+                                         || cgameGlob->predictedPlayerState.weaponstate == WEAPON_CONT_FIRE_LOOP)
                                         && (cgameGlob->predictedPlayerState.weaponstateLeft == 6
-                                         || cgameGlob->predictedPlayerState.weaponstateLeft == 31) )
+                                         || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_CONT_FIRE_LOOP) )
                                     {
                                         idealCenterSpeed = (float)(weapVariantDef->fHipViewKickCenterSpeed
                                                                                          + weapVariantDefDW->fHipViewKickCenterSpeed)
                                                                          * v2;
                                     }
                                     else if ( cgameGlob->predictedPlayerState.weaponstateLeft == 6
-                                                 || cgameGlob->predictedPlayerState.weaponstateLeft == 31 )
+                                                 || cgameGlob->predictedPlayerState.weaponstateLeft == WEAPON_CONT_FIRE_LOOP )
                                     {
                                         idealCenterSpeed = v2 * weapVariantDefDW->fHipViewKickCenterSpeed;
                                     }

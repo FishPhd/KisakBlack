@@ -9,6 +9,7 @@
 #include <bgame/bg_misc.h>
 #include <client/splitscreen.h>
 #include <live/live_win.h>
+#include <live/live_steam.h>
 #include <cgame/cg_compass.h>
 #include <client/client.h>
 #include <bgame/bg_unlockable_items.h>
@@ -7282,7 +7283,7 @@ void __cdecl GetCurrentWeapon(int localClientNum, itemDef_s *item, OperandStack 
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     result.dataType = VAL_STRING;
     result.internals.intVal = (int)"";
-    if ( cgameGlob->predictedPlayerState.weaponstate < 20 || cgameGlob->predictedPlayerState.weaponstate > 25 )
+    if ( cgameGlob->predictedPlayerState.weaponstate < WEAPON_OFFHAND_INIT || cgameGlob->predictedPlayerState.weaponstate > WEAPON_OFFHAND_END )
         result.internals.intVal = (int)BG_WeaponName(cgameGlob->predictedPlayerState.weapon);
     else
         result.internals.intVal = (int)BG_WeaponName(cgameGlob->predictedPlayerState.offHandIndex);
@@ -8320,7 +8321,7 @@ void __cdecl IsSignedIn(int localClientNum, itemDef_s *item, OperandStack *dataS
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
     ControllerIndex = Com_LocalClient_GetControllerIndex(localClientNum);
-    result.internals.intVal = 0;// Live_IsSignedIn(ControllerIndex);
+    result.internals.intVal = Dvar_GetBool("ui_offlinePlay") || LiveSteam_IsClientSignedInLocally();
     result.dataType = VAL_INT;
     if (uiscript_debug && uiscript_debug->current.integer)
         Expression_TraceInternal("IsSignedIn() = %i\n", result.internals.intVal);
@@ -8343,7 +8344,7 @@ void __cdecl IsSignedInToLive(int localClientNum, itemDef_s *item, OperandStack 
     Operand result; // [esp+0h] [ebp-8h] BYREF
 
     Com_LocalClient_GetControllerIndex(localClientNum);
-    result.internals.intVal = 0;// Live_IsSignedInToLive();
+    result.internals.intVal = Dvar_GetBool("ui_offlinePlay") || LiveSteam_IsClientSignedInOnline();
     result.dataType = VAL_INT;
     if (uiscript_debug && uiscript_debug->current.integer)
         Expression_TraceInternal("IsSignedInToLive() = %i\n", result.internals.intVal);
@@ -8422,6 +8423,18 @@ void __cdecl IsContentRatingAllowed(int localClientNum, itemDef_s *item, Operand
 
 void __cdecl IsDemonwareFetchingDone(int localClientNum, itemDef_s *item, OperandStack *dataStack)
 {
+#ifndef KISAK_LIVE
+    // The stock connecting popup waits on services this build does not run.
+    // Only bypass its UI gate; do not mark missing stats/playlists as fetched.
+    if (Dvar_GetBool("ui_offlinePlay"))
+    {
+        Operand offlineResult;
+        offlineResult.dataType = VAL_INT;
+        offlineResult.internals.intVal = 1;
+        AddOperandToStack(dataStack, &offlineResult);
+        return;
+    }
+#endif
     Operand result; // [esp+20h] [ebp-18h] BYREF
     bool isTimeSynced; // [esp+2Bh] [ebp-Dh]
     int controllerIndex; // [esp+2Ch] [ebp-Ch]

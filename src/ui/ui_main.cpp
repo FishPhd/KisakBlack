@@ -3543,6 +3543,12 @@ void UI_RegisterDvars()
                                                      0,
                                                      0x40u,
                                                      "Whether or not the profile has been read.");
+#ifndef KISAK_LIVE
+    // The stock menu scripts are still used when the online service is absent.
+    // Keep this platform workaround switchable for comparison with retail.
+    _Dvar_RegisterBool("ui_offlinePlay", true, 0,
+        "Allow Play menu access without online sign-in for local testing");
+#endif
     emblem_scroll_delay_first = _Dvar_RegisterInt("emblem_scroll_delay_first", 150, 0, 1000, 0, "First repeat delay for emblem editor");
     emblem_scroll_delay_rest = _Dvar_RegisterInt("emblem_scroll_delay_rest", 50, 0, 1000, 0, "Repeat delay for emblem editor");
     UI_Project_RegisterDvars();

@@ -35,7 +35,7 @@ char __cdecl Player_IsPlayerUsingTurretNearby(gentity_s *ent)
             && clEnt->client->sess.connected == CON_CONNECTED
             && ((clEnt->client->ps.eFlags & 0x300) != 0
              || (clEnt->client->ps.weapFlags & 0x800) != 0
-             || clEnt->client->ps.weaponstate == 35)
+             || clEnt->client->ps.weaponstate == WEAPON_DEPLOYING)
             && Vec3DistanceSq(ent->client->ps.origin, clEnt->client->ps.origin) <= turretScanRadiusSq )
         {
             return 1;
@@ -134,7 +134,7 @@ char __cdecl Player_ActivateCmd(gentity_s *ent)
         {
             return 1;
         }
-        else if ( ent->client->ps.weaponstate < 20 || ent->client->ps.weaponstate > 25 )
+        else if ( ent->client->ps.weaponstate < WEAPON_OFFHAND_INIT || ent->client->ps.weaponstate > WEAPON_OFFHAND_END )
         {
             if ( ent->client->ps.cursorHint || ent->client->ps.mountAvailable )
             {
@@ -200,9 +200,9 @@ void __cdecl Player_ActivateHoldCmd(gentity_s *ent)
                 BG_AddPredictableEventToPlayerstate(0x25u, 0, &ent->client->ps);
             }
         }
-        else if ( ent->client->ps.weaponstate != 35
-                     && ent->client->ps.weaponstate != 36
-                     && ent->client->ps.weaponstate != 37
+        else if ( ent->client->ps.weaponstate != WEAPON_DEPLOYING
+                     && ent->client->ps.weaponstate != WEAPON_DEPLOYED
+                     && ent->client->ps.weaponstate != WEAPON_BREAKING_DOWN
                      && (ent->client->ps.eFlags & 0x300) == 0
                      && (ent->client->ps.pm_flags & 4) == 0
                      && ent->client->ps.weaponstate != 1
@@ -310,9 +310,9 @@ void __cdecl Player_ActivateDoubleTapCmd(gentity_s *ent)
     if ( Scr_IsSystemActive(1u, SCRIPTINSTANCE_SERVER)
         && ent->client->useHoldEntity.isDefined()
         && level.time - ent->client->lastSpawnTime >= g_useholdspawndelay->current.integer
-        && ent->client->ps.weaponstate != 35
-        && ent->client->ps.weaponstate != 36
-        && ent->client->ps.weaponstate != 37
+        && ent->client->ps.weaponstate != WEAPON_DEPLOYING
+        && ent->client->ps.weaponstate != WEAPON_DEPLOYED
+        && ent->client->ps.weaponstate != WEAPON_BREAKING_DOWN
         && (ent->client->ps.eFlags & 0x300) == 0
         && (ent->client->ps.pm_flags & 4) == 0 )
     {
@@ -384,10 +384,10 @@ void __cdecl Player_UpdateCursorHints(gentity_s *ent)
             && (ent->client->ps.pm_flags & 8) == 0
             && (ps->eFlags2 & 0x10000000) == 0
             && (ps->weapFlags & 0x100000) == 0
-            && (ps->weaponstate < 20 || ps->weaponstate > 24) )
+            && (ps->weaponstate < WEAPON_OFFHAND_INIT || ps->weaponstate > WEAPON_OFFHAND) )
         {
             if ( !Player_IsPlayerUsingTurretNearby(ent)
-                && (ent->client->ps.mountAvailable || ps->weaponstate == 35 || ps->weaponstate == 36 || ps->weaponstate == 37) )
+                && (ent->client->ps.mountAvailable || ps->weaponstate == WEAPON_DEPLOYING || ps->weaponstate == WEAPON_DEPLOYED || ps->weaponstate == WEAPON_BREAKING_DOWN) )
             {
                 ps->cursorHintEntIndex = 1023;
                 return;

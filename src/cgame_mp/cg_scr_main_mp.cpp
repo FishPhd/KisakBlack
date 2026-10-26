@@ -823,9 +823,9 @@ void CScr_GetCurrentWeaponIncludingMelee()
         {
             __debugbreak();
         }
-        if ( cgameGlob->predictedPlayerState.weaponstate == 17
-            || cgameGlob->predictedPlayerState.weaponstate == 18
-            || cgameGlob->predictedPlayerState.weaponstate == 19 )
+        if ( cgameGlob->predictedPlayerState.weaponstate == WEAPON_MELEE_INIT
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_MELEE_FIRE
+            || cgameGlob->predictedPlayerState.weaponstate == WEAPON_MELEE_END )
         {
             weapon = cgameGlob->predictedPlayerState.meleeWeapon;
         }

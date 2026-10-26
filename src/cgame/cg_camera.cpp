@@ -894,7 +894,7 @@ double __cdecl CG_GetViewFov(int localClientNum)
         lastTime = thisTime;
     }
     if ( (cgameGlob->predictedPlayerState.otherFlags & 2) == 0
-        && cgameGlob->predictedPlayerState.weaponstate == 35
+        && cgameGlob->predictedPlayerState.weaponstate == WEAPON_DEPLOYING
         && weapDef != BG_GetWeaponDef(0) )
     {
         viewFova = cg_fov->current.value;

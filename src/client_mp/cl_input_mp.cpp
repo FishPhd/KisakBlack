@@ -745,7 +745,7 @@ void __cdecl CL_GamepadMove(int localClientNum, usercmd_s *cmd)
         if ( gpad_enabled->current.enabled )
         {
             LocalClientGlobals = CL_GetLocalClientGlobals(localClientNum);
-            if ( (LocalClientGlobals->snap.ps.pm_flags & 0x800) == 0 && LocalClientGlobals->snap.ps.weaponstate != 35 )
+            if ( (LocalClientGlobals->snap.ps.pm_flags & 0x800) == 0 && LocalClientGlobals->snap.ps.weaponstate != WEAPON_DEPLOYING )
             {
                 pitch = CL_GamepadAxisValue(localClientNum, 4u);
                 pitch = (float)(Dvar_GetBool("input_invertPitch") ? 1 : -1) * pitch;
@@ -964,7 +964,7 @@ void __cdecl CL_MouseMove(int localClientNum, usercmd_s *cmd)
         accelSensitivity = accelSensitivity * LocalClientGlobals->cgameFOVSensitivityScale;
         if ( rate != 0.0 && cl_showMouseRate->current.enabled )
             Com_Printf(14, "%f : %f\n", rate, accelSensitivity);
-        if ( (LocalClientGlobals->snap.ps.pm_flags & 0x800) == 0 && LocalClientGlobals->snap.ps.weaponstate != 35 )
+        if ( (LocalClientGlobals->snap.ps.pm_flags & 0x800) == 0 && LocalClientGlobals->snap.ps.weaponstate != WEAPON_DEPLOYING )
         {
             mx = mx * accelSensitivity;
             my = my * accelSensitivity;

@@ -29,6 +29,13 @@ build/
 build-dedi/
 build-mp/
 build-sp/
+# Local desktop and web build outputs.
+build-re/
+build-release/
+build-web/
+
+# Local original-binary comparison harness. Stays on disk for desktop accuracy runs.
+tools/re/
 [Oo]bj/
 [Oo]ut/
 [Ll]og/

@@ -1294,7 +1294,7 @@ bool __cdecl Bot_IsThrowingGrenade(const bot_info_t *botInfo, const client_t *bo
 {
     if ( (botInfo->flags & 0x400) != 0 || (botInfo->flags & 0x800) != 0 )
         return 1;
-    return bot->gentity->client->ps.weaponstate >= 20 && bot->gentity->client->ps.weaponstate <= 25;
+    return bot->gentity->client->ps.weaponstate >= WEAPON_OFFHAND_INIT && bot->gentity->client->ps.weaponstate <= WEAPON_OFFHAND_END;
 }
 
 char __cdecl Bot_PointInGoal(const float *point, const path_t *path, float goalRadius)
@@ -2174,13 +2174,13 @@ void __cdecl Bot_UpdateSprint(bot_info_t *botInfo, const client_t *bot, usercmd_
         //    return;
         goto LABEL_12;
     }
-    if ( ps->weaponstate != 10
-        && ps->weaponstate != 12
-        && ps->weaponstate != 14
-        && ps->weaponstate != 13
-        && ps->weaponstate != 11
-        && ps->weaponstate != 15
-        && ps->weaponstate != 16 )
+    if ( ps->weaponstate != WEAPON_RELOADING
+        && ps->weaponstate != WEAPON_RELOAD_START
+        && ps->weaponstate != WEAPON_RELOAD_END
+        && ps->weaponstate != WEAPON_RELOAD_START_INTERUPT
+        && ps->weaponstate != WEAPON_RELOADING_INTERUPT
+        && ps->weaponstate != WEAPON_RELOAD_QUICK
+        && ps->weaponstate != WEAPON_RELOAD_QUICK_EMPTY )
     {
         weapDef = BG_GetWeaponDef(ps->weapon);
         if ( !botInfo->sightHitNum
@@ -2486,7 +2486,7 @@ char __cdecl Bot_UpdateGrenadeThrow(bot_info_t *botInfo, const client_t *bot, us
             cmd->button_bits.setBit(15 - ((botInfo->flags & 0x400) != 0));
             if (pitchDiff < 5.0
                 && pitchDiff > -5.0
-                && ps->weaponstate >= 22
+                && ps->weaponstate >= WEAPON_OFFHAND_HOLD
                 && (ps->damageCount >= 1 || !weapDef->bCookOffHold || ps->grenadeTimeLeft <= irand(1700, 2500)))
             {
                 cmd->button_bits.resetBit(15 - ((botInfo->flags & 0x400) != 0));
