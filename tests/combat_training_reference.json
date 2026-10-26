@@ -206,6 +206,19 @@
       ],
       "evidence": "Restored main/gunner/minigun vectors and invalid-bone checks. Wheel suspension and nitrous transforms remain outside this change and are not fully qualified.",
       "qualification": "instruction inspection; scoped behavioral replay only where stated"
+    },
+    {
+      "name": "GScr_AddSphereInfluencer",
+      "entry_rva": "0x60db0",
+      "code": [
+        {
+          "rva": 396720,
+          "size": 496,
+          "sha256": "c6bdd03249710110acf2cdb914d6a45ff688d16a9afe5ef82939038a9dfc8b32"
+        }
+      ],
+      "evidence": "Original accepts types0..7 despite its stale diagnostic text0..6; source MAX_INFLUENCER_TYPE is8 and backend already supports8 types.",
+      "qualification": "Original instruction inspection; full spawn-system behavior remains unqualified."
     }
   ],
   "limits": [

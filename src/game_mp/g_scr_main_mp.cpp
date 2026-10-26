@@ -14085,7 +14085,7 @@ void __cdecl GScr_AddSphereInfluencer()
             0);
     }
     type = Scr_GetInt(0, SCRIPTINSTANCE_SERVER);
-    if ( (unsigned int)type > 6 )
+    if ( (unsigned int)type >= MAX_INFLUENCER_TYPE )
     {
         v0 = va("USAGE: addsphereinfluencer type must be a value from %i to %i\n", 0, 6);
         Scr_Error(v0, 0);
