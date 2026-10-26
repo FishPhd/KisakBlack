@@ -18,6 +18,8 @@
 #include <server_mp/sv_main_mp.h>
 #include "live_storage_win.h"
 #include <ddl/ddl_cmd.h>
+#include <ddl/ddl_buffer.h>
+#include <database/db_registry.h>
 
 const char *lbTypeEnum_7[17] =
 {
@@ -4785,9 +4787,49 @@ cmd_function_s LiveStats_BuildAttachmentsListCmd_VAR;
 cmd_function_s LiveStats_PresetigeStatsResetCmd_VAR;
 
 bool s_initCalledOnce = false;
+#ifndef KISAK_LIVE
+static ddlDef_t *LiveStats_SelectOfflineStatsDDL(ddlDef_t *latest)
+{
+    const int payloadBits = (LiveStorage_GetStatsBufferSize() - sizeof(ddlBufferHeader_t)) * 8;
+    if (!latest || latest->size <= payloadBits || !Dvar_GetBool("ui_offlinePlay"))
+        return latest;
+
+    // Later retail assets can contain schemas larger than the original MP
+    // buffers. Use an archived schema that fits, without changing those buffers
+    // or disabling DDL validation. Online builds retain the original selection.
+    ddlDef_t *compatible = nullptr;
+    const char *assets[] = { "ddl_mp/stats.ddl", "ddl_mp/stats_archive.ddl" };
+    for (const char *asset : assets)
+    {
+        ddlRoot_t *root = DB_FindXAssetHeader(ASSET_TYPE_DDL, (char *)asset, false, -1).ddlRoot;
+        if (root && DB_IsXAssetDefault(ASSET_TYPE_DDL, asset))
+            continue;
+        for (ddlDef_t *candidate = root ? root->ddlDef : nullptr; candidate; candidate = candidate->next)
+        {
+            Com_Printf(16, "[Kisak] Stats DDL candidate %s v%d: %d bytes\n", asset,
+                candidate->version, candidate->size / 8 + (candidate->size % 8 != 0)
+                    + static_cast<int>(sizeof(ddlBufferHeader_t)));
+            if (candidate->size >= 0 && candidate->size <= payloadBits
+                && (!compatible || candidate->version > compatible->version))
+                compatible = candidate;
+        }
+    }
+    if (compatible)
+    {
+        Com_Printf(16, "[Kisak] Offline stats: using DDL v%d instead of oversized v%d\n",
+            compatible->version, latest->version);
+        return compatible;
+    }
+    return latest;
+}
+#endif
+
 void __cdecl LiveStats_Init()
 {
     g_statsDDL = DDL_LoadAsset("ddl_mp/stats.ddl");
+#ifndef KISAK_LIVE
+    g_statsDDL = LiveStats_SelectOfflineStatsDDL(g_statsDDL);
+#endif
     DDL_Reset(&g_statsCacState, g_statsDDL);
     DDL_MoveToName(&g_statsCacState, &g_statsCacState, "CacLoadouts");
     DDL_Reset(&g_statsActiveContractsState, g_statsDDL);

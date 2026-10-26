@@ -380,6 +380,12 @@ void __cdecl Live_InitPlatform()
 
     memset(xenonUserData, 0, sizeof(xenonUserData));
     s_signInRequirement[0] = 0;
+#ifndef KISAK_LIVE
+    // Register before stats initialization so offline schema selection and the
+    // stock menu sign-in gates use the same switch.
+    _Dvar_RegisterBool("ui_offlinePlay", true, 0,
+        "Allow Play menu access without online sign-in for local testing");
+#endif
     live_service = _Dvar_RegisterBool("live_service", 1, 0x10u, "online service on/off");
     if ( G_ExitAfterToolComplete() )
     {

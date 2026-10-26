@@ -40,7 +40,7 @@ However, there is a non-zero chance of some type of binary exploitation when pla
   - Builds without `KISAK_LIVE` default to `ui_offlinePlay 1`, allowing the existing Play menu to pass its sign-in and connecting-screen checks for local testing. Set `ui_offlinePlay 0` to require Steam sign-in and the original service-readiness checks instead. This is a menu/platform exception, not a restoration of Demonware matchmaking, downloaded stats, or playlists.
   - Combat Training still needs valid local stats and successful map/game initialization; menu access alone does not verify a playable bot match.
 - **Combat Training reports that the DDL needs 40548 bytes**:
-  - The loaded stats schema exceeds the current 40168-byte stats buffers. The offline menu switch does not bypass buffer validation; this asset/code compatibility issue still prevents a match from starting with that schema.
+  - Later retail assets use stats schema v100 (40548 bytes), while this build uses 40168-byte stats buffers. With `ui_offlinePlay 1`, the game selects the newest fitting schema from `stats.ddl` and `stats_archive.ddl` (v98 with the tested assets). Buffer layouts and DDL bounds checks remain unchanged. If neither asset contains a compatible schema, validation still rejects the oversized data.
 - ***Can't Connect to Dedicated Server*** :
   -  Check `net_ip` and `net_port`, the server will increment the port if the preferred one isn't available but the client won't sweep upwards.
  - ***DLL Error upon launch*** :
