@@ -2307,11 +2307,7 @@ void __cdecl Bot_UpdateGlassSmash(const client_t *bot, usercmd_s *cmd)
 
 void __cdecl Bot_UpdateCombat(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd)
 {
-    bool v3; // [esp+0h] [ebp-84h]
-    char v4; // [esp+4h] [ebp-80h]
     bool v5; // [esp+8h] [ebp-7Ch]
-    const gentity_s *v6; // [esp+14h] [ebp-70h]
-    const gentity_s *v7; // [esp+18h] [ebp-6Ch]
     const gentity_s *enemy; // [esp+24h] [ebp-60h]
     gclient_s *ps; // [esp+7Ch] [ebp-8h]
     const WeaponDef *weapDef; // [esp+80h] [ebp-4h]
@@ -2320,15 +2316,16 @@ void __cdecl Bot_UpdateCombat(bot_info_t *botInfo, const client_t *bot, usercmd_
     ps = G_GetPlayerState(bot->gentity->s.number);
     if ( Bot_IsFlashbanged(bot) )
     {
-        if ( random() < 0.0099999998 )
+        if ( random() < 0.01f )
             cmd->button_bits.setBit(2);
+        botInfo->flags &= ~0xC00u;
         //if ( GetCurrentThreadId() != g_DXDeviceThread )
         //    return;
 LABEL_98:
         //D3DPERF_EndEvent();
         return;
     }
-    if ( ps->ps.throwBackGrenadeTimeLeft > 0 && random() < 0.89999998 )
+    if ( ps->ps.throwBackGrenadeTimeLeft > 0 && random() < 0.9f )
     {
         cmd->button_bits.resetBit(0);
         cmd->button_bits.resetBit(0xB);
@@ -2339,6 +2336,12 @@ LABEL_98:
         goto LABEL_98;
     }
     if ( Bot_UpdateGrenadeThrow(botInfo, bot, cmd) )
+    {
+        //if ( GetCurrentThreadId() != g_DXDeviceThread )
+        //    return;
+        goto LABEL_98;
+    }
+    if ( Bot_UpdateMelee(botInfo, &ps->ps, cmd) )
     {
         //if ( GetCurrentThreadId() != g_DXDeviceThread )
         //    return;
@@ -2356,12 +2359,6 @@ LABEL_98:
         //    return;
         goto LABEL_98;
     }
-    if ( Bot_UpdateMelee(botInfo, &ps->ps, cmd) )
-    {
-        //if ( GetCurrentThreadId() != g_DXDeviceThread )
-        //    return;
-        goto LABEL_98;
-    }
 #ifdef _DEBUG
     // Retail Bot_UpdateCombat (0x874a70) does not gate firing on this dvar.
     if ( !sv_botsPressAttackBtn->current.enabled )
@@ -2372,9 +2369,9 @@ LABEL_98:
     }
 #endif
     weapDef = BG_GetWeaponDef(ps->ps.weapon);
-    if ( (botInfo->flags & 0x20) != 0 || !weapDef->bDualWield && ps->ps.fWeaponPosFrac < 1.0 )
+    if ( (botInfo->flags & 0x20) != 0 || !weapDef->bDualWield && weapDef->adsFireOnly && ps->ps.fWeaponPosFrac < 1.0 )
     {
-        if ( botInfo->threat.distSq <= (float)(sv_botCloseDistance->current.value * sv_botCloseDistance->current.value) )
+        if ( !(botInfo->threat.distSq > (float)(sv_botCloseDistance->current.value * sv_botCloseDistance->current.value)) )
             botInfo->threat.reactionEndTime = svs.time;
         else
             botInfo->threat.reactionEndTime = svs.time
@@ -2415,50 +2412,20 @@ LABEL_98:
         botInfo->threat.acquireTime = svs.time;
         cmd->button_bits.setBit(0);
     }
-    if ( !ps->ps.weaponstate )
+    if ( ps->ps.weaponstate == WEAPON_READY
+        || (ps->ps.weaponstate >= WEAPON_SPRINT_RAISE && ps->ps.weaponstate <= WEAPON_SPRINT_DROP) )
     {
-        if ( sv_botsForceFragOnly->current.enabled )
+        if ( cmd->button_bits.testBit(0xB) && ps->ps.fWeaponPosFrac >= 1.0 )
         {
-            if ( random() < 0.0099999998 )
-                cmd->button_bits.setBit(0xE);
+            cmd->button_bits.setBit(0);
         }
-        else if ( sv_botsForceSpecialOnly->current.enabled )
+        else if ( !cmd->button_bits.testBit(0xB) )
         {
-            if ( random() < 0.0099999998 )
-                cmd->button_bits.setBit(0xF);
-        }
-        else
-        {
-            if ( random() < 0.0049999999 || sv_botsForceFragOnly->current.enabled )
-                goto LABEL_87;
-            if ( random() < 0.0049999999
-                || sv_botsForceSpecialOnly->current.enabled
-                || ((v7 = botInfo->threat.enemy) == 0 || !v7->pTurretInfo ? (v4 = 0) : (v4 = 1),
-                        v4 && botInfo->threat.distSq < 4194304.0 && random() < 0.05f) )
-            {
-                cmd->button_bits.setBit(0xF);
-                goto LABEL_95;
-            }
-            v6 = botInfo->threat.enemy;
-            v3 = v6 && v6->pTurretInfo;
-            if ( v3 && botInfo->threat.distSq < 4194304.0 && random() < 0.05f )
-            {
-LABEL_87:
-                cmd->button_bits.setBit(0xE);
-            }
-            else if ( cmd->button_bits.testBit(0xB) && ps->ps.fWeaponPosFrac >= 1.0 )
-            {
-                cmd->button_bits.setBit(0);
-            }
-            else if ( !cmd->button_bits.testBit(0xB) )
-            {
-                cmd->button_bits.setBit(0);
-                if ( weapDef->bDualWield && random() < 0.89999998 )
-                    cmd->button_bits.setBit(0x18);
-            }
+            cmd->button_bits.setBit(0);
+            if ( weapDef->bDualWield && random() < 0.9f )
+                cmd->button_bits.setBit(0x18);
         }
     }
-LABEL_95:
     if ( cmd->button_bits.testBit(0) )
         botInfo->weaponDelayEndTime = svs.time
                                                                 + irand(sv_botMinFireTime->current.integer, sv_botMaxFireTime->current.integer);
@@ -2539,7 +2506,8 @@ char __cdecl Bot_UpdateGrenadeThrow(bot_info_t *botInfo, const client_t *bot, us
                 && ps->weaponstate >= WEAPON_OFFHAND_HOLD
                 && (ps->damageCount >= 1 || !weapDef->bCookOffHold || ps->grenadeTimeLeft <= irand(1700, 2500)))
             {
-                cmd->button_bits.resetBit(15 - ((botInfo->flags & 0x400) != 0));
+                cmd->button_bits.resetBit(14);
+                cmd->button_bits.resetBit(15);
                 botInfo->flags &= ~0x400u;
                 botInfo->flags &= ~0x800u;
             }

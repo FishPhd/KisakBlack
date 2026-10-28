@@ -38,8 +38,8 @@
           "sha256": "bc0febf88c3073c1d71d14229d4fa64eaea49ef6b8c6ffcb184ac9a2c319fbbf"
         }
       ],
-      "evidence": "Retail has no developer fire-enable gate.",
-      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+      "evidence": "Retail melee precedes sight/health exits; reaction gate checks adsFireOnly for non-dual weapons; raw states0 or28..30 enter attack input; no extra forced/random grenade selection in this attack block; flashbang clears grenade request flags; ordered greater reaction-distance branch includes unordered in near path.",
+      "qualification": "Original full-function instruction audit; only deterministic non-dual-wield attack-decision region has native/Unicorn/production replay. Full combat, reaction timing and CRT RNG sequencing remain unqualified."
     },
     {
       "name": "Bot_UpdateMelee",
@@ -64,8 +64,8 @@
           "sha256": "2e7abf984daf986192af6d14978171fdc6abb29a7f21178486fab22fd0dd44d9"
         }
       ],
-      "evidence": "Retail has no developer fire-enable gate.",
-      "qualification": "instruction inspection; scoped behavioral replay only where stated"
+      "evidence": "Retail has no developer fire-enable gate. Retail release VA874a48 clears both MSB-index command bits14/15, then bot grenade flags0xc00; preserve every other button.",
+      "qualification": "Original instruction audit only; complete trajectory, trace, random and grenade-timing dependencies remain unqualified."
     },
     {
       "name": "SV_BotRegisterDvars",
@@ -418,6 +418,49 @@
           "sha256": "1f701815bdfce128f47e11c69f79eaec8a253d0bb292d315d4ce1b39c0c51f4a"
         }
       ]
+    },
+    {
+      "name": "Bot_AttackDecision",
+      "entry_rva": "0x474cb9",
+      "stop_rva": "0x474d2c",
+      "code": [
+        {
+          "rva": 4672697,
+          "size": 115,
+          "sha256": "7b663a904cf1b96b13f2007b9c67a27ec260ab8d023e2babd194937e0593c899"
+        },
+        {
+          "rva": 2572112,
+          "size": 35,
+          "sha256": "054fc7f231d0267e6cae0d819af5cbccbe22e717cf96479f012b7a471c212627"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        },
+        {
+          "rva": 6378512,
+          "size": 4,
+          "sha256": "d388666e2351caf97e32db79dd5efdff3de2d4073eff49ef61edc7d7fd6a6250"
+        }
+      ],
+      "blocked_dependencies": [
+        {
+          "rva": 49520,
+          "size": 20,
+          "sha256": "b69da44ee34780770a24bb1418594a90d7ba8f8b8cd2974a12295fd0d3ecb08f",
+          "name": "random",
+          "reason": "Dual-wield CRT RNG is outside this deterministic attack-decision domain."
+        }
+      ],
+      "abi": "Inline EDI=playerState_s*, ESI=WeaponDef*, EBP=usercmd_s*, stack+0x10=PS; stop at0x874d2c before delay-update; real thiscall testBit consumes4 stackbytes.",
+      "coverage": "Deterministic bDualWield=false only; rawstates/allADSbits/bothcommandwords. Reaction,ammo,melee/grenade,delayupdates and stochastic firing excluded.",
+      "qualification": "4656 original native captures independently qualified by Unicorn and matched by the exact selected production attack compound. Both complete button words observed; full PS/definition preservation. Dual-wield CRT RNG, reaction/ammo/melee/grenade and fire-delay update excluded.",
+      "cases": 4656,
+      "after_mismatches": 0
     }
   ],
   "limits": [
