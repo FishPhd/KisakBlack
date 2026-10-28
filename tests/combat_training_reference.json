@@ -326,6 +326,98 @@
           0
         ]
       }
+    },
+    {
+      "name": "PM_Weapon_SharedFiringGate",
+      "entry_rva": "0x1cf667",
+      "code": [
+        {
+          "rva": 1898087,
+          "size": 30,
+          "sha256": "f21664c052fd5134151ba001aea0512f416264d75cf4cdb5688e13ec5767d626"
+        },
+        {
+          "rva": 1898127,
+          "size": 5,
+          "sha256": "14feab76d562f2a70fa74e7fec687bbf275cb3e4906414c995bcb53772c0a4a7"
+        }
+      ],
+      "stop_rva": "0x1cf685",
+      "abi": "Inline EBP=PS. Accepted native appendedRET consumes1slot; rejected actual4POP/RET consumes5slots. Unicorn stops before acceptedboundary, observes ESPdelta0/20. No firingcallee result supplied.",
+      "evidence": "Original checks pm_flags800, rawstate36 and eFlags2 bit40000000 before entering actual firingcall atstop1cf685.",
+      "qualification": "Bounded original instruction predicate; actual original epilogue stack effects observe branch result. Native capture, Unicorn and selected production expression agree. No firing callee is substituted.",
+      "coverage": "Only shared firing inhibition after successful ShouldBeFiring and false grenade-hold decision. Rawpm_flags/state/eFlags2 plus unrelated PSnoise. Read-onlyPSguards. Branch outcome observed through actual original epilogue stack consumption; no firing execution or fullPMWeapon claim.",
+      "cases": 2951,
+      "after_mismatches": 0,
+      "before_mismatches": 727,
+      "regression": {
+        "capture_id": "5314b4828b1029ee33df6e385a21606f76c6a0b2b3958e3682563b17e40759a6",
+        "input_u32": [
+          0,
+          0,
+          1073741824,
+          4171053146,
+          3711102053,
+          1961527093,
+          721909731,
+          3696687784,
+          4058503393,
+          1609507394,
+          1801547328,
+          3532813772,
+          3457029989,
+          3287667061,
+          2650497370,
+          2904357060
+        ],
+        "expected_u32": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "PM_Weapon_AirborneTVGate",
+      "entry_rva": "0x3c1563",
+      "code": [
+        {
+          "rva": 3937635,
+          "size": 21,
+          "sha256": "4138c5445239cb6007d590a54d21a1b18656d3e969723c3188ced4c162926487"
+        },
+        {
+          "rva": 3937600,
+          "size": 8,
+          "sha256": "ec9b347ce5ecf1794d0d52d4f0fecebf1fdd161e957cd4a4f1fdb6e342a7bebb"
+        }
+      ],
+      "stop_rva": "0x3c1578",
+      "abi": "Inline EDI=WeaponDef, ESI=PS. Accepted stop before firingammo; rejected actualfourPOP+36localbytes+RET consumes56stackbytes. Branch outcome from actualstackeffect, no fabricatedcallee.",
+      "evidence": "Original rejects guidedMissileType6 with groundEntityNum1023 before ammo/startfiring; allothercombinations reach acceptedboundary.",
+      "qualification": "Bounded original instruction predicate; actual original epilogue stack effects observe branch result. Native capture, Unicorn and selected production expression agree. No firing callee is substituted.",
+      "coverage": "Only airborne TVGUIDED gate after overheat gate before ammo. RawguidedMissileType/groundEntityNum and unrelatedPS/definitionnoise, fullimmutability. Does not qualify earlier firepreconditions, ammo path or completeFireWeapon.",
+      "cases": 416,
+      "after_mismatches": 0
+    },
+    {
+      "name": "PM_Weapon_FireWeapon_ammo_cost",
+      "qualification": "Original instruction audit only; complete firing and ammo dependency replay remain unqualified.",
+      "evidence": "Original calls PM_WeaponUseAmmo with literal1 in both branches (VA7c1642 and7c1652), independent of active local-client count.",
+      "code": [
+        {
+          "rva": 3937820,
+          "size": 66,
+          "sha256": "1f701815bdfce128f47e11c69f79eaec8a253d0bb292d315d4ce1b39c0c51f4a"
+        }
+      ]
     }
   ],
   "limits": [

@@ -1336,7 +1336,8 @@ LABEL_106:
                             {
                                 if ( !PM_Weapon_CheckGrenadeHold(pm, delayedActiona)
                                     && (ps->pm_flags & 0x800) == 0
-                                    && ps->weaponstate != 36 )
+                                    && ps->weaponstate != 36
+                                    && (ps->eFlags2 & 0x40000000) == 0 )
                                 {
                                     PM_Weapon_FireWeapon(pm, delayedActiona);
                                     if ( (ps->weaponTime < 0 || ps->weaponDelay < 0)
@@ -3199,8 +3200,6 @@ int __cdecl PM_Weapon_ShouldBeFiring(pmove_t *pm, int delayedAction, bool testOn
 
 void __cdecl PM_Weapon_FireWeapon(pmove_t *pm, int delayedAction)
 {
-    int ActiveCount; // eax
-    int v3; // eax
     float start[3]; // [esp+8h] [ebp-34h] BYREF
     float end[3]; // [esp+14h] [ebp-28h] BYREF
     float hit[3]; // [esp+20h] [ebp-1Ch] BYREF
@@ -3242,6 +3241,7 @@ void __cdecl PM_Weapon_FireWeapon(pmove_t *pm, int delayedAction)
                 return;
             }
             if ((!weapDef->overheatWeapon || !BG_PlayerWeaponOverheating(ps, ps->weapon))
+                && (weapDef->guidedMissileType != MISSILE_GUIDANCE_TVGUIDED || ps->groundEntityNum != 1023)
                 && (weapDef->unlimitedAmmo || PM_Weapon_CheckFiringAmmo(pm)))
             {
                 PM_Weapon_StartFiring(pm, delayedAction);
@@ -3271,13 +3271,11 @@ void __cdecl PM_Weapon_FireWeapon(pmove_t *pm, int delayedAction)
                         {
                             if ((ps->eFlags & 0x300) == 0 && ps->bRunLeftGun && weapDef->bDualWield)
                             {
-                                ActiveCount = CL_LocalClient_GetActiveCount();
-                                PM_WeaponUseAmmo(ps, weapDef->dualWieldWeaponIndex, ActiveCount);
+                                PM_WeaponUseAmmo(ps, weapDef->dualWieldWeaponIndex, 1);
                             }
                             else if ((ps->eFlags & 0x300) == 0)
                             {
-                                v3 = CL_LocalClient_GetActiveCount();
-                                PM_WeaponUseAmmo(ps, ps->weapon, v3);
+                                PM_WeaponUseAmmo(ps, ps->weapon, 1);
                             }
                         }
                         if (weapDef->weapType == WEAPTYPE_GRENADE || weapDef->weapType == WEAPTYPE_MINE)
