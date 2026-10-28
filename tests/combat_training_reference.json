@@ -219,6 +219,113 @@
       ],
       "evidence": "Original accepts types0..7 despite its stale diagnostic text0..6; source MAX_INFLUENCER_TYPE is8 and backend already supports8 types.",
       "qualification": "Original instruction inspection; full spawn-system behavior remains unqualified."
+    },
+    {
+      "name": "G_GetRadiusDamageDistanceSquared",
+      "entry_rva": "0x42f9d0",
+      "code": [
+        {
+          "rva": 4389328,
+          "size": 234,
+          "sha256": "f5dc911c008cc5bd05b9627a2c5bf1350c05f8f4a4d78d3132ffa1a4881860e1"
+        }
+      ],
+      "abi": "EAX=non-null gentity_s*, ECX=const float damageOrigin[3]*; XMM0 float32 return; no stack arguments/dependencies/globals",
+      "evidence": "Original (x*x+z*z)+y*y order, float32 intermediates and ordered min>origin / origin>max brush clipping, otherwise zero. Independent original sample changes strict within-radius decision by one float ULP.",
+      "qualification": "Native original capture and independently qualified Unicorn agree with selected production C++; full read-only entity/origin guards. Float projection does not establish public double ABI equivalence.",
+      "cases": 1576,
+      "before_mismatches": 46,
+      "after_mismatches": 0,
+      "coverage": "Complete original function, float32 result consumed by original callers; production double return explicitly projected to float, not compiled ABI equivalence. Canonical brush/nonbrush entities, raw float coordinates/bounds/radius including unsigned NaN payloads, infinities, signed zeros, finite rounding boundaries. Full entity and origin fixtures unchanged. Does not qualify complete G_RadiusDamage, damage falloff, traces or live combat.",
+      "regression": {
+        "capture_id": "5b7a1fe055cf32a9e6f958e169883c273b0efde1d76e6baad4d880832cc2a7b9",
+        "input_u32": [
+          0,
+          0,
+          0,
+          0,
+          3212836864,
+          3212836864,
+          3212836864,
+          1065353216,
+          1065353216,
+          1065353216,
+          1155348899,
+          1148184073,
+          1154689433,
+          1255327485,
+          3503093777,
+          2190322372
+        ],
+        "expected_u32": [
+          1255327486,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          1255327487,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "G_WithinDamageRadius",
+      "entry_rva": "0x174390",
+      "code": [
+        {
+          "rva": 1524624,
+          "size": 33,
+          "sha256": "b820d2b71c31b583ee6fe51be8fe3a2a0c2b46ca827462d6134db7be5041a7d2"
+        },
+        {
+          "rva": 4389328,
+          "size": 234,
+          "sha256": "f5dc911c008cc5bd05b9627a2c5bf1350c05f8f4a4d78d3132ffa1a4881860e1"
+        }
+      ],
+      "abi": "cdecl stack+4 damageOrigin*, stack+8 radiusSquared float, stack+12 non-null entity*; EAX canonical0/1 (AL bool)",
+      "evidence": "Original (x*x+z*z)+y*y order, float32 intermediates and ordered min>origin / origin>max brush clipping, otherwise zero. Independent original sample changes strict within-radius decision by one float ULP.",
+      "qualification": "Native original capture and independently qualified Unicorn agree with selected production C++; full read-only entity/origin guards. Float projection does not establish public double ABI equivalence.",
+      "cases": 1576,
+      "before_mismatches": 37,
+      "after_mismatches": 0,
+      "coverage": "Complete original function, real radius-distance dependency and strict ordered radiusSquared>distance comparison. Canonical brush/nonbrush entities, raw float coordinates/bounds/radius including unsigned NaN payloads, infinities, signed zeros, finite rounding boundaries. Full entity and origin fixtures unchanged. Does not qualify complete G_RadiusDamage, damage falloff, traces or live combat.",
+      "regression": {
+        "capture_id": "37811260c027e3bd7a83e35870ecd5ce9887d0ddcb27a7faaa6aeff361e4b22a",
+        "input_u32": [
+          0,
+          0,
+          0,
+          0,
+          3212836864,
+          3212836864,
+          3212836864,
+          1065353216,
+          1065353216,
+          1065353216,
+          1155348899,
+          1148184073,
+          1154689433,
+          1255327487,
+          3953908883,
+          2327672097
+        ],
+        "expected_u32": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
     }
   ],
   "limits": [

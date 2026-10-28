@@ -1387,16 +1387,17 @@ double __cdecl G_GetRadiusDamageDistanceSquared(const float *damageOrigin, genti
     {
         for ( i = 0; i < 3; ++i )
         {
-            if ( ent->r.absmin[i] <= damageOrigin[i] )
+            if ( ent->r.absmin[i] > damageOrigin[i] )
             {
-                if ( damageOrigin[i] <= ent->r.absmax[i] )
-                    v[i] = 0.0f;
-                else
-                    v[i] = damageOrigin[i] - ent->r.absmax[i];
+                v[i] = ent->r.absmin[i] - damageOrigin[i];
+            }
+            else if ( damageOrigin[i] > ent->r.absmax[i] )
+            {
+                v[i] = damageOrigin[i] - ent->r.absmax[i];
             }
             else
             {
-                v[i] = ent->r.absmin[i] - damageOrigin[i];
+                v[i] = 0.0f;
             }
         }
     }
@@ -1406,7 +1407,7 @@ double __cdecl G_GetRadiusDamageDistanceSquared(const float *damageOrigin, genti
         v[1] = ent->r.currentOrigin[1] - damageOrigin[1];
         v[2] = ent->r.currentOrigin[2] - damageOrigin[2];
     }
-    return v[2] * v[2] + v[1] * v[1] + v[0] * v[0];
+    return (float)((float)(v[0] * v[0] + v[2] * v[2]) + v[1] * v[1]);
 }
 
 int __cdecl G_RadiusDamage(
