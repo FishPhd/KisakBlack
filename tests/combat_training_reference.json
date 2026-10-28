@@ -766,6 +766,64 @@
           0
         ]
       }
+    },
+    {
+      "name": "G_RadiusDamage_Padding",
+      "code": [
+        {
+          "rva": 71034,
+          "size": 8,
+          "sha256": "2cec36c73885918973bdf87b5cbc642b6938f5d748fee533c1e06b47c21bd1b8"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6995120,
+          "size": 4,
+          "sha256": "9c16095ed50248c0e1658be07f5bafe5dc11382843a99c6fb3a87c141808ceeb"
+        }
+      ],
+      "abi": "Inline XMM0 floatradius, XMM0 floatpadding result; no dependency/stack effect.",
+      "coverage": "Only original broadphase scalar padding multiplication after radius clamp. Finite input radius>=1, raw float boundaries including finite overflow; source assignment extracted verbatim. Neither complete bounds generation, entity queries nor full radius damage are qualified.",
+      "evidence": "Original MULSS uses float constant3fb504f3; reconstructed double literal changes rounded bounds at ordinary radii10/150.",
+      "entry_rva": "0x1157a",
+      "cases": 717,
+      "before_mismatches": 111,
+      "after_mismatches": 0,
+      "qualification": "Original native capture, independently qualified Unicorn and exact selected repaired production expression agree. Full original caller equivalence is not claimed.",
+      "regression": {
+        "capture_id": "159e061b32c57b5fa97d2d867d63468c35db3696dddb000bf89fa1c2c0c6cbde",
+        "input_u32": [
+          1065353220,
+          329733231,
+          1869242306,
+          2102437544,
+          2889232587,
+          255720259,
+          2779495130,
+          3212914225,
+          607480217,
+          1827178111,
+          4039988807,
+          3617778339,
+          1383337272,
+          3285310449,
+          2486652157,
+          346429332
+        ],
+        "expected_u32": [
+          1068827897,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          1068827896,
+          0,
+          0,
+          0
+        ]
+      }
     }
   ],
   "limits": [

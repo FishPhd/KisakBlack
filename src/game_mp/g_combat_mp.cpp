@@ -1444,7 +1444,7 @@ int __cdecl G_RadiusDamage(
     if ( radius < 1.0 )
         radius = 1.0f;
     v18 = radius * radius;
-    v19 = 1.4142135 * radius;
+    v19 = 1.4142135f * radius;
     for ( i = 0; i < 3; ++i )
     {
         mins[i] = origin[i] - v19;
