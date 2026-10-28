@@ -2693,10 +2693,6 @@ char __cdecl Bot_GrenadeInRange(
                                 + (float)(vTossVel_8 * vTossVel_8);
     launchSpeedSq = (float)weapDef->iProjectileSpeed * (float)weapDef->iProjectileSpeed;
     g = bg_gravity->current.value;
-    numerator = launchSpeedSq
-                        - sqrtf(
-                                (float)(launchSpeedSq * launchSpeedSq)
-                            - (float)((float)((float)((float)(range * range) * g) + (float)((float)(2.0 * height) * launchSpeedSq)) * g));
     denominator = g * range;
     if ( (float)(g * range) == 0.0 )
     {
@@ -2707,7 +2703,11 @@ char __cdecl Bot_GrenadeInRange(
     }
     else
     {
-        v6 = (float)(numerator / denominator);
+        numerator = launchSpeedSq
+            - sqrtf((float)(launchSpeedSq * launchSpeedSq)
+                - (float)((float)((float)(denominator * range)
+                    + (float)((float)(launchSpeedSq * height) * 2.0f)) * g));
+        v6 = (float)(numerator * (float)(1.0f / denominator));
         //__libm_sse2_atan(v7);
         //*(float *)&v6 = v6;
         *outPitch = atan(v6);//*(float *)&v6;
@@ -2720,7 +2720,7 @@ char __cdecl Bot_GrenadeInRange(
         }
         else
         {
-            *outPitch = (float)(*outPitch * 57.295776) * -1.0;
+            *outPitch = (float)(*outPitch * 57.295776f) * -1.0f;
             //if ( g_DXDeviceThread == GetCurrentThreadId() )
                 //D3DPERF_EndEvent();
             return 1;

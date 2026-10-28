@@ -461,6 +461,94 @@
       "qualification": "4656 original native captures independently qualified by Unicorn and matched by the exact selected production attack compound. Both complete button words observed; full PS/definition preservation. Dual-wield CRT RNG, reaction/ammo/melee/grenade and fire-delay update excluded.",
       "cases": 4656,
       "after_mismatches": 0
+    },
+    {
+      "name": "Bot_GrenadeInRange",
+      "entry_rva": "0x472630",
+      "code": [
+        {
+          "rva": 4662832,
+          "size": 232,
+          "sha256": "5fa45e7cef46f70fb8cb163347142bf8103aaafa21f8e7d528a8f86f7acc2c69"
+        }
+      ],
+      "abi": "EDX angles*, ESI outPitch*, stack+4 rangefloat,stack+8 heightfloat,stack+12 WeaponDef*; ALbool",
+      "evidence": "Preserve original denominator-first discriminant association, rounded reciprocal multiplication, and float32 degree conversion. Keep original launch speed squared. Finite-input reachability boundaries change from a finite pre-atan ratio to the original NaN, which the existing post-atan guard rejects.",
+      "qualification": "Instruction audit plus unchanged-original Unicorn pre-atan execution compared against verbatim selected old/new production arithmetic compiled MSVC14.37 x86 SSE2 /O2 /fp:precise. All eight repaired ratios match original observations. No original native full-function capture; AngleVectors, atan and complete grenade trajectory remain unqualified.",
+      "regressions": [
+        {
+          "range_bits": "43e445be",
+          "height_bits": "c26ab6e5",
+          "gravity_bits": "44480000",
+          "iProjectileSpeed": 1600,
+          "original_unicorn_ratio_bits": "bd695015",
+          "compiled_cpp_before_bits": "bd695014",
+          "compiled_cpp_after_bits": "bd695015"
+        },
+        {
+          "range_bits": "437cf4bc",
+          "height_bits": "4331fa43",
+          "gravity_bits": "44480000",
+          "iProjectileSpeed": 1600,
+          "original_unicorn_ratio_bits": "3f442df8",
+          "compiled_cpp_before_bits": "3f442df9",
+          "compiled_cpp_after_bits": "3f442df8"
+        },
+        {
+          "range_bits": "449a3ff3",
+          "height_bits": "42d4602f",
+          "gravity_bits": "44480000",
+          "iProjectileSpeed": 1200,
+          "original_unicorn_ratio_bits": "3f05b954",
+          "compiled_cpp_before_bits": "3f05b955",
+          "compiled_cpp_after_bits": "3f05b954"
+        },
+        {
+          "range_bits": "43490682",
+          "height_bits": "415e37a4",
+          "gravity_bits": "44480000",
+          "iProjectileSpeed": 600,
+          "original_unicorn_ratio_bits": "3ea10cb8",
+          "compiled_cpp_before_bits": "3ea10cb7",
+          "compiled_cpp_after_bits": "3ea10cb8"
+        },
+        {
+          "range_bits": "43f4f2f0",
+          "height_bits": "c2c80000",
+          "gravity_bits": "42c80000",
+          "iProjectileSpeed": 200,
+          "original_unicorn_ratio_bits": "ffc00000",
+          "compiled_cpp_before_bits": "3f5105eb",
+          "compiled_cpp_after_bits": "ffc00000"
+        },
+        {
+          "range_bits": "42c3f58d",
+          "height_bits": "c2c80000",
+          "gravity_bits": "447a0000",
+          "iProjectileSpeed": 200,
+          "original_unicorn_ratio_bits": "ffc00000",
+          "compiled_cpp_before_bits": "3ed105eb",
+          "compiled_cpp_after_bits": "ffc00000"
+        },
+        {
+          "range_bits": "43eac982",
+          "height_bits": "c1a00000",
+          "gravity_bits": "43480000",
+          "iProjectileSpeed": 300,
+          "original_unicorn_ratio_bits": "ffc00000",
+          "compiled_cpp_before_bits": "3f75541e",
+          "compiled_cpp_after_bits": "ffc00000"
+        },
+        {
+          "range_bits": "4302fb5c",
+          "height_bits": "c1a00000",
+          "gravity_bits": "44480000",
+          "iProjectileSpeed": 300,
+          "original_unicorn_ratio_bits": "ffc00000",
+          "compiled_cpp_before_bits": "3f5be0b4",
+          "compiled_cpp_after_bits": "ffc00000"
+        }
+      ]
     }
   ],
   "limits": [
