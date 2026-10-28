@@ -824,6 +824,79 @@
           0
         ]
       }
+    },
+    {
+      "name": "Bot_ForwardMovementDot",
+      "code": [
+        {
+          "size": 76,
+          "sha256": "fd46f02068c5877e34b43f885fb96217b95de6e086179722a213a3b9b22091a6",
+          "rva": 4656157
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6954224,
+          "size": 16,
+          "sha256": "c66856d3622ef1af1acca8762554ca873b9ea946fc38967d2d42caba297dc8d7"
+        },
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        }
+      ],
+      "abi": {
+        "entry": "VA870c1d immediately after actual AngleVectors returns",
+        "ESI": "Address with velocity float words at+30/+34/+38",
+        "ESP": "Frame base S with forwardX/Y/Z at S+10/S+14/S+18 and harness return at S+1c. Frame words0..f are scratch and not read by region.",
+        "return_value": "AL canonical bool; high EAX undefined",
+        "epilogue": "At870c4e addsESP10; both returns addESPC thenRET. FinalESP=S+20. No register restoration required; region does not change ESI.",
+        "native_entry": "Synthesize [28 frame bytes,harness-return] and JMP to region instead of an ordinary CALL. Actual original RET consumes harness-return after original addESP10/addESPC. No code rewriting needed.",
+        "reads": "velocity30..3b, stack forwardX/Y/Z, pinned abs-mask16bytes and float1.0",
+        "writes": "No memory writes; AL/XMM0/XMM1 scratch results only",
+        "dependencies": "No calls/indirect flow in bounded region. Constants only."
+      },
+      "coverage": "Only post-AngleVectors dot/fabs/strictthreshold region; velocity3/forward3 raw float bits. Full PS and forward/frame immutable; exact original RET/ESP contract. No full movement helper, flag/grenade gates, trigonometry or live gameplay claim.",
+      "evidence": "Original post-AngleVectors dot accumulates Y+Z thenX before strict absolute>1 predicate; exact selected source historically accumulated X+Y thenZ. Full original helper and compiled source differ at ordinary5-degree slow movement, with matching forward-vector bits.",
+      "entry_rva": "0x470c1d",
+      "cases": 1134,
+      "before_mismatches": 42,
+      "after_mismatches": 0,
+      "qualification": "Original native capture, independently qualified Unicorn and exact selected repaired production expression agree. Full original caller equivalence is not claimed.",
+      "regression": {
+        "capture_id": "76585be7d4ffad21388d3c495077a841df9dfaee7e7452e0091c19b069bac88b",
+        "input_u32": [
+          1066758490,
+          1086324838,
+          1090094485,
+          1065225775,
+          1035063507,
+          3182591669,
+          3503093777,
+          2190322372,
+          2663959672,
+          2577274012,
+          3953908883,
+          2327672097,
+          2920879481,
+          3578142137,
+          148043803,
+          4134419898
+        ],
+        "expected_u32": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
     }
   ],
   "limits": [

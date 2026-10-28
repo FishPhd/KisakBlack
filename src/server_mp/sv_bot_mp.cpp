@@ -1322,8 +1322,8 @@ char __cdecl Bot_IsMovingFoward(const bot_info_t *botInfo, const client_t *bot, 
     else
     {
         AngleVectors(ps->viewangles, vForward, 0, 0);
-        vDot = (float)((float)(ps->velocity[0] * vForward[0]) + (float)(ps->velocity[1] * vForward[1]))
-                 + (float)(ps->velocity[2] * vForward[2]);
+        vDot = (float)((float)(ps->velocity[1] * vForward[1]) + (float)(ps->velocity[2] * vForward[2]))
+                 + (float)(ps->velocity[0] * vForward[0]);
         v4 = fabs(vDot) > 1.0;
         //if ( g_DXDeviceThread == GetCurrentThreadId() )
             //D3DPERF_EndEvent();
