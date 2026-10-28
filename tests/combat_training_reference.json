@@ -409,8 +409,8 @@
     },
     {
       "name": "PM_Weapon_FireWeapon_ammo_cost",
-      "qualification": "Original instruction audit only; complete firing and ammo dependency replay remain unqualified.",
-      "evidence": "Original calls PM_WeaponUseAmmo with literal1 in both branches (VA7c1642 and7c1652), independent of active local-client count.",
+      "qualification": "Original call-site instruction alignment; the previous CL_LocalClient_GetActiveCount helper unconditionally returns1, so this edit preserves behavior and is not a demonstrated ammo gameplay fix. Complete firing/ammo dependency replay remains unqualified.",
+      "evidence": "Original pushes literal1 in both ammo-use branches (VA7c1642 and7c1652). Current src/client/splitscreen.cpp helper also alwaysreturns1; replacing the calls aligns the call-site code.",
       "code": [
         {
           "rva": 3937820,
@@ -549,6 +549,158 @@
           "compiled_cpp_after_bits": "ffc00000"
         }
       ]
+    },
+    {
+      "name": "G_DamageActor_HitMultiplier",
+      "code": [
+        {
+          "rva": 1272256,
+          "size": 17,
+          "sha256": "3782d57508659238fde1ab143c16da74c5620cb2c054c0be99e85e3cd250ebf4"
+        },
+        {
+          "rva": 1188192,
+          "size": 64,
+          "sha256": "3bf1fe6739c91cdb1fdd0331b924262872b4368df186e8a70b3ab804c37c6610"
+        },
+        {
+          "rva": 6078992,
+          "size": 28,
+          "sha256": "877fd9d649d643ae709ec26042f318da203b88ab0d697c0268b11c6447715707"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "abi": "Entry ESP points to pushed hitLoc and weapon0, original signed damage atESP+0x30. Complete real helper/x87 FIMUL/ftol2fast, stop after actual ADDESP8 and conversion; EAX signed result, ESP advanced8. CPUflag bound1; slow branch explicitly blocked.",
+      "coverage": "Only hit multiplier/conversion pipeline. Weapon0, valid hit locations, signed raw integer damage and finite float multiplier with both original and historical products int32-representable. Full multiplier/asset/CPU fixtures and unobserved caller frame guarded. Excludes entry gates, weapon-specific asset selection, damage clamp, script calls and full damage application.",
+      "entry_rva": "0x1369c0",
+      "evidence": "Original x87 FIMUL multiplies the signed integer damage directly; source float-narrowing changes integers above2^24. Real original hit-location lookup and fast integer conversion run unchanged; slow CPU path remains explicitly blocked.",
+      "cases": 3980,
+      "stop_rva": "0x1369d1",
+      "blocked_dependencies": [
+        {
+          "rva": 6079046,
+          "size": 117,
+          "sha256": "5333b186c02836974c6f792303aeb2c00d856316b93ccbbe65f51def6ae661b4",
+          "name": "ftol2_slow_conversion",
+          "reason": "CPU capability fixture1 selects original SSE2 conversion. Slow CRT conversion is outside this bounded pipeline."
+        }
+      ],
+      "qualification": "Original native capture independently qualified by Unicorn and matched by exact selected repaired production pipeline. Weapon0, CPUflag1 and representable integer products only; no whole damage-application equivalence.",
+      "before_mismatches": 1149,
+      "after_mismatches": 0,
+      "regression": {
+        "capture_id": "fbf59a963e1a98e86267049ecf63fcb4d0c98de10a62a3e2c1ceac3270858078",
+        "input_u32": [
+          16777217,
+          0,
+          1065353216,
+          3160489441,
+          435164581,
+          2783412368,
+          3394355112,
+          2545678175,
+          2037672573,
+          1741898720,
+          3240025379,
+          2855183856,
+          738772428,
+          2212031002,
+          3868106632,
+          1539124579
+        ],
+        "expected_u32": [
+          16777217,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          16777216,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "G_DamageClient_HitMultiplier",
+      "code": [
+        {
+          "rva": 2200900,
+          "size": 17,
+          "sha256": "0ffdc58cfb5e5b7f64ffaf955972c1239e46c1348fdbd6c152105ee4cd700d17"
+        },
+        {
+          "rva": 1188192,
+          "size": 64,
+          "sha256": "3bf1fe6739c91cdb1fdd0331b924262872b4368df186e8a70b3ab804c37c6610"
+        },
+        {
+          "rva": 6078992,
+          "size": 28,
+          "sha256": "877fd9d649d643ae709ec26042f318da203b88ab0d697c0268b11c6447715707"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "abi": "Entry ESP points to pushed hitLoc and weapon0, original signed damage atESP+0x30. Complete real helper/x87 FIMUL/ftol2fast, stop after actual ADDESP8 and conversion; EAX signed result, ESP advanced8. CPUflag bound1; slow branch explicitly blocked.",
+      "coverage": "Only hit multiplier/conversion pipeline. Weapon0, valid hit locations, signed raw integer damage and finite float multiplier with both original and historical products int32-representable. Full multiplier/asset/CPU fixtures and unobserved caller frame guarded. Excludes entry gates, weapon-specific asset selection, damage clamp, script calls and full damage application.",
+      "entry_rva": "0x219544",
+      "evidence": "Original x87 FIMUL multiplies the signed integer damage directly; source float-narrowing changes integers above2^24. Real original hit-location lookup and fast integer conversion run unchanged; slow CPU path remains explicitly blocked.",
+      "cases": 3980,
+      "stop_rva": "0x219555",
+      "blocked_dependencies": [
+        {
+          "rva": 6079046,
+          "size": 117,
+          "sha256": "5333b186c02836974c6f792303aeb2c00d856316b93ccbbe65f51def6ae661b4",
+          "name": "ftol2_slow_conversion",
+          "reason": "CPU capability fixture1 selects original SSE2 conversion. Slow CRT conversion is outside this bounded pipeline."
+        }
+      ],
+      "qualification": "Original native capture independently qualified by Unicorn and matched by exact selected repaired production pipeline. Weapon0, CPUflag1 and representable integer products only; no whole damage-application equivalence.",
+      "before_mismatches": 1149,
+      "after_mismatches": 0,
+      "regression": {
+        "capture_id": "910f7cda973b0df64ef5883efeb75b3629e89f60a0379098fce3d84a6d5bf97f",
+        "input_u32": [
+          16777217,
+          0,
+          1065353216,
+          3160489441,
+          435164581,
+          2783412368,
+          3394355112,
+          2545678175,
+          2037672573,
+          1741898720,
+          3240025379,
+          2855183856,
+          738772428,
+          2212031002,
+          3868106632,
+          1539124579
+        ],
+        "expected_u32": [
+          16777217,
+          0,
+          0,
+          0
+        ],
+        "actual_u32_before_fix": [
+          16777216,
+          0,
+          0,
+          0
+        ]
+      }
     }
   ],
   "limits": [

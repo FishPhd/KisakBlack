@@ -448,7 +448,6 @@ void __cdecl G_DamageClient(
                 int timeOffset)
 {
     unsigned int NumWeapons; // eax
-    float v12; // [esp+0h] [ebp-4h]
 
     if ( targ->takedamage
         && damage > 0
@@ -496,8 +495,7 @@ void __cdecl G_DamageClient(
         }
         if ( mod != 7 )
         {
-            v12 = (float)damage;
-            damage = (int)(G_GetWeaponHitLocationMultiplier(hitLoc, weapon) * v12);
+            damage = (int)(G_GetWeaponHitLocationMultiplier(hitLoc, weapon) * damage);
         }
         if ( damage <= 0 )
             damage = 1;
@@ -555,7 +553,6 @@ void __cdecl G_DamageActor(
                 int timeOffset)
 {
     unsigned int NumWeapons; // eax
-    float v12; // [esp+0h] [ebp-4h]
 
     if ( targ->takedamage && damage > 0 && targ->actor->Physics.bIsAlive )
     {
@@ -598,8 +595,7 @@ void __cdecl G_DamageActor(
         }
         if ( mod != 7 )
         {
-            v12 = (float)damage;
-            damage = (int)(G_GetWeaponHitLocationMultiplier(hitLoc, weapon) * v12);
+            damage = (int)(G_GetWeaponHitLocationMultiplier(hitLoc, weapon) * damage);
         }
         if ( damage <= 0 )
             damage = 1;
