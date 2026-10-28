@@ -551,6 +551,71 @@
       ]
     },
     {
+      "name": "BurstFirePending",
+      "code": [
+        {
+          "rva": 3922352,
+          "size": 151,
+          "sha256": "fdf7a469165637974ccf143e9fb62d30182a7767809471ead7f57711c709ce78"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        },
+        {
+          "rva": 1583776,
+          "size": 58,
+          "sha256": "becada1776810a2da580381d676f9337f4bf446b03696ed5d40b6f64fd4360c3"
+        },
+        {
+          "rva": 640464,
+          "size": 17,
+          "sha256": "29843bd8d57f67f367b5eab9cd51dc1aff4090b718a7eed1834e3eca14da4797"
+        },
+        {
+          "rva": 637472,
+          "size": 46,
+          "sha256": "01a81111731a7bb11a146fdb3b1c32ecb25a9e28548ff44db7a1ef4eb9d8fc11"
+        },
+        {
+          "rva": 2095440,
+          "size": 90,
+          "sha256": "b9c01722f741bdbde4bb28cbcbfa6a609c61a47fa1f798609c6b4c54d00bb963"
+        }
+      ],
+      "abi": "ESI=playerState_s*, ALcanonicalbool; allsevenoriginalfunctions executeunmodified",
+      "coverage": "Complete original BurstFirePending with seven-function getter, reserve/clip ammo and bounded ShotLimit closure. Both hands and valid variant0/nonzero indices; raw fire types, shot/stack counts, signed reserve/clip values and slot boundaries. Full PS/assets/variant and jump tables immutable. Does not qualify firing callers, reload paths or live combat.",
+      "entry_rva": "0x3bd9b0",
+      "evidence": "Original selected-hand shot and ammo decisions independently decoded; all Burst and dependency instruction sites reached in unchanged-byte Unicorn smoke. No source fix inferred when comparisons agree.",
+      "cases": 4312,
+      "qualification": "Original native capture, independently qualified Unicorn and exact selected production agree; full fixture-preservation guards.",
+      "after_mismatches": 0
+    },
+    {
+      "name": "Bot_GrenadeRelease",
+      "code": [
+        {
+          "rva": 4672072,
+          "size": 19,
+          "sha256": "57c475e39be34d630e8cf1b89a7adcfb14ff28c82f3097c81ef8a9cbb409df81"
+        }
+      ],
+      "abi": "Inline EBX=usercmd_s*, EBP=bot_info_t*, no defined return; stop before enclosing ADS clear at0x874a5b. Commandword0 and flags16 are only permitted writes.",
+      "coverage": "Only accepted grenade-release body, all65536 raw flag words and command/noise fixtures; excludes pitch/state/cook/timer/RNG conditions and later ADS clear/return.",
+      "entry_rva": "0x474a48",
+      "evidence": "Original release body clears both MSB-index grenade command bits14/15 and only bot flag bits0xc00; raw16 flag preservation and full command word observation.",
+      "cases": 65834,
+      "stop_rva": "0x474a5b",
+      "qualification": "Original native capture, independently qualified Unicorn and exact selected production agree; full fixture-preservation guards.",
+      "after_mismatches": 0
+    },
+    {
       "name": "G_DamageActor_HitMultiplier",
       "code": [
         {
