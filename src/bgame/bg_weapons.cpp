@@ -2458,6 +2458,7 @@ void __cdecl PM_BeginWeaponReload(pmove_t *pm)
          || *weaponState == 6
          || *weaponState == WEAPON_CONT_FIRE_LOOP
          || *weaponState == 7
+         || *weaponState == WEAPON_RECHAMBERING_FINISH
          || *weaponState >= WEAPON_SPRINT_RAISE && *weaponState <= WEAPON_SPRINT_DROP
          || *weaponState >= WEAPON_LOWREADY_RAISE && *weaponState <= WEAPON_LOWREADY_DROP)
         && weaponIndex
@@ -2706,6 +2707,7 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
     }
     else if ( (*weaponState == 6
                     || *weaponState == 7
+                    || *weaponState == WEAPON_RECHAMBERING_FINISH
                     || *weaponState == WEAPON_CONT_FIRE_LOOP
                     || *weaponState == WEAPON_MELEE_INIT
                     || *weaponState == WEAPON_MELEE_FIRE
@@ -2816,7 +2818,7 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
                     *weaponTime = 0;
                     *weaponShotCount = 0;
                 }
-                else if ( *weaponState == 7 )
+                else if ( *weaponState == WEAPON_RECHAMBERING_FINISH )
                 {
                     PM_Weapon_FinishRechamber(ps);
                 }

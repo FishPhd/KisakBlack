@@ -1380,6 +1380,108 @@
         "after_native_mismatches": 0,
         "scope": "Compiled selected-production replay function; extents include alignment; no byte equality claim."
       }
+    },
+    {
+      "name": "PM_BeginWeaponReload_StateGate",
+      "code": [
+        {
+          "rva": 3920618,
+          "size": 52,
+          "sha256": "7b1953f96ee4639450fffd6d3320d45f9afb5242ed6ab45d4ad3a1f3a22c78e4"
+        },
+        {
+          "rva": 3920945,
+          "size": 8,
+          "sha256": "c0a3bd53b98fe90951d23c51ee1a4fb2187410dd99008aba9f80120d934a219d"
+        }
+      ],
+      "constants": [],
+      "globals": [],
+      "abi": "Inline EAX signedrawstate; accepted stop before weaponindex gate, rejected realPOP4/ADDESP8/RET. Native appendedRET accepts, Unicorn observesSP0 vs28 rejection.",
+      "coverage": "Only state membership before reload asset/mantle/effects checks, allrawstate bitpatterns sampled; not fullPM_BeginWeaponReload.",
+      "evidence": "Original reload admission permits raw state8 alongside7; source state predicate omitted WEAPON_RECHAMBERING_FINISH.",
+      "entry_rva": "0x3bd2ea",
+      "cases": 391,
+      "before_mismatches": 1,
+      "after_mismatches": 0,
+      "regression": {
+        "index": 8,
+        "input_u32": [
+          8,
+          52816257,
+          131486235,
+          516366187,
+          2574153299,
+          2935688805,
+          2769474272,
+          4175864946,
+          250038589,
+          3751208021,
+          732023218,
+          1146939909,
+          2071982989,
+          3641118054,
+          1361324076,
+          4258661179
+        ],
+        "expected_u32": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "actual_u32": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_word": 0,
+        "capture_id": "eed5898271ae6695130e0202e0e6ec963ed908ed7c06cd71a687bff65ac953f1"
+      },
+      "qualification": "Unchanged original native gate, independently qualified Unicorn and exact selected repaired production state predicate agree. Asset, mantle, events and full reload function remain outside this unit."
+    },
+    {
+      "name": "PM_Weapon_WeaponTimeAdjust_State8Predicates",
+      "original_owner": {
+        "va": "0x7c05c0",
+        "size": 1433,
+        "sha256": "e5cb1c675c70fc3617f2809e339cc3e181928c911f038bc56b33cdd5f2e414c5"
+      },
+      "regions": [
+        {
+          "name": "rapid",
+          "rva": 3934001,
+          "size": 50,
+          "sha256": "90f3310315b69c151cddaf5d79699cf3b246e19991927668252c0456291b04f4",
+          "accept_rva": 3934051,
+          "reject_rva": 3934132,
+          "source_predicate": "( (*weaponState == 6\n                    || *weaponState == 7\n                    || *weaponState == WEAPON_RECHAMBERING_FINISH\n                    || *weaponState == WEAPON_CONT_FIRE_LOOP\n                    || *weaponState == WEAPON_MELEE_INIT\n                    || *weaponState == WEAPON_MELEE_FIRE\n                    || *weaponState == WEAPON_MELEE_END)\n                 && *weaponState != WEAPON_MELEE_INIT\n                 && *weaponState != WEAPON_MELEE_FIRE\n                 && *weaponState != WEAPON_MELEE_END\n                 )",
+          "scope": "Native original branch observation only. Excluded accept/reject boundaries instrumented RET/INT3; no callee executed or fabricatedresult."
+        },
+        {
+          "name": "completion",
+          "rva": 3934896,
+          "size": 5,
+          "sha256": "0059d7f125ddde6da8ac55f20c5cfc2b535648e9b344844c5730b6edf5cf0a0b",
+          "accept_rva": 3934901,
+          "reject_rva": 3934910,
+          "source_predicate": " *weaponState == WEAPON_RECHAMBERING_FINISH ",
+          "scope": "Native original branch observation only. Excluded accept/reject boundaries instrumented RET/INT3; no callee executed or fabricatedresult."
+        }
+      ],
+      "before_mismatched_observations": 3,
+      "after_mismatched_observations": 0,
+      "native_branch_observations": 128,
+      "input_domain": "rawstates0..63 forbothpredicates (128observations)",
+      "regressions": [
+        "kind=0 state=8 original=1 old_cpp=0",
+        "kind=1 state=7 original=0 old_cpp=1",
+        "kind=1 state=8 original=1 old_cpp=0"
+      ],
+      "before_native_probe_sha256": "13ea00beb94e36b832996f0665cafe71e2d6877297dcb892136d73a37d5ed89c",
+      "after_native_probe_sha256": "d9d03ac72814bb30a8084bf5a1def4eb4a939326c83eae7e9c43ff678d0ecfc8",
+      "qualification": "Actual original CMP/JMP regions compared with verbatim selected production predicates. Excluded endpoint RET/INT3 instrumentation observes the decision; it supplies no callee result. Full timer/reload routines, rapid-fire arithmetic and rechamber side effects are not qualified by these observations."
     }
   ],
   "limits": [
