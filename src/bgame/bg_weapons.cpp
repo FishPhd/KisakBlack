@@ -2385,7 +2385,7 @@ void __cdecl PM_Weapon_CheckForReload(pmove_t *pm)
                  && (ps->waterlevel < 3 || !player_disableWeaponsInWater->current.enabled) )
     {
         reloadRequested = 0;
-        if ( (ps->pm_flags & 0x800) == 0 )
+        if ( (ps->pm_flags & 0x800) == 0 && (ps->eFlags2 & 0x40000000) == 0 )
         {
             reloadRequested = pm->cmd.button_bits.testBit(4u);
             if ( (ps->weapFlags & 1) != 0 )

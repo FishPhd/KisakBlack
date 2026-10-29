@@ -1021,6 +1021,149 @@
       "cases": 436,
       "after_mismatches": 0,
       "qualification": "Original native capture, qualified Unicorn and selected production post-Scr_GetInt flag update agree; full script method is not replay-qualified."
+    },
+    {
+      "name": "PM_Weapon_ReloadRequestGate",
+      "code": [
+        {
+          "rva": 3932916,
+          "size": 91,
+          "sha256": "f4f0253999e9c74afccfe6cf148c502ec4a64267505b303cfce6dad32eceee9c"
+        },
+        {
+          "rva": 2572112,
+          "size": 35,
+          "sha256": "054fc7f231d0267e6cae0d819af5cbccbe22e717cf96479f012b7a471c212627"
+        }
+      ],
+      "constants": [],
+      "globals": [],
+      "abi": "Inline EAX=pm_flags, ESI=PS, stack+28=pm; EBX requestbool observed atstop, PSweapFlags mutation. Actual thiscallbitarraytestECX=buttons,stack+4bit,RET4.",
+      "coverage": "Only post-filter manual/script/DWreload request block; no state/water/mantle filters, segmented interruption, automatic reload or actualreloadcallee qualification.",
+      "evidence": "Original gates manual/script/DW reload requests on pm_flags800 and eFlags240000000 before consuming flags; source historically omitted the latter.",
+      "entry_rva": "0x3c02f4",
+      "cases": 1824,
+      "after_mismatches": 0,
+      "qualification": "Original native capture, independently qualified Unicorn and selected repaired production agree over this corpus and scope.",
+      "before_mismatches": 346,
+      "regression": {
+        "index": 49,
+        "input_u32": [
+          0,
+          1073741824,
+          0,
+          0,
+          233733515,
+          875741045,
+          208796665,
+          3480559830,
+          4068230218,
+          1305033289,
+          4272928207,
+          3437145992,
+          2851084377,
+          4089401594,
+          3650374001,
+          3011101052
+        ],
+        "expected_u32": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "actual_u32": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "first_word": 0,
+        "capture_id": "de2c7ec1200a9b29b25cfd23db86ecb169e0f4049cd533ab441d7444ce1a2713"
+      }
+    },
+    {
+      "name": "Jump_ReduceFriction",
+      "code": [
+        {
+          "rva": 2293056,
+          "size": 120,
+          "sha256": "b25432eab4902e3cc69e5406ba7d17c4fc96dba79c80256ac0868e2fef22ff73"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6950140,
+          "size": 4,
+          "sha256": "072e3304b03423a4767d28c5fed09f81d5190ff60a3d078c6c1350eeb8bee28b"
+        },
+        {
+          "rva": 6536724,
+          "size": 4,
+          "sha256": "501196b96458f1d3a02481877b2ca677ca115b5cf562ff4d31325dc058ccd8b9"
+        },
+        {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c"
+        }
+      ],
+      "globals": [
+        {
+          "rva": 8714192,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "abi": "Ordinary cdecl PS*stack+4; original returns exact float32 through x87 ST0. Public source double return is explicitly projected tofloat32, as consumedby movement. No ABIidentityclaim.",
+      "coverage": "Complete original reduction over jumping-flag PS, bool slowdown setting, all ordinary timers0..1801 plus signedextremes/rawrandom. Outputs float32 friction,flags,jumpOriginZ,pm_time. AllotherPSbytesandsetting/pointer immutable. DoesnotqualifywholePM_Friction orJump_Start.",
+      "evidence": "Original uses signed CVTSI2SS(timer)*float0x3a674db4 +float1 for timer<1700, else2.5; disabled1. Timer>1800 clears flag4000 and jumpOriginZ thenreturns1. Historical source used double multiply1.5*approximate1/1700, differingfloat32 outputs.",
+      "entry_rva": "0x22fd40",
+      "cases": 3870,
+      "after_mismatches": 0,
+      "qualification": "Original native capture, independently qualified Unicorn and selected repaired production agree over this corpus and scope.",
+      "before_mismatches": 346,
+      "regression": {
+        "input_u32": [
+          40,
+          1,
+          16384,
+          4284406888,
+          161170264,
+          539868731,
+          2301171941,
+          534343583,
+          2804382316,
+          4226594970,
+          1387537448,
+          3414544142,
+          129542817,
+          1250891862,
+          2988997050,
+          441377010
+        ],
+        "expected_u32": [
+          1065649284,
+          16384,
+          4284406888,
+          40
+        ],
+        "actual_u32_before_fix": [
+          1065649285,
+          16384,
+          4284406888,
+          40
+        ],
+        "original_native_outputs_sha256": "231853cc281fb3f0022ea787cf972136e47381cbac0541991cc7af02db554f4e"
+      },
+      "additional_original_land_factor_evidence": {
+        "code": {
+          "rva": 3862288,
+          "size": 230,
+          "sha256": "69813fb9be40912fea0199fbb3585ccd626faf4c6ddc42c57f7ac7167449ee9b"
+        },
+        "scope": "Independent original inline LandFactor evidence only; not wholeJump_Start qualification."
+      }
     }
   ],
   "limits": [

@@ -184,7 +184,7 @@ double __cdecl Jump_GetSlowdownFriction(playerState_s *ps)
     if ( !jump_slowdownEnable->current.enabled )
         return 1.0;
     if ( ps->pm_time < 1700 )
-        return (double)ps->pm_time * 1.5 * 0.00058823527 + 1.0;
+        return (float)((float)ps->pm_time * 0.0008823529351502657f + 1.0f);
     return 2.5;
 }
 
@@ -328,7 +328,7 @@ double __cdecl Jump_GetLandFactor(playerState_s *ps)
     if ( !jump_slowdownEnable->current.enabled )
         return 1.0;
     if ( ps->pm_time < 1700 )
-        return (double)ps->pm_time * 1.5 * 0.00058823527 + 1.0;
+        return (float)((float)ps->pm_time * 0.0008823529351502657f + 1.0f);
     return 2.5;
 }
 
