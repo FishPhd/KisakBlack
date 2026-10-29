@@ -308,16 +308,15 @@ double __cdecl LinearTrackAngle(float tgt, float cur, float rate, float deltaTim
 
 double __cdecl DiffTrack(float tgt, float cur, float rate, float deltaTime)
 {
-    float step; // [esp+8h] [ebp-4h]
-
-    const float difference = tgt - cur;
-    step = (difference * rate) * deltaTime;
-    if ( fabsf(difference) <= 0.001f )
+    // BlackOpsMP 0x5603c0 rounds each SUBSS/MULSS to float, compares against
+    // the float epsilon, then adds the rounded step to cur in x87 PC=53.
+    volatile float difference = tgt - cur;
+    volatile float step = difference * rate;
+    step = step * deltaTime;
+    const float magnitude = fabsf(difference);
+    if ( !(magnitude > 0.001f) || fabsf(step) > magnitude )
         return tgt;
-    if ( fabsf(step) <= fabsf(difference) )
-        // Original FLD/FADD returns the unrounded double sum through x87.
-        return static_cast<double>(cur) + static_cast<double>(step);
-    return tgt;
+    return (double)step + (double)cur;
 }
 
 double __cdecl DiffTrackAngle(float tgt, float cur, float rate, float deltaTime)
@@ -1915,51 +1914,15 @@ void __cdecl ExtendBounds(float *mins, float *maxs, const float *offset)
 
 void __cdecl ExpandBoundsToWidth(float *mins, float *maxs)
 {
-    float v2; // [esp+0h] [ebp-18h]
-    float diff; // [esp+4h] [ebp-14h]
-    float size_8; // [esp+14h] [ebp-4h]
-
-#ifdef _DEBUG
-    // Retail 0x41f170 contains no assertion branches.
-    if ( *maxs < *mins
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
-                    2489,
-                    0,
-                    "%s",
-                    "maxs[0] >= mins[0]") )
+    // BlackOpsMP 0x41f170: no cleared-bounds guard. The SUBSS/COMISS/JAE
+    // selection also chooses Y when the width difference is unordered.
+    const float widthX = maxs[0] - mins[0];
+    const float widthY = maxs[1] - mins[1];
+    const float height = maxs[2] - mins[2];
+    const float width = widthX - widthY >= 0.0f ? widthX : widthY;
+    if (width > height)
     {
-        __debugbreak();
-    }
-    if ( maxs[1] < mins[1]
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
-                    2490,
-                    0,
-                    "%s",
-                    "maxs[1] >= mins[1]") )
-    {
-        __debugbreak();
-    }
-    if ( maxs[2] < mins[2]
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\universal\\com_math.cpp",
-                    2491,
-                    0,
-                    "%s",
-                    "maxs[2] >= mins[2]") )
-    {
-        __debugbreak();
-    }
-#endif
-    size_8 = maxs[2] - mins[2];
-    if (!((float)((float)(*maxs - *mins) - (float)(maxs[1] - mins[1])) >= 0.0f))
-        v2 = maxs[1] - mins[1];
-    else
-        v2 = *maxs - *mins;
-    if ( v2 > size_8 )
-    {
-        diff = (float)(v2 - size_8) * 0.5f;
+        const float diff = (width - height) * 0.5f;
         mins[2] = mins[2] - diff;
         maxs[2] = diff + maxs[2];
     }

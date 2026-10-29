@@ -2557,20 +2557,38 @@ void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, float *wishdir, 
         pushDir[0] = (float)(wishspeed * *wishdir) - ps->velocity[0];
         pushDir[1] = wishVelocity_4 - ps->velocity[1];
         pushDir[2] = wishVelocity_8 - ps->velocity[2];
-        pushLen = Vec3Normalize(pushDir);
-        canPush = (pml->frametime * wishspeed) * accel;
-        if ( canPush > pushLen )
-            canPush = pushLen;
-        ps->velocity[0] = (float)(canPush * pushDir[0]) + ps->velocity[0];
-        ps->velocity[1] = (float)(canPush * pushDir[1]) + ps->velocity[1];
-        ps->velocity[2] = (float)(canPush * pushDir[2]) + ps->velocity[2];
+        // BlackOpsMP 0x7b0f0e: squares accumulate Z, then Y, then X, each
+        // rounded to single precision. A contracted sum drifts by 2 ULPs
+        // across the recorded eight-step fixture.
+        volatile float zSquare = pushDir[2] * pushDir[2];
+        volatile float ySquare = pushDir[1] * pushDir[1];
+        volatile float xSquare = pushDir[0] * pushDir[0];
+        volatile float lengthSquared = zSquare + ySquare;
+        lengthSquared = lengthSquared + xSquare;
+        volatile float pushLenRounded = sqrtf(lengthSquared);
+        pushLen = pushLenRounded;
+        volatile float negativeLength = -pushLenRounded;
+        volatile float divisor = negativeLength >= 0.0f ? 1.0f : pushLenRounded;
+        volatile float inverseLength = 1.0f / divisor;
+        volatile float dirX = pushDir[0] * inverseLength;
+        volatile float dirY = pushDir[1] * inverseLength;
+        volatile float dirZ = pushDir[2] * inverseLength;
+        volatile float scaledTime = pml->frametime * wishspeed;
+        volatile float canPushRounded = scaledTime * accel;
+        canPush = canPushRounded > pushLenRounded ? pushLenRounded : canPushRounded;
+        volatile float stepX = canPush * dirX;
+        volatile float stepY = canPush * dirY;
+        volatile float stepZ = canPush * dirZ;
+        ps->velocity[0] = stepX + ps->velocity[0];
+        ps->velocity[1] = stepY + ps->velocity[1];
+        ps->velocity[2] = stepZ + ps->velocity[2];
     }
     else
     {
         if ( !ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_pmove.cpp", 1124, 0, "%s", "ps") )
             __debugbreak();
         currentspeed = (ps->velocity[2] * wishdir[2] + ps->velocity[1] * wishdir[1])
-                                 + ps->velocity[0] * wishdir[0];
+            + ps->velocity[0] * wishdir[0];
         addspeed = wishspeed - currentspeed;
         if ( (float)(wishspeed - currentspeed) > 0.0 )
         {

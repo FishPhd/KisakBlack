@@ -126,21 +126,19 @@ int __cdecl FloatPack9S(float unitFloat)
 {
     float v1; // xmm0_4
 
-    // Original Vec4PackQuat region: CVTPS2PD, SUBSD, MULSD, CVTPD2PS.
-    v1 = static_cast<float>((static_cast<double>(unitFloat)
-        - std::bit_cast<double>(0xc0e8181818181818ULL))
-        * std::bit_cast<double>(0x3f0fe00000000000ULL));
-    return LOWORD(v1) & 0x1FF;
+    // BlackOpsMP 0x637ae4: SUBSD/MULSD, then round to float. Dividing
+    // by the decompiler's decimal denominator changes packing at boundaries.
+    v1 = static_cast<float>((static_cast<double>(unitFloat) + 0x1.8181818181818p+15) * 0x1.fe00000000000p-15);
+    return std::bit_cast<unsigned int>(v1) & 0x1FF;
 }
 
 int __cdecl FloatPack10S(float unitFloat)
 {
     float v1; // xmm0_4
 
-    v1 = static_cast<float>((static_cast<double>(unitFloat)
-        - std::bit_cast<double>(0xc0d80c06030180c0ULL))
-        * std::bit_cast<double>(0x3f1ff00000000000ULL));
-    return LOWORD(v1) & 0x3FF;
+    // Exact doubles from original VA 0xa77150 and 0xab9cd8; see tools/re.
+    v1 = static_cast<float>((static_cast<double>(unitFloat) + 0x1.80c06030180c0p+14) * 0x1.ff00000000000p-14);
+    return std::bit_cast<unsigned int>(v1) & 0x3FF;
 }
 
 PackedTexCoords __cdecl Vec2PackTexCoords(const float *in)
