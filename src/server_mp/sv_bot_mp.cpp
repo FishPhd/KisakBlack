@@ -2201,64 +2201,48 @@ void __cdecl Bot_UpdateStance(bot_info_t *botInfo, const client_t *bot, usercmd_
 
 void __cdecl Bot_UpdateSprint(bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd)
 {
-    char v3; // [esp+4h] [ebp-5Ch]
-    float angles[3]; // [esp+48h] [ebp-18h] BYREF
-    const WeaponDef *weapDef; // [esp+54h] [ebp-Ch]
-    const playerState_s *ps; // [esp+58h] [ebp-8h]
-    float distSq; // [esp+5Ch] [ebp-4h] BYREF
-
-    //PIXBeginNamedEvent(-1, "Bot_UpdateSprint");
-    ps = (const playerState_s *)G_GetPlayerState(bot->gentity->s.number);
+    const playerState_s *ps = (const playerState_s *)G_GetPlayerState(bot->gentity->s.number);
     if ( cmd->button_bits.testBit(0xB) )
+        return;
+    if ( ps->weaponstate == WEAPON_RELOADING
+        || ps->weaponstate == WEAPON_RELOAD_START
+        || ps->weaponstate == WEAPON_RELOAD_END
+        || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT
+        || ps->weaponstate == WEAPON_RELOADING_INTERUPT
+        || ps->weaponstate == WEAPON_RELOAD_QUICK
+        || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY )
+        return;
+    if ( (botInfo->flags & 0x380) != 0 )
     {
-        //if ( g_DXDeviceThread != GetCurrentThreadId() )
-        //    return;
-        goto LABEL_12;
-    }
-    if ( ps->weaponstate != WEAPON_RELOADING
-        && ps->weaponstate != WEAPON_RELOAD_START
-        && ps->weaponstate != WEAPON_RELOAD_END
-        && ps->weaponstate != WEAPON_RELOAD_START_INTERUPT
-        && ps->weaponstate != WEAPON_RELOADING_INTERUPT
-        && ps->weaponstate != WEAPON_RELOAD_QUICK
-        && ps->weaponstate != WEAPON_RELOAD_QUICK_EMPTY )
-    {
-        weapDef = BG_GetWeaponDef(ps->weapon);
-        if ( !botInfo->sightHitNum
-            && (weapDef->bDualWield || weapDef->impactType == IMPACT_TYPE_SHOTGUN ? (v3 = 1) : (v3 = 0),
-                    v3 && !Bot_IsInRangeOfEnemy(bot, botInfo->threat.enemy, &distSq))
-            || botInfo->sightHitNum )
-        {
-            if ( (botInfo->flags & 0x10) == 0 )
-            {
-                vectoangles(botInfo->path.lookaheadDir, angles);
-                AngleNormalize180(ps->viewangles[1] - angles[1]);
-                if ( Path_Exists(&botInfo->path)
-                    && botInfo->path.fLookaheadDist >= sv_botSprintDistance->current.value
-                    && svs.time >= botInfo->lastMoveTime )
-                {
-                    cmd->button_bits.setBit(1);
-                }
-                if ( (ps->pm_flags & 0x8000) != 0 && ps->damageCount > 1 && random() < 0.30000001 )
-                    cmd->button_bits.setBit(0x2C);
-                //if ( g_DXDeviceThread == GetCurrentThreadId() )
-                    //D3DPERF_EndEvent();
-                return;
-            }
-            //if ( g_DXDeviceThread != GetCurrentThreadId() )
-            //    return;
-        }
-        //else if ( g_DXDeviceThread != GetCurrentThreadId() )
-        //{
-        //    return;
-        //}
-        //D3DPERF_EndEvent();
+        cmd->button_bits.resetBit(1);
         return;
     }
-    //if ( GetCurrentThreadId() == g_DXDeviceThread )
-LABEL_12:
-    ;
-        //D3DPERF_EndEvent();
+
+    float angles[3];
+    vectoangles(botInfo->path.lookaheadDir, angles);
+    const float yawError = (float)fabs(AngleDelta(ps->viewangles[1], angles[1]));
+    const WeaponDef *weapDef = BG_GetWeaponDef(ps->weapon);
+    bool requireSprintDistance = true;
+    if ( !botInfo->sightHitNum )
+    {
+        float distSq;
+        if ( !(weapDef->bDualWield || weapDef->impactType == IMPACT_TYPE_SHOTGUN)
+            || Bot_IsInRangeOfEnemy(bot, botInfo->threat.enemy, &distSq) )
+        {
+            if ( BG_WeaponAmmo(ps, ps->weapon) )
+                return;
+            if ( Path_Exists(&botInfo->path) && yawError < 5.0f )
+                requireSprintDistance = false;
+        }
+    }
+    if ( (botInfo->flags & 0x10) != 0 )
+        return;
+    if ( Path_Exists(&botInfo->path)
+        && (!requireSprintDistance || botInfo->path.fLookaheadDist >= sv_botSprintDistance->current.value)
+        && svs.time >= botInfo->lastMoveTime )
+        cmd->button_bits.setBit(1);
+    if ( (ps->pm_flags & 0x8000) != 0 && ps->damageCount > 1 && random() < 0.3f )
+        cmd->button_bits.setBit(0x2C);
 }
 
 bool __cdecl Bot_IsFlashbanged(const client_t *bot)

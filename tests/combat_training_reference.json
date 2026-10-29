@@ -1164,6 +1164,178 @@
         },
         "scope": "Independent original inline LandFactor evidence only; not wholeJump_Start qualification."
       }
+    },
+    {
+      "name": "AngleDelta",
+      "code": [
+        {
+          "rva": 668048,
+          "size": 59,
+          "sha256": "2b8ecac058091401cbcd8ff2f46df1e56a221255b3b2d654a7164f7744d801fc"
+        },
+        {
+          "rva": 6071392,
+          "size": 289,
+          "sha256": "7da4dad1a52763452f8daae3301aa2c9a1ae8654d4430f5c956ef47039e5f00b"
+        }
+      ],
+      "constants": [
+        {
+          "rva": 6974252,
+          "size": 4,
+          "sha256": "3d47ff31041026af7fd4bd62824516df8ea55e06a2371e53e3eb9bdba208a0b0"
+        },
+        {
+          "rva": 8122556,
+          "size": 4,
+          "sha256": "d99e58435243d9fef9c88273b8d553b4fba4d0baf8009d29eae74fa99e0d9f57"
+        },
+        {
+          "rva": 6844048,
+          "size": 4,
+          "sha256": "82a72eeef4f720c75f627f5ccf9f2963cceb6210f66318ec6362722e29a564f9"
+        },
+        {
+          "rva": 7925888,
+          "size": 80,
+          "sha256": "74d6360aa933292bc01e981280e089e4138849b57953f5b535b3217b6578b4d0"
+        }
+      ],
+      "globals": [
+        {
+          "rva": 83632476,
+          "size": 4,
+          "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+        }
+      ],
+      "blocked_dependencies": [
+        {
+          "rva": 6128732,
+          "size": 213,
+          "sha256": "c9cb0bd30c3f4719ef62bd3923319bf7558425849ccdffcbab22e1fb7d8f57f9",
+          "name": "floor_legacy_fallback",
+          "reason": "SSE2CPUflag1 and default masked FP controls select pinned fast floor; legacy path outside contract."
+        },
+        {
+          "rva": 6128024,
+          "size": 636,
+          "sha256": "c2955821738297f6eec53a17345eead15ea92ef6fd2cb636d2bd67606472d25a",
+          "name": "libm_error_support",
+          "reason": "Finite bounded angle input never requires error/NaN handling; unsupported errors must terminate."
+        }
+      ],
+      "abi": "Ordinary cdecl float angle1,angle2 stack+4/+8; x87 ST0 double return,PC53; actual original fastSSE2 floor dependency.",
+      "coverage": "Finite inputangles bounded abs<=1e6, including turn boundaries, signed zeros, <5deg thresholds, x87 fullprecision turn product versus stored float turn copy. SSE2 CPUflag1 and default FP controls. Error and legacyfloor paths blocked; no nonfinite/wholebotcaller coverage.",
+      "evidence": "Original subtracts float arguments in x87double, multiplies exactfloat1/360, stores floatturns without popping, adds0.5 to unroundedturns for actualfloor, then (storedfloatturns-floor)*360 returnsx87double.",
+      "entry_rva": "0xa3190",
+      "cases": 1044,
+      "after_mismatches": 0,
+      "qualification": "Complete original AngleDelta with its actual fast SSE2 floor dependency agrees with qualified Unicorn and repaired production C++ over this finite corpus and recorded CPU/FP controls. Legacy and error paths terminate as blocked.",
+      "before_native_probe": {
+        "cases": 6,
+        "mismatches": 5,
+        "scope": "Actual native original versus independently compiled verbatim old production helper.",
+        "regression": {
+          "input_u32": [
+            1084227583,
+            0
+          ],
+          "original_double_bits": "4013ffffec000000",
+          "source_before_double_bits": "4014000000000000",
+          "original_projected_float_less_than_five": true,
+          "source_before_projected_float_less_than_five": false
+        }
+      }
+    },
+    {
+      "name": "Bot_UpdateSprint",
+      "entry_rva": "0x473eb0",
+      "code": [
+        {
+          "rva": 4669104,
+          "size": 455,
+          "sha256": "3320ab7484e7740b94ddc178ffd1854a2901ac55baaaedce4083e1d5d77e731d"
+        }
+      ],
+      "abi": "Custom EDI=bot_info_t*, ordinary stack+4 client_t*, stack+8 usercmd_s*. G_GetPlayerState returns PS inEAX; cmdESI/PS EBP after prologue.",
+      "findings": [
+        {
+          "original": "Flags0x80 or0x100/0x200 at873f2a..3f3e branchto874069 clearing sprint bit1.",
+          "source_before": "Missing these blockers and sprint-bit clear."
+        },
+        {
+          "original": "Emptyammo at873fbe..3fe9 permits visible-enemy pursuit. PathExists and abs yawerror<5f bypass normal sprint-distance threshold.",
+          "source_before": "Visible enemy with a normal rifle always skips sprint; angle normalization result unused, no empty-ammo path."
+        }
+      ],
+      "qualification": "Complete instruction audit; 10 force-clear and 32 late-decision unchanged-original Unicorn observations. These are original observations plus source control-flow audit, not full native original-versus-C++ sprint qualification. AngleDelta dependency separately replay-qualified.",
+      "late_region": {
+        "entry_rva": 4669382,
+        "code": [
+          {
+            "rva": 4669382,
+            "size": 177,
+            "sha256": "21cead06586f513b1fa418cae686ab03e140581babaf9d391bd18c7110dc4d7b"
+          },
+          {
+            "rva": 2262560,
+            "size": 12,
+            "sha256": "aa8e4d39540f82548d80f7ec89f3b66ec59a1d9288ad3384a0d622c6cc554b6f"
+          }
+        ],
+        "constants": [
+          {
+            "rva": 6974180,
+            "size": 4,
+            "sha256": "fca31f1667a6aa1bba12fca4e4ea1becd503379d80da3213af07f6cc5702828d"
+          },
+          {
+            "rva": 52904316,
+            "size": 4,
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          {
+            "rva": 53661964,
+            "size": 4,
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          }
+        ],
+        "entry_abi": "After real ammo call; EAX ammoresult, EDIbotInfo, EBPps, ESIcmd; ESP+c computedabsyaw,ESP+24requireSprintDistance=true. Complete realPathExistscallee; actualepilogueconsumes36bytes. Wholeprelude/BGWeaponAmmo and yawcalculation not qualified.",
+        "sites": 39,
+        "demonstrated_pursuit_cases": 6,
+        "qualification": "Unchanged original Unicorn execution of actual late-decision region and real Path_Exists only. Before-source buttonword is direct control-flow observation for a normal rifle/visibleenemy, not compiledfullsource comparison. Source edit is instruction-audited, not fullfunction equivalence."
+      },
+      "regression": {
+        "ammo": 0,
+        "path": 1,
+        "yaw_error": 0.0,
+        "lookahead": 1.0,
+        "sprint_distance": 100.0,
+        "time": 1000,
+        "last_move": 999,
+        "original_cmd_word0": "40000000",
+        "source_before_normal_rifle_cmd_word0": "00000000",
+        "scope": "Visibleenemy, normalrifle, flags0, no mantle/damagejump; prelude-aligned EAXammo and computed yawentry values."
+      },
+      "force_clear_region": {
+        "entry_rva": 4669226,
+        "stop_rva": 4669252,
+        "code": [
+          {
+            "rva": 4669226,
+            "size": 26,
+            "sha256": "b331ffa48f8fbe58dfbd1bed882a7e11e53eeece5c7a9b3c3b847430004e3ecb"
+          },
+          {
+            "rva": 4669545,
+            "size": 14,
+            "sha256": "c8accf7ac538ffef65d9d013e0cedfb5b72b67b610b513495589e1d750ed9bc2"
+          }
+        ],
+        "abi": "EDIbotInfo,ESIcmd; acceptedstop withoutmutation, rejectedactualepilogue consumes36bytes. Other registers unobserved.",
+        "qualification": "Unchanged original Unicorn prefix+realreturn; allothercmd/infobytes immutable. Fullnative/C++ qualification pending."
+      },
+      "limits": "Player lookup, vectoangles, weapon/ammo dependencies, full path behavior, damage RNG and complete live sprint caller remain unqualified."
     }
   ],
   "limits": [

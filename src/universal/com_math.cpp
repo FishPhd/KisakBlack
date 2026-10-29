@@ -1836,7 +1836,11 @@ double __cdecl AngleNormalize360(float angle)
 
 double __cdecl AngleDelta(float angle1, float angle2)
 {
-    return AngleNormalize180(angle1 - angle2);
+    // The original floors the unrounded turn product, then subtracts that
+    // whole-turn value from a separately rounded float copy.
+    const double turns = (static_cast<double>(angle1) - static_cast<double>(angle2)) * 0.0027777778f;
+    const float storedTurns = static_cast<float>(turns);
+    return (static_cast<double>(storedTurns) - floor(turns + 0.5)) * 360.0;
 }
 
 double __cdecl RadiusFromBounds(const float *mins, const float *maxs)
