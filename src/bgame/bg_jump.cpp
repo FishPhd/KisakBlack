@@ -138,6 +138,7 @@ void __cdecl Jump_ApplySlowdown(playerState_s *ps)
 
 double __cdecl Jump_ReduceFriction(playerState_s *ps)
 {
+#ifdef _DEBUG
     if ( (ps->pm_flags & 0x4000) == 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_jump.cpp",
@@ -148,6 +149,7 @@ double __cdecl Jump_ReduceFriction(playerState_s *ps)
     {
         __debugbreak();
     }
+#endif
     if ( ps->pm_time > 1800 )
     {
         Jump_ClearState(ps);
@@ -161,6 +163,7 @@ double __cdecl Jump_ReduceFriction(playerState_s *ps)
 
 double __cdecl Jump_GetSlowdownFriction(playerState_s *ps)
 {
+#ifdef _DEBUG
     if ( (ps->pm_flags & 0x4000) == 0
         && !Assert_MyHandler(
                     "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_jump.cpp",
@@ -181,6 +184,7 @@ double __cdecl Jump_GetSlowdownFriction(playerState_s *ps)
     {
         __debugbreak();
     }
+#endif
     if ( !jump_slowdownEnable->current.enabled )
         return 1.0;
     if ( ps->pm_time < 1700 )

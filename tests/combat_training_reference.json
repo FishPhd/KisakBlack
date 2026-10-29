@@ -269,6 +269,13 @@
           0,
           0
         ]
+      },
+      "release_code_parity": {
+        "change": "Retain diagnostics in Debug; omit assertion paths absent from the mapped original Release body. Arithmetic and state transitions unchanged.",
+        "compiled_selected_cpp_assertion_calls_before": 1,
+        "compiled_selected_cpp_assertion_calls_after": 0,
+        "after_native_mismatches": 0,
+        "scope": "Compiled selected-production replay function; extents include alignment; no byte equality claim."
       }
     },
     {
@@ -325,6 +332,13 @@
           0,
           0
         ]
+      },
+      "release_code_parity": {
+        "change": "Retain diagnostics in Debug; omit assertion paths absent from the mapped original Release body. Arithmetic and state transitions unchanged.",
+        "compiled_selected_cpp_assertion_calls_before": 2,
+        "compiled_selected_cpp_assertion_calls_after": 0,
+        "after_native_mismatches": 0,
+        "scope": "Compiled selected-production replay function; extents include alignment; no byte equality claim."
       }
     },
     {
@@ -1163,6 +1177,13 @@
           "sha256": "69813fb9be40912fea0199fbb3585ccd626faf4c6ddc42c57f7ac7167449ee9b"
         },
         "scope": "Independent original inline LandFactor evidence only; not wholeJump_Start qualification."
+      },
+      "release_code_parity": {
+        "change": "Retain diagnostics in Debug; omit assertion paths absent from the mapped original Release body. Arithmetic and state transitions unchanged.",
+        "compiled_selected_cpp_assertion_calls_before": 3,
+        "compiled_selected_cpp_assertion_calls_after": 0,
+        "after_native_mismatches": 0,
+        "scope": "Compiled selected-production replay function; extents include alignment; no byte equality claim."
       }
     },
     {
@@ -1336,6 +1357,29 @@
         "qualification": "Unchanged original Unicorn prefix+realreturn; allothercmd/infobytes immutable. Fullnative/C++ qualification pending."
       },
       "limits": "Player lookup, vectoangles, weapon/ammo dependencies, full path behavior, damage RNG and complete live sprint caller remain unqualified."
+    },
+    {
+      "name": "PM_Weapon_FinishWeaponRaise",
+      "code": [
+        {
+          "rva": 3921312,
+          "size": 68,
+          "sha256": "003d2b36092e6efabe11ccf8b6676547853409c1f89e8b6dfc807dd92415ff34"
+        }
+      ],
+      "constants": [],
+      "abi": "Custom EAX=playerState_s*, void return; animation logic inlined, no dependencies.",
+      "coverage": "Complete original on valid right states1/2, arbitrary leftstate, raw signed pm_type, full-width bothanimations, boolhand and unrelated PSnoise. Observes bothstates/bothanimations, every other PS byte unchanged. Does not qualify caller or live gameplay.",
+      "entry_rva": "0x3bd5a0",
+      "cases": 3056,
+      "qualification": "Original native capture, qualified Unicorn and selected production routine agree over the stated corpus and scope.",
+      "release_code_parity": {
+        "change": "Retain diagnostics in Debug; omit assertion paths absent from the mapped original Release body. Arithmetic and state transitions unchanged.",
+        "compiled_selected_cpp_assertion_calls_before": 1,
+        "compiled_selected_cpp_assertion_calls_after": 0,
+        "after_native_mismatches": 0,
+        "scope": "Compiled selected-production replay function; extents include alignment; no byte equality claim."
+      }
     }
   ],
   "limits": [

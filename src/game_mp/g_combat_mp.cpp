@@ -1366,8 +1366,7 @@ bool __cdecl G_WithinDamageRadius(const float *damageOrigin, float radiusSquared
 {
     float distSqrd; // [esp+4h] [ebp-4h]
 
-    if ( !ent && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_combat_mp.cpp", 1405, 0, "%s", "ent") )
-        __debugbreak();
+    iassert(ent);
     distSqrd = G_GetRadiusDamageDistanceSquared(damageOrigin, ent);
     return radiusSquared > distSqrd;
 }
@@ -1377,8 +1376,7 @@ double __cdecl G_GetRadiusDamageDistanceSquared(const float *damageOrigin, genti
     int i; // [esp+8h] [ebp-10h]
     float v[3]; // [esp+Ch] [ebp-Ch]
 
-    if ( !ent && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\game_mp\\g_combat_mp.cpp", 1373, 0, "%s", "ent") )
-        __debugbreak();
+    iassert(ent);
     if ( ent->r.bmodel )
     {
         for ( i = 0; i < 3; ++i )

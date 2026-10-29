@@ -1887,17 +1887,7 @@ unsigned __int16 __cdecl BG_GetValidPrimaryWeaponForAltMode(
 
 void __cdecl PM_Weapon_FinishWeaponRaise(playerState_s *ps)
 {
-    if ( ps->weaponstate != 1
-        && ps->weaponstate != 2
-        && !Assert_MyHandler(
-                    "C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp",
-                    1970,
-                    0,
-                    "%s",
-                    "WEAPONSTATE_RAISING( ps->weaponstate )") )
-    {
-        __debugbreak();
-    }
+    iassert(ps->weaponstate == WEAPON_RAISING || ps->weaponstate == WEAPON_RAISING_ALTSWITCH);
     ps->weaponstate = WEAPON_READY;
     ps->weaponstateLeft = 0;
     PM_StartWeaponAnim(ps, 0, 0);
