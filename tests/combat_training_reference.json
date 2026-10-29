@@ -897,6 +897,130 @@
           0
         ]
       }
+    },
+    {
+      "name": "ScrCmd_IsTouchingVolume",
+      "entry_rva": "0x43f7b0",
+      "code": [
+        {
+          "rva": 4454320,
+          "size": 253,
+          "sha256": "12494045ccd7633627efbe9acf73dab0cd6afbe8bf33d028a81ed4fbfa460e9a"
+        }
+      ],
+      "mapping_evidence": "Original script method registration points directly to this body; audited every branch and original call signature.",
+      "contract": {
+        "registration_va": "0xbf5dc8",
+        "parameters": [
+          "origin vector0",
+          "relative mins vector1",
+          "relative maxs vector2"
+        ],
+        "calls": [
+          "GetEntity validation inline",
+          "Scr_GetVector 0,1,2",
+          "ExpandBoundsToWidth41f170",
+          "SV_EntityContact449cc0(mins,maxs,entity)",
+          "Scr_AddInt49f830"
+        ],
+        "qualification": "Full instruction audit; script VM and physics integration unqualified."
+      },
+      "before": "Assertion-only stub; no script result or requested operation.",
+      "qualification": "Original instruction audit plus native game compile. Full script VM/physics execution remains unqualified."
+    },
+    {
+      "name": "Scr_PlayerBulletTrace",
+      "entry_rva": "0x4436e0",
+      "code": [
+        {
+          "rva": 4470496,
+          "size": 683,
+          "sha256": "a56db9d9612e979b73d0783faee19e48747331a7a1ab1b1fe779e53a7125dc60"
+        }
+      ],
+      "mapping_evidence": "Original script method registration points directly to this body; audited every branch and original call signature.",
+      "contract": {
+        "registration_va": "0xbf4dd4",
+        "parameters": [
+          "start vector0",
+          "end vector1",
+          "testtype/pointer2",
+          "ignored entity fetched3 if test passes"
+        ],
+        "mask": "0x2000000",
+        "priority_map_va": "0xbf3e64",
+        "priority_map_sha256": "ea9f723360d56c0d8afb7426396a89b6ea11448209da88f731a9f5d5d54179bd",
+        "outputs": [
+          "fraction",
+          "position",
+          "entity/undefined world1022 or none1023",
+          "normal",
+          "surfacetype"
+        ],
+        "qualification": "Full instruction audit of all branches, including no-hit direction normalization and original parameter2/3 asymmetry. No full VM/physics replay."
+      },
+      "before": "Assertion-only stub; no script result or requested operation.",
+      "qualification": "Original instruction audit plus native game compile. Full script VM/physics execution remains unqualified."
+    },
+    {
+      "name": "PlayerCmd_IsInMoveMode",
+      "entry_rva": "0x42a360",
+      "code": [
+        {
+          "rva": 4367200,
+          "size": 78,
+          "sha256": "76bbf7e268ebf828922000e0f009a20052b458c21cd7ddbb56f0ffc2f9ceaf40"
+        }
+      ],
+      "mapping_evidence": "Original script method registration points directly to this body; audited every branch and original call signature.",
+      "contract": {
+        "registration_va": "0xac5dcc",
+        "behavior": "Validate entity/player, Scr_AddInt(0). Original does not test a move mode or read a parameter.",
+        "qualification": "Complete original instruction audit, no live script VM execution."
+      },
+      "before": "Assertion-only stub; no script result or requested operation.",
+      "qualification": "Original instruction audit plus native game compile. Full script VM/physics execution remains unqualified."
+    },
+    {
+      "name": "PlayerCmd_SetTurrentHint",
+      "entry_rva": "0x42e5e0",
+      "code": [
+        {
+          "rva": 4384224,
+          "size": 122,
+          "sha256": "4867621fcc756ee65147a100cf3c0f4c015d88e1be27c23e681ffe33afb57497"
+        }
+      ],
+      "mapping_evidence": "Original script method registration points directly to this body; audited every branch and original call signature.",
+      "contract": {
+        "registration_va": "0xac6300",
+        "behavior": "Validate entity/player; Scr_GetInt0; nonzero clearsPSweapFlags800000,zero sets it.",
+        "qualification": "Full method instruction audit; separate native replay qualifies only the post-Scr_GetInt flag update."
+      },
+      "before": "Assertion-only stub; no script result or requested operation.",
+      "qualification": "Original instruction audit plus native game compile. Full script VM/physics execution remains unqualified."
+    },
+    {
+      "name": "PlayerCmd_TurretHintFlag",
+      "code": [
+        {
+          "rva": 4384324,
+          "size": 22,
+          "sha256": "ae23ce68613b53610427970179d5cbc726a3b3e2dd344c672f1b37562c13c775"
+        }
+      ],
+      "constants": [],
+      "abi": {
+        "entry": "ESI points to player state, EAX is the already converted script integer",
+        "stack": "[saved ESI,return]; actual POP ESI and RET consume8bytes",
+        "output": "weapFlags at PS+10; all remaining bytes unchanged"
+      },
+      "coverage": "Original integer flag branch after Scr_GetInt returns, including both original epilogues. Does not qualify entity validation or the script VM integer conversion.",
+      "evidence": "Registered setturrethint method at82e5e0 clears weapFlags bit800000 for any nonzero integer and sets it for zero. Reconstructed method was an assertion-only stub.",
+      "entry_rva": "0x42e644",
+      "cases": 436,
+      "after_mismatches": 0,
+      "qualification": "Original native capture, qualified Unicorn and selected production post-Scr_GetInt flag update agree; full script method is not replay-qualified."
     }
   ],
   "limits": [

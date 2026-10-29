@@ -1380,7 +1380,19 @@ void PlayerCmd_IsFiring(scr_entref_t entref)
 
 void PlayerCmd_IsInMoveMode(scr_entref_t entref)
 {
-    iassert(0); // KISAKTODO
+    if (entref.classnum)
+    {
+        Scr_ObjectError("not an entity", SCRIPTINSTANCE_SERVER);
+    }
+    else
+    {
+        iassert(entref.entnum < MAX_GENTITIES);
+        if (!g_entities[entref.entnum].client)
+            Scr_ObjectError(va("entity %i is not a player", entref.entnum), SCRIPTINSTANCE_SERVER);
+    }
+
+    // The original MP command validates the player and always returns zero.
+    Scr_AddInt(0, SCRIPTINSTANCE_SERVER);
 }
 
 void PlayerCmd_IsMeleeing(scr_entref_t entref)
@@ -8209,12 +8221,27 @@ void __cdecl PlayerCmd_isCarryingTurret(scr_entref_t entref)
     pSelf->client->ps.bCarryingTurret = Scr_GetInt(0, SCRIPTINSTANCE_SERVER) != 0;
 }
 
-// LWSS ADD
 void PlayerCmd_SetTurrentHint(scr_entref_t entref)
 {
-    iassert(0);
+    gentity_s *self;
+    if (entref.classnum)
+    {
+        Scr_ObjectError("not an entity", SCRIPTINSTANCE_SERVER);
+        self = 0;
+    }
+    else
+    {
+        iassert(entref.entnum < MAX_GENTITIES);
+        self = &g_entities[entref.entnum];
+        if (!self->client)
+            Scr_ObjectError(va("entity %i is not a player", entref.entnum), SCRIPTINSTANCE_SERVER);
+    }
+
+    if (Scr_GetInt(0, SCRIPTINSTANCE_SERVER))
+        self->client->ps.weapFlags &= ~0x800000;
+    else
+        self->client->ps.weapFlags |= 0x800000;
 }
-// LWSS END
 
 void __cdecl PlayerCmd_CanPlayerPlaceTurret(scr_entref_t entref)
 {

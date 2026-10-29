@@ -3065,12 +3065,25 @@ void __cdecl ScrCmd_IsTouching(scr_entref_t entref)
     Scr_AddInt(bTouching, SCRIPTINSTANCE_SERVER);
 }
 
-// LWSS ADD
 void ScrCmd_IsTouchingVolume(scr_entref_t entref)
 {
-    iassert(0); // KISAKTODO :)
+    gentity_s *ent = GetEntity(entref);
+    float origin[3];
+    float mins[3];
+    float maxs[3];
+
+    Scr_GetVector(0, origin, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(1, mins, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(2, maxs, SCRIPTINSTANCE_SERVER);
+    mins[0] = mins[0] + origin[0];
+    mins[1] = mins[1] + origin[1];
+    mins[2] = mins[2] + origin[2];
+    maxs[0] = maxs[0] + origin[0];
+    maxs[1] = maxs[1] + origin[1];
+    maxs[2] = maxs[2] + origin[2];
+    ExpandBoundsToWidth(mins, maxs);
+    Scr_AddInt(SV_EntityContact(mins, maxs, ent), SCRIPTINSTANCE_SERVER);
 }
-// LWSS END
 
 void __cdecl ScrCmd_IsTouchingSwept(scr_entref_t entref)
 {
@@ -6600,12 +6613,54 @@ $LN11_33:
     }
 }
 
-// LWSS ADD
 void Scr_PlayerBulletTrace()
 {
-    iassert(0); // KISAKTODO :)
+    float start[3];
+    float end[3];
+    float endpos[3];
+    float normal[3];
+    trace_t trace;
+    int ignoreEntNum = ENTITYNUM_NONE;
+
+    Scr_GetVector(0, start, SCRIPTINSTANCE_SERVER);
+    Scr_GetVector(1, end, SCRIPTINSTANCE_SERVER);
+    if (Scr_GetType(2, SCRIPTINSTANCE_SERVER) == 1
+        && Scr_GetPointerType(2, SCRIPTINSTANCE_SERVER) == 19)
+    {
+        // Retail tests parameter 2, then reads the ignored entity from parameter 3.
+        ignoreEntNum = Scr_GetEntity(3)->s.number;
+    }
+    G_LocationalTrace(&trace, start, end, ignoreEntNum, 0x2000000, bulletPriorityMap, 0);
+    Scr_MakeArray(SCRIPTINSTANCE_SERVER);
+    Scr_AddFloat(trace.fraction, SCRIPTINSTANCE_SERVER);
+    Scr_AddArrayStringIndexed(scr_const.fraction, SCRIPTINSTANCE_SERVER);
+    Vec3Lerp(start, end, trace.fraction, endpos);
+    Scr_AddVector(endpos, SCRIPTINSTANCE_SERVER);
+    Scr_AddArrayStringIndexed(scr_const.position, SCRIPTINSTANCE_SERVER);
+    unsigned __int16 hitEntId = Trace_GetEntityHitId(&trace);
+    if (hitEntId == ENTITYNUM_NONE || hitEntId == ENTITYNUM_WORLD)
+        Scr_AddUndefined(SCRIPTINSTANCE_SERVER);
+    else
+        Scr_AddEntity(&g_entities[hitEntId], SCRIPTINSTANCE_SERVER);
+    Scr_AddArrayStringIndexed(scr_const.entity, SCRIPTINSTANCE_SERVER);
+    if (!(trace.fraction < 1.0f))
+    {
+        normal[0] = end[0] - start[0];
+        normal[1] = end[1] - start[1];
+        normal[2] = end[2] - start[2];
+        Vec3Normalize(normal);
+        Scr_AddVector(normal, SCRIPTINSTANCE_SERVER);
+        Scr_AddArrayStringIndexed(scr_const.normal, SCRIPTINSTANCE_SERVER);
+        Scr_AddConstString(scr_const.none, SCRIPTINSTANCE_SERVER);
+    }
+    else
+    {
+        Scr_AddVector(trace.normal.vec.v, SCRIPTINSTANCE_SERVER);
+        Scr_AddArrayStringIndexed(scr_const.normal, SCRIPTINSTANCE_SERVER);
+        Scr_AddString(Com_SurfaceTypeToName((trace.sflags >> 20) & 0x3f), SCRIPTINSTANCE_SERVER);
+    }
+    Scr_AddArrayStringIndexed(scr_const.surfacetype, SCRIPTINSTANCE_SERVER);
 }
-// LWSS END
 
 void Scr_PlayerPhysicsTrace()
 {
