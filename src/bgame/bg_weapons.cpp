@@ -4,6 +4,7 @@
 #include <universal/com_loadutils.h>
 #include <universal/surfaceflags.h>
 #include <qcommon/common.h>
+#include <qcommon/com_gamemodes.h>
 #include <qcommon/cm_trace.h>
 #include "bg_weapons_def.h"
 #include "bg_weapons_ammo.h"
@@ -730,7 +731,7 @@ void __cdecl PM_UpdateAimDownSightLerp(pmove_t *pm, pml_t *pml)
              || !weapDef->bReloadWhileAds && ps->weaponstate == WEAPON_RELOADING_INTERUPT
              || !weapDef->bReloadWhileAds && (ps->weaponstate == WEAPON_RELOAD_START || ps->weaponstate == WEAPON_RELOAD_START_INTERUPT)
              || !weapDef->bReloadWhileAds && ps->weaponstate == WEAPON_RELOAD_END && ps->weaponTime - weapDef->iPositionReloadTransTime > 0)
-            || !weapDef->bRechamberWhileAds && ps->weaponstate == 7 )
+            || !weapDef->bRechamberWhileAds && (ps->weaponstate == 7 || ps->weaponstate == WEAPON_RECHAMBERING_FINISH) )
         {
             adsRequested = 0;
         }
@@ -848,7 +849,8 @@ int __cdecl PM_InteruptWeaponWithProneMove(playerState_s *ps)
         || ps->weaponstate == WEAPON_RELOADING_INTERUPT
         || ps->weaponstate == WEAPON_RELOAD_QUICK
         || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY
-        || ps->weaponstate == 7 )
+        || ps->weaponstate == 7
+        || ps->weaponstate == WEAPON_RECHAMBERING_FINISH )
     {
         return 1;
     }
@@ -2326,7 +2328,7 @@ void __cdecl PM_Weapon_CheckFuelTime(pmove_t *pm, pml_t *pml)
     weapDef = BG_GetWeaponDef(ps->weapon);
     weapVarDef = BG_GetWeaponVariantDef(ps->weapon);
     weaponState = BG_GetWeaponState(ps, ps->bRunLeftGun);
-    if ( weapDef->fuelTankWeapon && (*weaponState == 6 || *weaponState == 7 || *weaponState == WEAPON_CONT_FIRE_LOOP) )
+    if ( weapDef->fuelTankWeapon && (*weaponState == 6 || *weaponState == 7 || *weaponState == WEAPON_RECHAMBERING_FINISH || *weaponState == WEAPON_CONT_FIRE_LOOP) )
     {
         BG_AddFuelTankTime(ps, ps->weapon, pml->msec);
         if ( BG_GetFuelTankTime(ps, ps->weapon) > weapDef->iTankLifeTime )
@@ -2767,7 +2769,8 @@ int __cdecl PM_Weapon_WeaponTimeAdjust(pmove_t *pm, pml_t *pml)
                     || *weaponState == WEAPON_RELOADING_INTERUPT
                     || *weaponState == WEAPON_RELOAD_QUICK
                     || *weaponState == WEAPON_RELOAD_QUICK_EMPTY)
-                 && ui_gv_reloadSpeedModifier->current.value != 0.0 )
+                 && ui_gv_reloadSpeedModifier->current.value != 0.0
+                 && !Com_GameMode_IsPublicOnlineGame() )
     {
         msec = (int)((float)((float)pml->msec * ui_gv_reloadSpeedModifier->current.value) + 9.313225746154785e-10);
     }
@@ -2889,6 +2892,7 @@ void __cdecl PM_Weapon_CheckForChangeWeapon(pmove_t *pm)
          || ps->weaponstate == WEAPON_RELOAD_QUICK
          || ps->weaponstate == WEAPON_RELOAD_QUICK_EMPTY
          || ps->weaponstate == 7
+         || ps->weaponstate == WEAPON_RECHAMBERING_FINISH
          || ps->weaponstate != 6
          && ps->weaponstate != 7
          && ps->weaponstate != WEAPON_CONT_FIRE_LOOP
@@ -4322,6 +4326,7 @@ void __cdecl PM_Weapon_CheckForDetonation(pmove_t *pm)
             && ps->weaponstate != WEAPON_RELOAD_QUICK_EMPTY
             && ps->weaponstate != 6
             && ps->weaponstate != 7
+            && ps->weaponstate != WEAPON_RECHAMBERING_FINISH
             && ps->weaponstate != WEAPON_CONT_FIRE_LOOP
             && ps->weaponstate != WEAPON_MELEE_INIT
             && ps->weaponstate != WEAPON_MELEE_FIRE
@@ -4403,6 +4408,7 @@ LABEL_23:
              || ps->weapon
              && (ps->weaponstate == 6
                 || ps->weaponstate == 7
+                || ps->weaponstate == WEAPON_RECHAMBERING_FINISH
                 || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
                 || ps->weaponstate == WEAPON_MELEE_INIT
                 || ps->weaponstate == WEAPON_MELEE_FIRE
@@ -4800,11 +4806,9 @@ void __cdecl PM_Weapon_CheckForSlide(pmove_t *pm)
 {
     playerState_s *ps; // [esp+0h] [ebp-4h]
 
-    if ( !pm && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 5083, 0, "%s", "pm") )
-        __debugbreak();
+    iassert(pm);
     ps = pm->ps;
-    if ( !pm->ps && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\bgame\\bg_weapons.cpp", 5085, 0, "%s", "ps") )
-        __debugbreak();
+    iassert(ps);
     if ( ps->waterlevel < 3
         && pm->cmd.weapon
         && ps->weaponstate != 6

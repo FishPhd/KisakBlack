@@ -2353,7 +2353,7 @@ LABEL_98:
     }
 #endif
     weapDef = BG_GetWeaponDef(ps->ps.weapon);
-    if ( (botInfo->flags & 0x20) != 0 || !weapDef->bDualWield && weapDef->adsFireOnly && ps->ps.fWeaponPosFrac < 1.0 )
+    if ( (botInfo->flags & 0x20) != 0 || !weapDef->bDualWield && weapDef->aimDownSight && ps->ps.fWeaponPosFrac < 1.0 )
     {
         if ( !(botInfo->threat.distSq > (float)(sv_botCloseDistance->current.value * sv_botCloseDistance->current.value)) )
             botInfo->threat.reactionEndTime = svs.time;

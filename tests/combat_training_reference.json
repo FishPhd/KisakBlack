@@ -38,8 +38,30 @@
           "sha256": "bc0febf88c3073c1d71d14229d4fa64eaea49ef6b8c6ffcb184ac9a2c319fbbf"
         }
       ],
-      "evidence": "Retail melee precedes sight/health exits; reaction gate checks adsFireOnly for non-dual weapons; raw states0 or28..30 enter attack input; no extra forced/random grenade selection in this attack block; flashbang clears grenade request flags; ordered greater reaction-distance branch includes unordered in near path.",
-      "qualification": "Original full-function instruction audit; only deterministic non-dual-wield attack-decision region has native/Unicorn/production replay. Full combat, reaction timing and CRT RNG sequencing remain unqualified."
+      "evidence": "Retail melee precedes sight/health exits; reaction gate checks aimDownSight for non-dual weapons; raw states0 or28..30 enter attack input; no extra forced/random grenade selection in this attack block; flashbang clears grenade request flags; ordered greater reaction-distance branch includes unordered in near path.",
+      "qualification": "Original full-function instruction audit; deterministic attack-decision region and reaction-reset predicate have stated scoped native/Unicorn/production replay. Complete combat, timer assignments and CRT RNG sequencing remain unqualified.",
+      "reaction_reset_gate": {
+        "code": {
+          "rva": 4672394,
+          "size": 46,
+          "sha256": "f422f6a46b0c836238d32f2cf0650e2ede38b6e2332363fe295b395d5086586e"
+        },
+        "constant": {
+          "rva": 7088736,
+          "size": 4,
+          "sha256": "e00e5eb9444182f352323374ef4e08ebcb784725fdd4fd612d7730540b3e0c8c",
+          "hex": "0000803f"
+        },
+        "accept_rva": 4672440,
+        "reject_rva": 4672523,
+        "abi": "EAX=WeaponDef; EDI=PS/gclient(basePSoffset0); EBX=botInfo. Readsflags+45c bit20; dual+56a; aimDownSight+553; ADSfraction+168. Scoped predicate path only; no timer assignments/RNG/callees qualified.",
+        "cases": 768,
+        "before_mismatches": 48,
+        "after_mismatches": 0,
+        "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected C++ predicate agree over flags/dual/aim/adsFireOnly and float-fraction corpus. Observes only reaction-reset branch, excludes assignments, RNG and callees.",
+        "historical_evidence_correction": "build-re/multiplayer/bot-combat-remaining-audit.json mislabeled original byte553 asadsFireOnly. Actual byte553 isaimDownSight; historical correction introducedfieldmismatch.",
+        "guards": "Entire PS/bot/weapon fixtures read-only in native andCPP; all Unicorn execute/read accesses declared, allwritesblocked"
+      }
     },
     {
       "name": "Bot_UpdateMelee",
@@ -1482,6 +1504,286 @@
       "before_native_probe_sha256": "13ea00beb94e36b832996f0665cafe71e2d6877297dcb892136d73a37d5ed89c",
       "after_native_probe_sha256": "d9d03ac72814bb30a8084bf5a1def4eb4a939326c83eae7e9c43ff678d0ecfc8",
       "qualification": "Actual original CMP/JMP regions compared with verbatim selected production predicates. Excluded endpoint RET/INT3 instrumentation observes the decision; it supplies no callee result. Full timer/reload routines, rapid-fire arithmetic and rechamber side effects are not qualified by these observations."
+    },
+    {
+      "name": "PM_InteruptWeaponWithProneMove",
+      "code": [
+        {
+          "rva": 668112,
+          "size": 148,
+          "sha256": "fe54592e84f9b15bb2f360a5ea2f317f3353da2402febb48b3d27a816b23ce44"
+        },
+        {
+          "rva": 3924304,
+          "size": 91,
+          "sha256": "3d3ba71608146e7e82d2a0b844ea11196d46beed46e565aedaf58f8b6bfbcd51"
+        }
+      ],
+      "constants": [],
+      "globals": [],
+      "abi": "cdecl PS pointer on stack, integer EAX return. Full original Idle callee uses EAX PS; no other original dependencies. Actual selected production debug gate uses private null setting.",
+      "coverage": "Complete original prone-interruption and idle bodies. Three required views observe integer result, both states, all four time/delay fields, pm_flags/weapFlags and full-width both animations. Other PS bytes guarded. Raw signed state/pm_type/flags/timers/animations, bool hand, client0..17. Diagnostic gate disabled by actual private setting. No PmoveSingle or live gameplay qualification.",
+      "evidence": "Original4a31d0 explicitly accepts raw state8 alongside7 without calling Idle. Original7be150 clears right and left states/timers and animation toggles only for pm_type<9. Source omitted first-gate state8, unexpectedly resetting both hands.",
+      "entry_rva": "0xa31d0",
+      "cases": 10488,
+      "qualification": "Complete unchanged original function/callees, original native capture, qualified Unicorn and selected production C++ agree over stated corpus. No complete caller or live gameplay claim.",
+      "before_mismatches": 71,
+      "after_mismatches": 0,
+      "regression": {
+        "index": 576,
+        "input_u32": [
+          8,
+          0,
+          0,
+          3383694728,
+          4122740722,
+          3044320003,
+          2332988862,
+          1367843522,
+          3490747665,
+          2004835651,
+          3122173848,
+          0,
+          9,
+          1042808552,
+          0,
+          0
+        ],
+        "expected_u32": [
+          1,
+          8,
+          4122740722,
+          3044320003
+        ],
+        "actual_u32": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "first_word": 1
+      }
+    },
+    {
+      "name": "BG_PlayDWThirdPersonReload",
+      "code": [
+        {
+          "rva": 3920400,
+          "size": 105,
+          "sha256": "0b906db6211c644295d3bf53462210723784541e22e2962ac4a5f29dcd899bc2"
+        },
+        {
+          "rva": 1389840,
+          "size": 12,
+          "sha256": "07e688f5ef5dc8a013734237c40042ae9edadb9651b52da43a98275581e5aa77"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "name": "bg_weaponVariantDefs",
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "abi": "ESI=playerState pointer; canonical bool in AL only, high24 EAX bits unspecified. Original getter dependencies take unsigned index cdecl stack arguments.",
+      "coverage": "Complete original predicate and both getters. Distinct right/left weapon indices0..2047 including valid defaultweapon0 fixture, bool dual, all raw32 states/timers/reload times; explicit signed half-time boundaries and unrelated hand/flags/delay/animation/movement noise. Entire player state, both variants/definitions and all2048 table entries immutable. Canonical lowAL bool observed; no caller reload/animation pipeline or live gameplay qualification.",
+      "evidence": "Full original7bd210 calls real variant553510 and definition529ff0 getters via2048-entry tableC80258. Reads dualbyte+56a, dualindex+594, both main/left states+158/+15c, both timer+3c/+44 and each variant signed reloadTime+24; SAR1 then strict signed comparison. Existing C++ shift precedence is correct; no production change required.",
+      "entry_rva": "0x3bd210",
+      "cases": 1408,
+      "qualification": "Complete unchanged original function/callees, original native capture, qualified Unicorn and selected production C++ agree over stated corpus. No complete caller or live gameplay claim.",
+      "source_change": "None; newly qualified existing correct code. Shift precedence agrees with original SAR-before-CMP."
+    },
+    {
+      "name": "PM_Weapon_CheckFuelTime_StateGate",
+      "original_owner": {
+        "rva": 3932352,
+        "size": 204,
+        "sha256": "7a90e23e3c3d7c4ba04e2b371f3da3f766988de03a3c611201ad064930c83619"
+      },
+      "region": {
+        "entry_rva": 3932411,
+        "size": 33,
+        "sha256": "a398bb167e394f3e7ebf5b75f5968fa486e3c6b063b7d141066c979da373cd5c",
+        "accept_rva": 3932444,
+        "reject_rva": 3932551
+      },
+      "cases": 776,
+      "before_mismatches": 1,
+      "after_mismatches": 0,
+      "coverage": "Only fuelTankWeapon and selected weaponState admission before BG_AddFuelTankTime. Original region executes unchanged; native adapters project excluded accept/reject boundaries to bool. Unicorn stops before endpoints. No helpers, arithmetic, hand selection or fuel expiration side effects qualified.",
+      "domain": "fuel bool 0/1; selected state 0..128, signed extrema and 256 seeded arbitrary raw words. Asset/state fixtures read-only.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree. Excluded endpoint instrumentation only observes branch; no callee result supplied. Full owner routine remains outside coverage.",
+      "limits": "Caller integration and live gameplay are outside this bounded predicate replay."
+    },
+    {
+      "name": "PM_Weapon_CheckForChangeWeapon_TimingGate",
+      "original_owner": {
+        "rva": 3935072,
+        "size": 963,
+        "sha256": "40e4332b4802f72a3abb20e4c2719b4bf6f43424955bb83fbd283c6f3275be70"
+      },
+      "region": {
+        "entry_rva": 3935211,
+        "accept_rva": 3935323,
+        "reject_rva": 3936032,
+        "size": 112,
+        "sha256": "b34a44563468c15d9a0e6cf05cf59c49ab297452ba37da121149855f04fdcffc"
+      },
+      "cases": 4405,
+      "before_mismatches": 36,
+      "after_mismatches": 0,
+      "coverage": "Only branch observation from timing predicate after water/mantle/prior state filters. Unchanged original bytes run natively and in Unicorn; native endpoint MOV EAX/RET instrumentation lies outside observed region. Exact production predicate extracted, enum from production header. All player-state bytes guarded; no original calls/globals, no fabricated callee results.",
+      "domain": "All states0..63 plus signed extremes crossed with zero/positive/negative/extreme time and delay;1024 seeded arbitrary32bit triples.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree. Excluded endpoint instrumentation only observes branch; no callee result supplied. Full owner routine remains outside coverage.",
+      "limits": "No full CheckForChangeWeapon qualification, no earlier filters or actual change helpers, no proof state8+nonzeroDelay occurs during normal gameplay, no byte-identical C++ compilation claim."
+    },
+    {
+      "name": "PM_Weapon_CheckForDetonation_StateGate",
+      "original_owner": {
+        "rva": 3940272,
+        "size": 317,
+        "sha256": "dbed0bca03a73c492642d563705d9c51455212aff98966142a8d07a1d2199bb4"
+      },
+      "region": {
+        "entry_rva": 3940341,
+        "size": 174,
+        "sha256": "7546b4a7ac5c6b2564b25538039545a66f457ad794b8e28289552287e69116bc",
+        "accept_rva": 3940515,
+        "reject_rva": 3940585
+      },
+      "cases": 388,
+      "before_mismatches": 1,
+      "after_mismatches": 0,
+      "coverage": "Only main weaponstate exclusion gate after weapon/type/hasDetonator checks and before command-button test. Unchanged original region executed natively and in Unicorn. Excluded accept/reject boundaries project bool in native adapter; Unicorn stops before endpoints. No callee returns fabricated. Whole detonation routine, assets, command input, animation and timer side effects not qualified.",
+      "domain": "Raw main weaponstate 0..128, signed extrema and256seeded arbitrary words. PS fixture immutable.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree. Excluded endpoint instrumentation only observes branch; no callee result supplied. Full owner routine remains outside coverage.",
+      "limits": "Caller integration and live gameplay are outside this bounded predicate replay."
+    },
+    {
+      "name": "PM_Weapon_CheckForGrenadeThrowCancel_StateGate",
+      "original_owner": {
+        "rva": 3940592,
+        "size": 339,
+        "sha256": "b4ada44ed7c549e75b748993527a34a886f737f50ead8183055d54bcc3585206"
+      },
+      "region": {
+        "entry_rva": 3940818,
+        "accept_rva": 3940859,
+        "reject_rva": 3940929,
+        "size": 41,
+        "sha256": "73efa346037b17bf0aa8363d6cc123939a105a1ccedb7189253df924ede06bde"
+      },
+      "cases": 1093,
+      "before_mismatches": 1,
+      "after_mismatches": 0,
+      "coverage": "Only held-grenade cancel state-OR branch observation. Entry follows weapon type/cancelability/held-weapon filters. Unchanged original bytes run natively and in Unicorn; native endpoint MOV EAX/RET instrumentation lies outside observed region. Exact production predicate extracted, enum from production header. All player-state bytes guarded; no original calls/globals, no fabricated callee results.",
+      "domain": "All states0..63 plus signed extremes;1024 seeded arbitrary32bit states. Time and delay are varied unused state canaries, not gate inputs.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree. Excluded endpoint instrumentation only observes branch; no callee result supplied. Full owner routine remains outside coverage.",
+      "limits": "No full CheckForGrenadeThrowCancel qualification; excludes selected-weapon getter, prior type/held/cancel flags and later hold/button/Idle/animation logic; no byte-identical C++ compilation claim."
+    },
+    {
+      "name": "PM_UpdateAimDownSightLerp_RechamberGate",
+      "original_owner": {
+        "rva": 2033520,
+        "size": 810,
+        "sha256": "6d346bd8af28e4525877efd18708b3dfe9fe0ecbcfa8afda01dd8ef9cc351d17"
+      },
+      "region": {
+        "entry_rva": 2033838,
+        "size": 24,
+        "sha256": "bb457f85df4275eb208c462a0ef5a341de7e950bbed34666e261f7a825e95b57",
+        "accept_rva": 2033862,
+        "reject_rva": 2033866
+      },
+      "cases": 776,
+      "before_mismatches": 1,
+      "after_mismatches": 0,
+      "coverage": "Only final rechamber ADS-suppression term after reload terms and before vehicle/request terms. Original instruction bytes unchanged; native adapter projects excluded endpoints to bool, Unicorn stops at endpoints. No whole interpolation, flags, asset selection or adsFireOnly override effects qualified.",
+      "domain": "bRechamberWhileAds bool0/1; mainweaponstate0..128,signedextrema,256seeded arbitrarywords; PS andasset fixtures immutable.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree. Excluded endpoint instrumentation only observes branch; no callee result supplied. Full owner routine remains outside coverage.",
+      "limits": "Caller integration and live gameplay are outside this bounded predicate replay."
+    },
+    {
+      "name": "PM_Weapon_CheckForSlide",
+      "code": [
+        {
+          "rva": 3927472,
+          "size": 137,
+          "sha256": "f413e6a23ce8e5014e8a1dd1e198ea88792905b5764b8aa1bab34a4e6f844c68"
+        },
+        {
+          "rva": 3926080,
+          "size": 113,
+          "sha256": "17044cae3438d34b7f9ebf4dca1038582042f88d5194ee737ac278ac9be7e65d"
+        },
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        }
+      ],
+      "constants": [],
+      "globals": [
+        {
+          "name": "bg_weaponVariantDefs",
+          "va": "0xc80258",
+          "rva": 8913496,
+          "size": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        }
+      ],
+      "abi": "Custom pmove pointer in ECX, void return; original Slide_State_In uses ESI PS, definition getter cdecl.",
+      "coverage": "Complete original slide checker, slide entry and getter over valid nonzero current weapon and uint16 command weapon, raw states/flags/signed water/movement/timers and full32bit animation words, bool active hand. Outputs state/time/delay/right animation; every other PS byte, complete pmove object, assets and table guarded. Actual production constructors establish fixture object lifetime; physics vtable operations outside this path must terminate. No central dispatch/global enum or live gameplay qualification.",
+      "evidence": "Original7bedb0 excludes states6/7/8/32, melee18..20, switching1..5, offhand21..26, DTP41..43 and slide44. Requires signed water<3, nonzero uint16 command weapon, pm_flags800000 and slideTime==commandserverTime; calls full original slide entry.",
+      "entry_rva": "0x3bedb0",
+      "release_code_parity": {
+        "change": "Retain pm/ps assertions in Debug with iassert; omit null-check diagnostic paths absent from mapped original Release body. Gameplay predicate and callee unchanged.",
+        "compiled_selected_cpp_assertion_calls_before": 2,
+        "compiled_selected_cpp_assertion_calls_after": 0,
+        "scope": "Compiled selected-production replay function; extents include alignment, no literal byte equality claim."
+      }
+    },
+    {
+      "name": "PM_Weapon_WeaponTimeAdjust_PublicReloadModifierGate",
+      "original_owner": {
+        "rva": 3933632,
+        "size": 1433,
+        "sha256": "e5cb1c675c70fc3617f2809e339cc3e181928c911f038bc56b33cdd5f2e414c5"
+      },
+      "code": [
+        {
+          "rva": 3934337,
+          "size": 63,
+          "sha256": "a0f268537895abd85e6d701cb687d59f261412178e59bd4247005c5357aea3db"
+        },
+        {
+          "rva": 1060160,
+          "size": 30,
+          "sha256": "9adcba7f42cacc8c43faeb63626c4527ee5663f846e36d3e43beff024203de13"
+        },
+        {
+          "rva": 2871408,
+          "size": 66,
+          "sha256": "b124ca94faeb76c0d7e9e438a0d6e46584937c1c223a8d270b1ce420a5a58665"
+        }
+      ],
+      "accept_rva": 3934400,
+      "reject_rva": 3934458,
+      "cases": 3216,
+      "before_mismatches": 56,
+      "after_mismatches": 0,
+      "original_native_outputs_sha256": "fb63964fb59c8b8992f1e6213c1396b4b423510c0ba9e078ebdf1d64efba8937",
+      "coverage": "Reload-state and nonzero-modifier gate, including complete real original public/private-online helpers. Native only declared absolute dvar-pointer operands relocated. Unicorn executes unchanged original bytes at original VAs; code endpoints excluded and observed as bool, no callee result fabricated. Earlier speed/perk precedence, timer arithmetic/conversion and downstream gameplay effects excluded.",
+      "domain": "States0..63+signedextrema; modifier +0/-0/.25/1/2/4 within registered0..4 range; eight explicit configurations cover offline/null/disabled/public/private/basictraining/theater/both private flags. No negative, NaN or infinity modifiers (outside registereddomain). Fixtures read-only; original helper stackwrites allowed.",
+      "read_call_order": "Original reads/tests the modifier before invoking the real public-online helper, matching source short-circuit order. Public mode does not excuse a null modifier pointer.",
+      "qualification": "Unchanged original native gate and complete actual public/private helper bodies, independently qualified Unicorn and selected production predicate/helpers agree. Only declared native absolute dvar-pointer operands relocated; excluded endpoints observe decision, no callee result supplied. Timer arithmetic and full owner integration excluded."
     }
   ],
   "limits": [
