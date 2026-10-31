@@ -1784,6 +1784,146 @@
       "domain": "States0..63+signedextrema; modifier +0/-0/.25/1/2/4 within registered0..4 range; eight explicit configurations cover offline/null/disabled/public/private/basictraining/theater/both private flags. No negative, NaN or infinity modifiers (outside registereddomain). Fixtures read-only; original helper stackwrites allowed.",
       "read_call_order": "Original reads/tests the modifier before invoking the real public-online helper, matching source short-circuit order. Public mode does not excuse a null modifier pointer.",
       "qualification": "Unchanged original native gate and complete actual public/private helper bodies, independently qualified Unicorn and selected production predicate/helpers agree. Only declared native absolute dvar-pointer operands relocated; excluded endpoints observe decision, no callee result supplied. Timer arithmetic and full owner integration excluded."
+    },
+    {
+      "name": "PM_IsPlayerFrozenByWeapon_StateGate",
+      "original_owner": {
+        "rva": 3874656,
+        "size": 82,
+        "sha256": "c5fac1c724ca7f49ba118881e07277844578ae5002ff5814477f888fb8898d23"
+      },
+      "region": {
+        "rva": 3874656,
+        "size": 41,
+        "sha256": "70bafed43817358ff7e57d2a79f14fe01db829aa54ea8fbb1a03387aa7a49604",
+        "accept": 3874697,
+        "reject": 3874709
+      },
+      "cases": 132,
+      "before_mismatches": 1,
+      "after_mismatches": 0,
+      "coverage": "Frozen helper only initial state admission before weapon nonzero/asset lookup; PmoveSingle only initial freeze decision before command-mask and velocity writes. Original bytes unchanged, excluded native endpoints project bool, Unicorn stops at endpoints. No invented callee results. Full helpers/Pmove/collision/animation side effects excluded.",
+      "domain": "Frozen states0..128+signedextrema; Pmove state0..63+signedextrema crossflags0/800/400/c00/80000000 andeFlags2 0/40000000/10000000/50000000. PSfixture immutable.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree; excluded boundaries observe branch only. Original helper asset lookup, command-mask/velocity writes and full movement remain outside coverage."
+    },
+    {
+      "name": "PmoveSingle_InitialFreezeGate",
+      "original_owner": {
+        "rva": 3896496,
+        "size": 3773,
+        "sha256": "3e46982fd3a232ecea4c24551082fda83d6eca083bca46cf7849b053dafd3ac0"
+      },
+      "region": {
+        "rva": 3896628,
+        "size": 43,
+        "sha256": "dd9b5a4e7f21113cfddcdaa84bace9eb54e0b1d7fd910622e6ed141e21892cdd",
+        "accept": 3896815,
+        "reject": 3896671
+      },
+      "cases": 1340,
+      "before_mismatches": 396,
+      "after_mismatches": 0,
+      "coverage": "Frozen helper only initial state admission before weapon nonzero/asset lookup; PmoveSingle only initial freeze decision before command-mask and velocity writes. Original bytes unchanged, excluded native endpoints project bool, Unicorn stops at endpoints. No invented callee results. Full helpers/Pmove/collision/animation side effects excluded.",
+      "domain": "Frozen states0..128+signedextrema; Pmove state0..63+signedextrema crossflags0/800/400/c00/80000000 andeFlags2 0/40000000/10000000/50000000. PSfixture immutable.",
+      "qualification": "Unchanged original native region, independently qualified Unicorn and verbatim selected production predicate agree; excluded boundaries observe branch only. Original helper asset lookup, command-mask/velocity writes and full movement remain outside coverage."
+    },
+    {
+      "name": "Bot_UpdateWeapon_StateAdmission",
+      "original_owner": {
+        "rva": 4661040,
+        "size": 687,
+        "sha256": "8ee2d57dbf8b97574238f660cefe5f7933f2d5b8804720aa4cb0369661db5211"
+      },
+      "region": {
+        "rva": 4661071,
+        "size": 22,
+        "sha256": "4d9e21c5f4a60c43556e8481e50382728cc64d0d24c9a233a3df7283b6ffb92a",
+        "accept": 4661093,
+        "reject": 4661724
+      },
+      "abi": "EAX=rawsignedstate loadedfromPS+158 beforeentry. No globals, calls or memoryreads/writes inregion.",
+      "cases": 392,
+      "before_mismatches": 3,
+      "after_mismatches": 0,
+      "coverage": "Onlystateadmission branch; exactsourceifpredicate negated toobserveadmission. Excludedaccept/rejectboundaries instrumentedRET/INT3 native; originalbytesandrelativebranches unchanged. No weaponselection/callees/statewrites qualified.",
+      "qualification": "Unchanged original native/Unicorn admission gate and selected production predicate agree. Ready0 and sprint28..30 admitted. Complete weapon selection and its remaining lock-on/close-turret gates are not qualified."
+    },
+    {
+      "name": "Bot_IsNonNitrousVehicle",
+      "entry_rva": "0x470af0",
+      "code": [
+        {
+          "rva": 4655856,
+          "size": 32,
+          "sha256": "c0f9ef01f9dd8b2b78dcedc92cbcd2a6fdab1e6a4e2a408b38fb2560f2411287"
+        }
+      ],
+      "abi": "Original custom EAX entity argument and canonical EAX result; callers test AL. Production helper uses normal C++ pointer argument and bool; no compiled ABI/byte identity claim.",
+      "evidence": "Original checks nonnull entity, nonnull scr_vehicle at entity+158 and null nitrousVehicle pointer at vehicle+69c. Nitrous pointer is tested without dereferencing. Shared helper restored at all five independently mapped source sites.",
+      "callers": [
+        {
+          "name": "Bot_UpdateSight",
+          "rva": 4658512,
+          "size": 645,
+          "sha256": "08f0b0d339556692eeb30684af1bb2effd8fc6d5c3026f3a865d5510daf4bbb6",
+          "call_or_inline_entry_rva": 4658875
+        },
+        {
+          "name": "Bot_UpdateWeapon",
+          "rva": 4661040,
+          "size": 687,
+          "sha256": "8ee2d57dbf8b97574238f660cefe5f7933f2d5b8804720aa4cb0369661db5211",
+          "call_or_inline_entry_rva": 4661203
+        },
+        {
+          "name": "Bot_ShouldThrowGrenade",
+          "rva": 4663248,
+          "size": 673,
+          "sha256": "308c288ab139b7b0179892b02c702451824f9587a3c08bb8fbdc11b646bbdb30",
+          "call_or_inline_entry_rva": 4663346
+        },
+        {
+          "name": "Bot_UpdateScriptEnemy",
+          "rva": 4665328,
+          "size": 131,
+          "sha256": "fb5cb296fbf4439db0246503ec286c3b2f5b5b940990e5c87de0eb2092887661",
+          "call_or_inline_entry_rva": 4665370
+        },
+        {
+          "name": "Bot_UpdateCombat",
+          "rva": 4672112,
+          "size": 760,
+          "sha256": "bc0febf88c3073c1d71d14229d4fa64eaea49ef6b8c6ffcb184ac9a2c319fbbf",
+          "call_or_inline_entry_rva": 4672601
+        }
+      ],
+      "inline_regions": [
+        {
+          "name": "Bot_UpdateSight",
+          "rva": 4658875,
+          "size": 23,
+          "sha256": "85427d426e70c8e3eff4eecbd269d5b588eef03ae9808581a3adbfc54fbb6139",
+          "accept_boundary": 4658898,
+          "reject_boundary": 4658906,
+          "cases": 16,
+          "native_helper_vs_unicorn_inline_mismatches": 0
+        },
+        {
+          "name": "Bot_UpdateWeapon",
+          "rva": 4661203,
+          "size": 35,
+          "sha256": "fecc7dd0685981a21e01eee7add47f202c6d13b601b70310b291c758416d9119",
+          "accept_boundary": 4661238,
+          "reject_boundary": 4661459,
+          "cases": 16,
+          "native_helper_vs_unicorn_inline_mismatches": 0
+        }
+      ],
+      "cases": 80,
+      "before_mismatches": 15,
+      "after_mismatches": 0,
+      "coverage": "Complete unchanged original 32-byte helper, independent Unicorn and exact selected production predicates/helper. All entity/vehicle fixtures immutable. Five copies of sixteen null/present/raw nitrous-pointer inputs; weapon turret OR fixed false to isolate vehicle subterm. Two original inline regions independently checked against native original helper over32 observations.",
+      "qualification": "Classification and original inline decision regions only. Caller weapon selection, trace masks, path clearing, grenade and lock-on timer side effects remain outside replay; their instruction callsite mapping does not establish full owner equivalence."
     }
   ],
   "limits": [

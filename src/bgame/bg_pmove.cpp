@@ -1692,7 +1692,7 @@ void __cdecl PmoveSingle(pmove_t *pm)
         pm->cmd.forwardmove = 127;
         pm->cmd.rightmove = 0;
     }
-    if ( (ps->pm_flags & 0x800) != 0 || ps->weaponstate == WEAPON_DEPLOYING )
+    if ( (ps->pm_flags & 0x800) != 0 || ps->weaponstate == WEAPON_DEPLOYING || (ps->eFlags2 & 0x40000000) != 0 )
     {
         bitarray<51> mask_bits(12, 8, 9, -1); // [esp+F0h] [ebp-A8h] BYREF
         //bitarray<51>::bitarray<51>(&mask_bits, 12, 8, 9, -1);
@@ -3815,6 +3815,7 @@ bool __cdecl PM_IsPlayerFrozenByWeapon(const playerState_s *ps)
 {
     return (ps->weaponstate == 6
              || ps->weaponstate == 7
+             || ps->weaponstate == WEAPON_RECHAMBERING_FINISH
              || ps->weaponstate == WEAPON_CONT_FIRE_LOOP
              || ps->weaponstate == WEAPON_MELEE_INIT
              || ps->weaponstate == WEAPON_MELEE_FIRE

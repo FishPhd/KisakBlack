@@ -19,6 +19,7 @@
 #include <client_mp/g_client_mp.h>
 #include <game/g_debug.h>
 #include <game/g_bsp.h>
+#include <game/g_scr_vehicle.h>
 
 const char *botNames[47] =
 {
@@ -442,6 +443,11 @@ void __cdecl Bot_UpdateTimedAction(int *timedAction)
         *timedAction = 0;
 }
 
+static bool Bot_IsNonNitrousVehicle(const gentity_s *enemy)
+{
+    return enemy && enemy->scr_vehicle && !enemy->scr_vehicle->nitrousVehicle;
+}
+
 void __cdecl Bot_UpdateSight(bot_info_t *botInfo, const client_t *bot)
 {
     const float *v4; // [esp+24h] [ebp-7Ch]
@@ -502,7 +508,7 @@ void __cdecl Bot_UpdateSight(bot_info_t *botInfo, const client_t *bot)
         context.passEntityNum1 = botInfo->threat.enemy->s.number;
         context.mask = 0x2818001;
         v6 = botInfo->threat.enemy;
-        if ( v6 && v6->scr_vehicle )
+        if ( Bot_IsNonNitrousVehicle(v6) )
             context.mask &= ~0x10000u;
         hadSight = botInfo->sightHitNum == 0;
         SV_SightTracePoint(&botInfo->sightHitNum, botOrigin, enemyOrigin, &context);
@@ -928,9 +934,7 @@ bool __cdecl Bot_ThreatSightCheck(const client_t *bot, const gentity_s *enemy, f
 
 void __cdecl Bot_UpdateWeapon(const bot_info_t *botInfo, const client_t *bot, usercmd_s *cmd)
 {
-    char v3; // [esp+0h] [ebp-44h]
     bool v4; // [esp+4h] [ebp-40h]
-    const gentity_s *v5; // [esp+1Ch] [ebp-28h]
     const gentity_s *enemy; // [esp+20h] [ebp-24h]
     int k; // [esp+2Ch] [ebp-18h]
     int j; // [esp+30h] [ebp-14h]
@@ -942,7 +946,8 @@ void __cdecl Bot_UpdateWeapon(const bot_info_t *botInfo, const client_t *bot, us
 
     //PIXBeginNamedEvent(-1, "Bot_UpdateWeapon");
     ps = G_GetPlayerState(bot->gentity->s.number);
-    if ( ps->ps.weaponstate )
+    if ( ps->ps.weaponstate != WEAPON_READY
+        && (ps->ps.weaponstate < WEAPON_SPRINT_RAISE || ps->ps.weaponstate > WEAPON_SPRINT_DROP) )
     {
         //if ( g_DXDeviceThread != GetCurrentThreadId() )
         //    return;
@@ -952,7 +957,7 @@ void __cdecl Bot_UpdateWeapon(const bot_info_t *botInfo, const client_t *bot, us
         cmd->weapon = botInfo->weapon;
     enemy = botInfo->threat.enemy;
     v4 = enemy && enemy->pTurretInfo;
-    if ( v4 || ((v5 = botInfo->threat.enemy) == 0 || !v5->scr_vehicle ? (v3 = 0) : (v3 = 1), v3) )
+    if ( v4 || Bot_IsNonNitrousVehicle(botInfo->threat.enemy) )
     {
         if ( BG_GetWeaponDef(botInfo->weapon)->weapType != WEAPTYPE_PROJECTILE )
         {
@@ -1624,7 +1629,7 @@ char __cdecl Bot_UpdateScriptEnemy(bot_info_t *botInfo, const client_t *bot)
             if ( botInfo->threat.enemy->health > 0 )
             {
                 enemy = botInfo->threat.enemy;
-                if ( enemy && enemy->scr_vehicle )
+                if ( Bot_IsNonNitrousVehicle(enemy) )
                 {
                     Path_Clear(&botInfo->path);
                     //if ( GetCurrentThreadId() == g_DXDeviceThread )
@@ -2382,7 +2387,7 @@ LABEL_98:
         goto LABEL_98;
     }
     enemy = botInfo->threat.enemy;
-    v5 = enemy && enemy->scr_vehicle;
+    v5 = Bot_IsNonNitrousVehicle(enemy);
     if ( v5 && weapDef->lockOnSpeed )
     {
         if ( !botInfo->threat.acquireTime && ps->ps.fWeaponPosFrac >= 1.0 )
@@ -2782,7 +2787,7 @@ char __cdecl Bot_ShouldThrowGrenade(bot_info_t *botInfo, const client_t *bot)
             if ( botInfo->threat.enemy->health > 0 )
             {
                 enemy = botInfo->threat.enemy;
-                if ( enemy && enemy->scr_vehicle )
+                if ( Bot_IsNonNitrousVehicle(enemy) )
                 {
                     //if ( g_DXDeviceThread == GetCurrentThreadId() )
                         //D3DPERF_EndEvent();
