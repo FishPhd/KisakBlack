@@ -1924,6 +1924,105 @@
       "after_mismatches": 0,
       "coverage": "Complete unchanged original 32-byte helper, independent Unicorn and exact selected production predicates/helper. All entity/vehicle fixtures immutable. Five copies of sixteen null/present/raw nitrous-pointer inputs; weapon turret OR fixed false to isolate vehicle subterm. Two original inline regions independently checked against native original helper over32 observations.",
       "qualification": "Classification and original inline decision regions only. Caller weapon selection, trace masks, path clearing, grenade and lock-on timer side effects remain outside replay; their instruction callsite mapping does not establish full owner equivalence."
+    },
+    {
+      "name": "Bot_UpdateWeapon_SelectionGates",
+      "original_owner": {
+        "rva": 4661040,
+        "size": 687,
+        "sha256": "8ee2d57dbf8b97574238f660cefe5f7933f2d5b8804720aa4cb0369661db5211"
+      },
+      "regions": [
+        {
+          "name": "InitialSelectedWeaponLockonFilter",
+          "entry": 4661093,
+          "end": 4661179,
+          "reject": null,
+          "sha256": "dd04daaf803f8cb4e11d42529ca5474f25344f1d900f7a7dbb873f889420ce71"
+        },
+        {
+          "name": "TurretProjectilePriorityDistanceGate",
+          "entry": 4661179,
+          "end": 4661303,
+          "reject": 4661459,
+          "sha256": "b91bb0b4372a0c6c63953233a912ce81737ace74c505565e99419e2345eaa568"
+        },
+        {
+          "name": "ProjectileCandidateLockonGate",
+          "entry": 4661376,
+          "end": 4661423,
+          "accept": 4661434,
+          "reject": 4661423,
+          "sha256": "2445429d146d45775a1470f6308ad3a30f374696dabd1b2df114b6890df43332"
+        }
+      ],
+      "dependencies": [
+        {
+          "rva": 1220592,
+          "size": 15,
+          "sha256": "19fb5a82735cb1c01b6ebce11a0be921f5dd283763da22ed1432b000ebebbb09"
+        },
+        {
+          "rva": 4655856,
+          "size": 32,
+          "sha256": "c0f9ef01f9dd8b2b78dcedc92cbcd2a6fdab1e6a4e2a408b38fb2560f2411287"
+        }
+      ],
+      "region_abi": [
+        "EBX=botInfo; original entry stack+10=CMD*, initial if assigns ushort; original PUSH ESI is balanced only by excluded endpoint POP ESI/RET. Native shim creates matching stack frame.",
+        "EBX=botInfo; original PUSH EDI balanced by excluded endpoint. Real getter called before second enemy/turret read. Getter asset valid and immutable.",
+        "ECX=WeaponDef; EDX=actual type loaded from same asset by immediately preceding original MOV at87207a. Entry872080 excludes original ADD ESP4 getter-argument cleanup. EBX=botInfo, complete original nonnitrous helper preserves ECX/EDX."
+      ],
+      "native_fixups": [
+        {
+          "operand_rva": 1220599,
+          "target_rva": 8913496,
+          "original_bytes": "5802c800"
+        },
+        {
+          "operand_rva": 4661274,
+          "target_rva": 52904364,
+          "original_bytes": "ac416703"
+        }
+      ],
+      "cases": 546,
+      "before_mismatches": 39,
+      "after_mismatches": 0,
+      "groups": [
+        {
+          "name": "InitialSelectedWeaponLockonFilter",
+          "cases": 32,
+          "before_mismatches": 14,
+          "after_mismatches": 0
+        },
+        {
+          "name": "TurretProjectilePriorityDistanceGate",
+          "cases": 66,
+          "before_mismatches": 11,
+          "after_mismatches": 0
+        },
+        {
+          "name": "ProjectileCandidateLockonGate",
+          "cases": 448,
+          "before_mismatches": 14,
+          "after_mismatches": 0
+        }
+      ],
+      "original_outputs_sha256": "c9852a881548daa5d48dddc21459419cfcd64f1cbbba66c97b609e60fc28f247",
+      "distance_setting": {
+        "name": "sv_botMeleeDist",
+        "pointer_rva": 52904364,
+        "registration": {
+          "rva": 323917,
+          "size": 42,
+          "sha256": "df93c8cc24a7a45a38550c9fa2a532871e70980f69b79b3be6e16b78ac842558"
+        },
+        "string_rva": 6511660
+      },
+      "float_profile": "FPCW027f/MXCSR1f80; original MULSS square and COMISS/JA. Corpus includes distance signedzero, qNaN/sNaN, infinities and finite/overflow squares. FP status not observed.",
+      "coverage": "Only three weapon-selection stage gates; first ends after initial selected-weapon filter, not complete output cmd.weapon; second ends before weapon-type/projectile-loop filter; third excludes held-slot/ammo/prior checks. Unchanged original native/UC regions plus real original getter and full nonnitrous helper. Endpoint reporting is outside original observed regions. Exact selected production prefix/conditions, compiled using layout adapters with every accessed field offset/width/type pinned by separately compiled actual-header layout-proof.cpp/object; copied source enums/getter/helper are exact production selections. Before uses frozen source from201f808; after uses modified production Bot_UpdateWeapon. All layout fixture entity/vehicle/bot/asset bytes immutable; cmd.weapon is sole allowed stage0 write. No whole687byte routine, live gameplay, invalid pointer dereference or arithmetic side effects claim.",
+      "limits": "Stage0 fixture starts cmd.weapon=1 and bot weapon0/2. Does not qualify initialized default-weapon asset lookup for cmd.weapon0, complete held-slot/ammo selection, fallback integration or live gameplay. Production fallback remains unchanged.",
+      "qualification": "Unchanged native original regions plus real getter/helper, independently qualified Unicorn, and exact selected production prefix/predicates agree. Original input and output hashes unchanged; combined native/C++ output has separate identity. Model field offsets/widths/types are pinned by compiled actual-header proof. Native endpoint instrumentation reports excluded stage boundaries only."
     }
   ],
   "limits": [

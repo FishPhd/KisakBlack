@@ -955,11 +955,18 @@ void __cdecl Bot_UpdateWeapon(const bot_info_t *botInfo, const client_t *bot, us
     }
     if ( botInfo->weapon )
         cmd->weapon = botInfo->weapon;
+    weapDef = BG_GetWeaponDef(cmd->weapon);
+    if ( weapDef->requireLockonToFire && !Bot_IsNonNitrousVehicle(botInfo->threat.enemy) )
+        cmd->weapon = 0;
     enemy = botInfo->threat.enemy;
     v4 = enemy && enemy->pTurretInfo;
     if ( v4 || Bot_IsNonNitrousVehicle(botInfo->threat.enemy) )
     {
-        if ( BG_GetWeaponDef(botInfo->weapon)->weapType != WEAPTYPE_PROJECTILE )
+        weapDef = BG_GetWeaponDef(botInfo->weapon);
+        enemy = botInfo->threat.enemy;
+        if ( !(enemy && enemy->pTurretInfo
+            && (float)(sv_botMeleeDist->current.value * sv_botMeleeDist->current.value) > botInfo->threat.distSq)
+            && weapDef->weapType != WEAPTYPE_PROJECTILE )
         {
             for ( i = 0; i < 15; ++i )
             {
@@ -971,6 +978,7 @@ void __cdecl Bot_UpdateWeapon(const bot_info_t *botInfo, const client_t *bot, us
                         {
                             weapDef = BG_GetWeaponDef(ps->ps.heldWeapons[i].weapon);
                             if ( weapDef->weapType != WEAPTYPE_BOMB
+                                && (!weapDef->requireLockonToFire || Bot_IsNonNitrousVehicle(botInfo->threat.enemy))
                                 && weapDef->weapClass != WEAPCLASS_PISTOL
                                 && weapDef->weapClass != WEAPCLASS_TURRET
                                 && weapDef->weapType == WEAPTYPE_PROJECTILE )
