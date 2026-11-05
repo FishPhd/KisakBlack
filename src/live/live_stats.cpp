@@ -1565,10 +1565,10 @@ char __cdecl LiveStats_MoveToProItemVersion(ddlState_t *searchState, int itemInd
     const ddlState_t *RootDDLState; // eax
     char *v5; // [esp-Ch] [ebp-Ch]
 
-    va("%d", challengeIndex);
+    const char *challenge = va("%d", challengeIndex);
     v5 = va("%d", itemIndex);
     RootDDLState = LiveStats_GetRootDDLState();
-    if ( DDL_MoveTo(RootDDLState, searchState, 4, "itemStats", v5) )
+    if ( DDL_MoveTo(RootDDLState, searchState, 4, "itemStats", v5, "isProVersionUnlocked", challenge) )
         return 1;
     DDL_PrintError("DDL: Error could not find item version unlocked %d challenge %d\n", itemIndex, challengeIndex);
     return 0;

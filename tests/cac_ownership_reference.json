@@ -1,0 +1,1779 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "image_base": "0x400000",
+  "qualification": "Original instructions and stock assets establish identities, paths, widths and call order. Production integration tests are separate from original-native DDL IO replay. No complete CAC caller behavioral replay or live persistence equivalence is claimed.",
+  "functions": [
+    {
+      "name": "BG_UnlockablesSetItemNew",
+      "entry_rva": "0x12fd10",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 1244432,
+          "size": 218,
+          "sha256": "f3dcf0676e1feccc93263a3deb979054ce4e22b49b6e5805085e6a2ae16ccb68"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "new"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x1adca0"
+        ],
+        "strings": [
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_SetItemNewForClient",
+      "entry_rva": "0x2b4260",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2835040,
+          "size": 190,
+          "sha256": "3834eeea013601f7ffc001d9c0ad1e44b15a3fe99a66fb8056345b9ba26f698d"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "new"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x222960"
+        ],
+        "strings": [
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesIsItemNew",
+      "entry_rva": "0x260460",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2491488,
+          "size": 235,
+          "sha256": "9ac05c672caa89bedf55ce5b2c276aaa085763b60225d5fbf1efd41e8b45bc4f"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "new"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0xfa8b0",
+          "0x1fc4f0",
+          "0x47bbe0",
+          "0x4a1ea0"
+        ],
+        "strings": [
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesSetItemPurchased",
+      "entry_rva": "0x3b94b0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 3904688,
+          "size": 141,
+          "sha256": "af9d1226ba75870a76b274d323ab488f36b236921547bdb026f5e1840adb9d0e"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "purchased"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x1a0700"
+        ],
+        "strings": [
+          "DDL: Error could not set purchased flag for item %d\n",
+          "itemStats",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesSellItem",
+      "entry_rva": "0x4aee0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 306912,
+          "size": 470,
+          "sha256": "eb84f30c504a10c487ee0de4e7bb4ec3b0c223f403609fcd4b61809371c243e6"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "purchased"
+      ],
+      "identity_evidence": {
+        "callers": [],
+        "strings": [
+          "DDL: Error could not clear purchased flag for item %d\n",
+          "Invalid unlockable item %d returning NULL\n",
+          "Item %s has not been purchased.\n",
+          "Item %s is locked for the current level\n",
+          "itemStats",
+          "primary",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesIsItemPurchasedFromBuffer",
+      "entry_rva": "0x3b9540",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 3904832,
+          "size": 189,
+          "sha256": "0f45c2df6cace090570c2d6105127262108a4e01ab19b35569a50591643db015"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "purchased"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0xe0840",
+          "0x18b890",
+          "0x3ba830",
+          "0x3bb120"
+        ],
+        "strings": [
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesIsItemDualWieldPurchased",
+      "entry_rva": "0x46a0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 18080,
+          "size": 269,
+          "sha256": "baa9620d55367e378ec94bb82a4a963938d0e75757715ec52ac6ea58bfa5943b"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{dual_wield_item}",
+        "purchased"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x4a1e00"
+        ],
+        "strings": [
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesPurchaseItemAttachmentPoint",
+      "entry_rva": "0x22c090",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2277520,
+          "size": 410,
+          "sha256": "50d7593d42ceb5eddac0a9d720dc1aa7dd509712c8fa3bf325bdff4a97947147"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedattachpoints",
+        "{point}"
+      ],
+      "identity_evidence": {
+        "callers": [],
+        "strings": [
+          "Attachment point %s is already purchased for item %s\n",
+          "DDL: Error could not find item %d attachment point %s\n",
+          "DDL: Error could not set purchased flag for item %d attachment point %s\n",
+          "Invalid unlockable item %d returning NULL\n",
+          "Item attachment point %s costs %d and you only have %d\n",
+          "purchasedattachpoints",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesSetItemAttachmentPurchased",
+      "entry_rva": "0x3b9670",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 3905136,
+          "size": 158,
+          "sha256": "1fb7e4deb77d060314ff174587527f6b6a94a7c9ef6e56d62472c1934a1cc1ed"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedattachments",
+        "{attachment}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0xae740",
+          "0x3bc200"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d attachment %d\n",
+          "DDL: Error could not set purchased flag for item %d attachment %d\n",
+          "purchasedattachments",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesIsItemAttachmentPointPurchased",
+      "entry_rva": "0x2954d0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2708688,
+          "size": 271,
+          "sha256": "d8e28273461060d6c6cb6a949faa81da7cad3a1098c4e45bf94407c0c1cf26bd"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedattachpoints",
+        "{point}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x22c090",
+          "0x4a7300"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d attachment point %s\n",
+          "purchasedattachpoints",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesIsItemAttachmentPurchased",
+      "entry_rva": "0x2984b0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2720944,
+          "size": 273,
+          "sha256": "5e82de3a7992003a5082a0e2116270457297b4311d5cb91436942ae346b24797"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedattachments",
+        "{attachment}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x15cb80",
+          "0x3b9de0",
+          "0x3bc200"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d attachment %d\n",
+          "purchasedattachments",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesIsItemOptionPurchased",
+      "entry_rva": "0x82260",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 533088,
+          "size": 268,
+          "sha256": "9f879cd27e904fdc1975aaba3d562846b3b28288e4dfefbe15c4d1068064ca51"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedoptions",
+        "{option}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x2f060",
+          "0x3bc530",
+          "0x47d580",
+          "0x4a7590"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d camo %d\n",
+          "purchasedoptions",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesClearItemNew",
+      "entry_rva": "0x1fc4f0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2082032,
+          "size": 221,
+          "sha256": "7542abf401c4d8b6cc0df38930f96581d1db0d7dc34b0ed64b8ecb2928bd4d5b"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "new"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0xb5c00"
+        ],
+        "strings": [
+          "DDL: Error could not set purchased flag for item %d\n",
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesSetItemOptionPurchased",
+      "entry_rva": "0x3b97a0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 3905440,
+          "size": 158,
+          "sha256": "c96ec414894d787eadb26261306b1991786b354a36de22ab01a0356bb9da83ca"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedoptions",
+        "{option}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x3bc530"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d option %d\n",
+          "DDL: Error could not set purchased flag for item %d option %d\n",
+          "purchasedoptions",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_CacValidate_IsItemPurchased",
+      "entry_rva": "0x28c510",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2671888,
+          "size": 233,
+          "sha256": "6533dfb7a1dbd9f05f9bbd39afdca6c53434af10b0f14c37b49ce64e8042dd19"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "purchased"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x71490",
+          "0x18fd10",
+          "0x1e7930",
+          "0x22ed40",
+          "0x233190",
+          "0x2449d0"
+        ],
+        "strings": [
+          "Invalid unlockable item %d returning NULL\n",
+          "itemStats",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_IsItemAttachmentPurchased",
+      "entry_rva": "0x18fd10",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 1637648,
+          "size": 281,
+          "sha256": "f8c1861abde015bded2cf44a7fb44f747cf6ece9663ec5e99e08b7b35d0f691e"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedattachments",
+        "{attachment}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x71490",
+          "0x1e7930"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d attachment %d\n",
+          "Invalid unlockable item %d returning NULL\n",
+          "purchasedattachments",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_IsItemOptionPurchased",
+      "entry_rva": "0x2449d0",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2378192,
+          "size": 315,
+          "sha256": "f524736432ac9ab319a907662e92bbabcc6af616611be81cd380610cb34bd564"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedoptions",
+        "{option}"
+      ],
+      "abi_evidence": "Six cdecl args: buffer,item,option,prestige,rank,checkWeapon. byte[entryESP+24] gates weapon ownership; rank>=0 and rank<unlock clears purchased option then returns false, before zero-cost check.",
+      "identity_evidence": {
+        "callers": [
+          "0x71490",
+          "0x1e7930"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d camo %d\n",
+          "found optionIndex %i purchased for client, but client has rank %i and unlock lvl is %i\n",
+          "purchasedoptions",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_SetItemPurchased",
+      "entry_rva": "0x237c50",
+      "scope": "inline path region only, inside SV_CACValidate_ClearWeaponInfo; no standalone original function identity",
+      "code": [
+        {
+          "rva": 2325584,
+          "size": 212,
+          "sha256": "91e930a85d8f409c141bbe51378757b7afd49226d97fa3a07ef46c9506d89a02"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "purchased"
+      ],
+      "inline_region": {
+        "rva": 2325643,
+        "size": 92,
+        "sha256": "e1c1f29b1e91026d66a51e19163df7151c8c7fe188b63d5540a6caedf6440de6"
+      },
+      "containing_owner": "SV_CACValidate_ClearWeaponInfo",
+      "identity_evidence": {
+        "callers": [
+          "0x222270"
+        ],
+        "strings": [
+          "DDL: Error could not set purchased flag for item %d\n",
+          "itemStats",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_SetItemAttachmentPurchased",
+      "entry_rva": "0x3bbb10",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 3914512,
+          "size": 148,
+          "sha256": "5ccc1a9265a2f1faedc5513cf148d0f8b33a44dc3a842e20dcf7ba873e16bb67"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedattachments",
+        "{attachment}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x237c50"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d attachment %d\n",
+          "DDL: Error could not set purchased flag for item %d attachment %d\n",
+          "purchasedattachments",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_SetItemOptionPurchased",
+      "entry_rva": "0x110380",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 1115008,
+          "size": 164,
+          "sha256": "b3de6853733f6b14dc8e4f9a7e0e66d06d0377cb15a225dbd85887b037775463"
+        }
+      ],
+      "restored_path": [
+        "weaponStats",
+        "{item}",
+        "purchasedoptions",
+        "{option}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x71490",
+          "0x1e7930",
+          "0x237c50",
+          "0x2449d0"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d option %d\n",
+          "DDL: Error could not set purchased flag for item %d option %d\n",
+          "purchasedoptions",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "BG_UnlockablesClearWeaponInfo",
+      "entry_rva": "0xae740",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 714560,
+          "size": 347,
+          "sha256": "1aa7f4dd5419c2abffe185068319198c12652959e7e94bfe8a026e09862871be"
+        }
+      ],
+      "loop_evidence": "24 attachment entries;72 option entries (CMP0x48), then item purchased and3 pro challenge flags cleared.",
+      "identity_evidence": {
+        "callers": [
+          "0x19dbc0"
+        ],
+        "strings": [
+          "DDL: Error could not find item %d option %d\n",
+          "DDL: Error could not set purchased flag for item %d\n",
+          "DDL: Error could not set purchased flag for item %d option %d\n",
+          "itemStats",
+          "purchased",
+          "purchasedoptions",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_ClearWeaponInfo",
+      "entry_rva": "0x237c50",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2325584,
+          "size": 212,
+          "sha256": "91e930a85d8f409c141bbe51378757b7afd49226d97fa3a07ef46c9506d89a02"
+        }
+      ],
+      "loop_evidence": "24 attachment entries;72 option entries (CMP0x48), then item purchased and3 pro challenge flags cleared.",
+      "identity_evidence": {
+        "callers": [
+          "0x222270"
+        ],
+        "strings": [
+          "DDL: Error could not set purchased flag for item %d\n",
+          "itemStats",
+          "purchased"
+        ]
+      }
+    },
+    {
+      "name": "SV_CACValidate_CheckIfEquippedItemsArePurchased",
+      "entry_rva": "0x1e7930",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 1997104,
+          "size": 40,
+          "sha256": "a3f2004f7d6248cc729a8333bc748612ffcd868b437d047b336d8f484907cff8"
+        },
+        {
+          "rva": 1997152,
+          "size": 2118,
+          "sha256": "f7f08cd9fcf8b0b89c181acd3508f6afa362038ddc7846bb99c0821c981668f9"
+        }
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0x71490"
+        ],
+        "strings": [
+          "Attachment %s for item %s equipped but not purchased for %llu\n",
+          "Attachment %s(%d) for item %s equipped but not purchased for %llu\n",
+          "DDL: Error could not find item %d camo %d\n",
+          "DUAL WIELD for item %s equipped but not purchased for %llu\n",
+          "Invalid unlockable item %d returning NULL\n",
+          "Item %s(%d) equipped but not purchased for %llu\n",
+          "TREASON UNCLOAKED! User claims to have attachment %s equipped, but it's not purchased!\n",
+          "TREASON UNCLOAKED: User claims %s option, but not purchased!\n",
+          "customClass1",
+          "found optionIndex %i purchased for client, but client has rank %i and unlock lvl is %i\n",
+          "item %s(%d) equipped but not purchased for %llu\n",
+          "killstreak1",
+          "purchasedoptions",
+          "weaponStats"
+        ]
+      }
+    },
+    {
+      "name": "SV_ValidateClientCAC",
+      "entry_rva": "0x71490",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 464016,
+          "size": 2118,
+          "sha256": "0d7f8cd28246b78720ed7fe4ce949193ed9c23e0506be8c9e99a18bbcd878e12"
+        }
+      ],
+      "sequence_evidence": "VA47193c/47195a/471971/471988 push checkWeapon flags1,1,0,1 for new/old/old/old. Orphan old option disables new bit at VA4719b3; otherwise charges cost.",
+      "identity_evidence": {
+        "callers": [],
+        "strings": [
+          "CACValidate: New contract: %s\n",
+          "CACValidate: New contract: cost %i\n",
+          "CACValidate: New item bought: %s, cost %i\n",
+          "CACValidate: Rejecting cac from client %s, contract %s is locked for rank %i\n",
+          "CACValidate: Rejecting cac from client %s, money spent (%i) exceeds balance (%i)\n",
+          "CODPOINTS",
+          "CONTRACTS_CP_SPENT",
+          "CONTRACTS_PURCHASED",
+          "CURRENCYSPENT",
+          "Client claims to have gone up in prestige level!\n",
+          "DDL: Error could not find item %s\n",
+          "FEATURE_CONTRACTS",
+          "Item option was in old blob with no weapon, disabling.\n",
+          "PLEVEL",
+          "RANKXP",
+          "Rejecting cac from client %s, couldn't set currency stats\n",
+          "Rejecting cac from client %s, item %s is locked for rank %i\n",
+          "Treason uncloaked!User %llu claims to have gone up more than one prestige level, or has insufficient xp, or has exceeded max prestige!\n",
+          "rejected cac from %s, items equipped that are not purchased!\n"
+        ]
+      },
+      "native_comparison_status": "blocked_fragmented_body",
+      "native_comparison_limit": "Ghidra native body stops after42bytes at an assertion call; real JZ reaches interior FUN at entry+0x32. Do not compare this fragment as the complete2118-byte original owner or call its interior automatic match a false function identity."
+    },
+    {
+      "name": "LiveStats_MoveToProItemVersion",
+      "entry_rva": "0x2b8070",
+      "scope": "complete original owner; changed dependency behavior instruction-reviewed",
+      "code": [
+        {
+          "rva": 2850928,
+          "size": 99,
+          "sha256": "fe2a8bb0f23ecfa6c243a2530c43d342c1ba0987b40aecf31ecbda0b87c2b809"
+        }
+      ],
+      "restored_path": [
+        "itemStats",
+        "{item}",
+        "isProVersionUnlocked",
+        "{challenge}"
+      ],
+      "identity_evidence": {
+        "callers": [
+          "0xae740",
+          "0x237c50",
+          "0x28dfa0"
+        ],
+        "strings": [
+          "DDL: Error could not find item version unlocked %d challenge %d\\n",
+          "isProVersionUnlocked",
+          "itemStats"
+        ],
+        "abi": "cdecl state pointer, itemIndex, challengeIndex; original 0x6b8071 reads entry ESP+12 challenge; pushes challenge format before item format; path depth4."
+      }
+    }
+  ],
+  "stock_schema": {
+    "version": 100,
+    "size": 324062,
+    "projection": "Exact member records, sizes, bit offsets, external indexes and sorted order for5 relevant structs; unrelated root members omitted. Unused struct/enum slots remain inaccessible. No gameplay/item/rank values invented.",
+    "structs": {
+      "0": {
+        "name": "root",
+        "size": 324062,
+        "members": [
+          [
+            "cacloadouts",
+            2834,
+            5708,
+            6,
+            16,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "itemstats",
+            171776,
+            70532,
+            6,
+            11,
+            0,
+            0,
+            0,
+            0,
+            256,
+            -1,
+            2
+          ],
+          [
+            "weaponstats",
+            9152,
+            314782,
+            6,
+            14,
+            0,
+            0,
+            0,
+            0,
+            64,
+            -1,
+            1
+          ]
+        ]
+      },
+      "11": {
+        "name": "itemstat_s",
+        "size": 671,
+        "members": [
+          [
+            "isproversionunlocked",
+            3,
+            0,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            3,
+            -1,
+            2
+          ],
+          [
+            "new",
+            1,
+            3,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            2
+          ],
+          [
+            "purchased",
+            1,
+            4,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            2
+          ],
+          [
+            "stats",
+            666,
+            5,
+            6,
+            10,
+            0,
+            0,
+            0,
+            0,
+            9,
+            5,
+            2
+          ]
+        ]
+      },
+      "14": {
+        "name": "weaponstat_s",
+        "size": 143,
+        "members": [
+          [
+            "attachmentbottom",
+            5,
+            0,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "attachmentcamo",
+            5,
+            5,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "attachmentlens",
+            5,
+            10,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "attachmentmuzzle",
+            5,
+            15,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "attachmentreticle",
+            5,
+            20,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "attachmenttop",
+            5,
+            25,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "attachmenttrigger",
+            5,
+            30,
+            2,
+            0,
+            0,
+            31,
+            31,
+            31,
+            1,
+            0,
+            1
+          ],
+          [
+            "purchasedattachments",
+            32,
+            35,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            32,
+            -1,
+            1
+          ],
+          [
+            "purchasedattachpoints",
+            4,
+            67,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            4,
+            10,
+            1
+          ],
+          [
+            "purchasedoptions",
+            72,
+            71,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            72,
+            -1,
+            1
+          ]
+        ]
+      },
+      "15": {
+        "name": "cacloadout_s",
+        "size": 280,
+        "members": [
+          [
+            "body",
+            8,
+            0,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "classbonus",
+            8,
+            8,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "equipment",
+            8,
+            16,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "facepaintcolor",
+            8,
+            24,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "facepaintpattern",
+            8,
+            32,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "head",
+            8,
+            40,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primary",
+            8,
+            48,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryattachment",
+            8,
+            56,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryattachmentbottom",
+            8,
+            64,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryattachmentmuzzle",
+            8,
+            72,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryattachmenttop",
+            8,
+            80,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryattachmenttrigger",
+            8,
+            88,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primarycamo",
+            8,
+            96,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryemblem",
+            8,
+            104,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primarygrenade",
+            8,
+            112,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primarylens",
+            8,
+            120,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryreticle",
+            8,
+            128,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primaryreticlecolor",
+            8,
+            136,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "primarytag",
+            8,
+            144,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondary",
+            8,
+            152,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryattachment",
+            8,
+            160,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryattachmentbottom",
+            8,
+            168,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryattachmentmuzzle",
+            8,
+            176,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryattachmenttop",
+            8,
+            184,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryattachmenttrigger",
+            8,
+            192,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondarycamo",
+            8,
+            200,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryemblem",
+            8,
+            208,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondarylens",
+            8,
+            216,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryreticle",
+            8,
+            224,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondaryreticlecolor",
+            8,
+            232,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "secondarytag",
+            8,
+            240,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "specialgrenade",
+            8,
+            248,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "specialty1",
+            8,
+            256,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "specialty2",
+            8,
+            264,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "specialty3",
+            8,
+            272,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ]
+        ]
+      },
+      "16": {
+        "name": "cacloadoutlist_s",
+        "size": 2834,
+        "members": [
+          [
+            "customclass1",
+            280,
+            0,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "customclass2",
+            280,
+            280,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "customclass3",
+            280,
+            560,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "customclass4",
+            280,
+            840,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "customclass5",
+            280,
+            1120,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "deathstreak",
+            8,
+            1400,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "iamacheater",
+            1,
+            1408,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1
+          ],
+          [
+            "killstreak1",
+            8,
+            1409,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "killstreak2",
+            8,
+            1417,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "killstreak3",
+            8,
+            1425,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            1,
+            0,
+            1
+          ],
+          [
+            "prestigeclass1",
+            280,
+            1433,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "prestigeclass2",
+            280,
+            1713,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "prestigeclass3",
+            280,
+            1993,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "prestigeclass4",
+            280,
+            2273,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "prestigeclass5",
+            280,
+            2553,
+            6,
+            15,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            "resetwarningdislayed",
+            1,
+            2833,
+            2,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    "enums": {
+      "10": {
+        "name": "attachpoints_e",
+        "members": [
+          "bottom",
+          "muzzle",
+          "top",
+          "trigger"
+        ]
+      }
+    },
+    "origin": {
+      "asset": "ddl_mp/stats.ddl",
+      "fastfile": "build/zone/Common/code_post_gfx_mp.ff",
+      "fastfile_sha256": "48133f39f8a7a931cd7b4d79d2f60d813cbf44c0c3cd9d38d7bd89e40f5a668b",
+      "inflated_sha256": "b0fd31e65f5549003e0ba7b26ef268ca3f32d95ea8856884191f7abc51c53f22",
+      "serialized_rva": 1481005,
+      "serialized_size": 24714,
+      "serialized_sha256": "6c475be650e8dae0e9aabd63a3db380cea6c103c3939470f336fc863d900a09d",
+      "loader": "src/database/db_load.cpp Load_ddlDef_t / Load_ddlStructDef_tArray / Load_ddlMemberDef_tArray / Load_ddlEnumDef_tArray,32-bit layouts; stream4 virtual alignment4, inline strings and packed prior-string references."
+    }
+  },
+  "stock_assets": {
+    "_class.gsc": {
+      "sha256": "27a7921217f9663a591b969969d1d027d404ef00c6f3d8fd3a6cfec70715681d",
+      "bytes": 80439,
+      "fastfile": "build/zone/Common/common_mp.ff"
+    },
+    "_rank.gsc": {
+      "sha256": "469e1f9f4602ef3f74ad51e6837ff78a40dd873a1a865862fa47bec43d32dfc3",
+      "bytes": 22144,
+      "fastfile": "build/zone/Common/common_mp.ff"
+    },
+    "_persistence.gsc": {
+      "sha256": "8871f0bf58cd70ae87ddd20977541e7812d3f06752972bd7411d1de80026f981",
+      "bytes": 37663,
+      "fastfile": "build/zone/Common/common_mp.ff"
+    }
+  }
+}

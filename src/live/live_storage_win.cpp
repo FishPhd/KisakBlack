@@ -2338,12 +2338,21 @@ bool __cdecl SV_ValidateClientCAC(
                 weaponoptioncount = BG_GetWeaponOptionCount();
                 for ( optionIdx = 0; optionIdx < weaponoptioncount; ++optionIdx )
                 {
-                    if ( SV_CACValidate_IsItemOptionPurchased(newcacblob, itemNumber, optionIdx, clientPrestige, clientRank)
+                    if ( SV_CACValidate_IsItemOptionPurchased(newcacblob, itemNumber, optionIdx, clientPrestige, clientRank, true)
                         && (!oldcacok
-                         || !SV_CACValidate_IsItemOptionPurchased(oldcacblob, itemNumber, optionIdx, clientPrestige, clientRank)) )
+                         || !SV_CACValidate_IsItemOptionPurchased(oldcacblob, itemNumber, optionIdx, clientPrestige, clientRank, true)) )
                     {
-                        WeaponOptionCost = BG_GetWeaponOptionCost(optionIdx);
-                        newmoneyspent += WeaponOptionCost;
+                        if ( SV_CACValidate_IsItemOptionPurchased(oldcacblob, itemNumber, optionIdx, clientPrestige, clientRank, false)
+                            && !SV_CACValidate_IsItemOptionPurchased(oldcacblob, itemNumber, optionIdx, clientPrestige, clientRank, true) )
+                        {
+                            Com_DPrintf(15, "Item option was in old blob with no weapon, disabling.\n");
+                            SV_CACValidate_SetItemOptionPurchased((char *)newcacblob, itemNumber, optionIdx, 0);
+                        }
+                        else
+                        {
+                            WeaponOptionCost = BG_GetWeaponOptionCost(optionIdx);
+                            newmoneyspent += WeaponOptionCost;
+                        }
                     }
                 }
             }

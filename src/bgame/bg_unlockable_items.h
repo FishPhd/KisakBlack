@@ -325,7 +325,8 @@ bool __cdecl SV_CACValidate_IsItemOptionPurchased(
                 int itemIndex,
                 int optionIndex,
                 int pLevel,
-                int rank);
+                int rank,
+                bool checkWeapon);
 bool __cdecl SV_CACValidate_IsClanTagFeaturePurchased(
                 unsigned __int8 *cacbuffer,
                 unsigned int index,
