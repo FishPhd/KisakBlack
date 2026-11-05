@@ -138,4 +138,3 @@ static unsigned char* map_original(const char* path, const char* regions, const 
     }
     return image;
 }
-

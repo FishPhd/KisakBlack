@@ -243,4 +243,3 @@ report['candidate_instruction_similarity']='Not measured by this behavioral repl
 report['raw_byte_identity']='No claim. Native execution relocates only the four declared 32-bit absolute operands; Unicorn executes unchanged original bytes at their original virtual addresses.'
 (out/'report.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps({k:report[k]for k in ['status','cases','production_mismatches','original_outputs_sha256','full_selector_original_bytes','declared_closure_bytes','executed_original_bytes']},indent=2))
 sys.exit(0 if report['status']=='pass' else 1)
-

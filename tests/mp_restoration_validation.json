@@ -1,0 +1,273 @@
+{
+  "source_commit": "62597dd623c227c90c27a491cd3d7d6e4f61225e",
+  "source_tree": "e22614052efaaed7e6bca4bba0860790f01cdf01",
+  "review_base": "a16c447d27ac00246e1f34e7932fcfcd81f3f173",
+  "original_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "source_identities": {
+    "src/bgame/bg_unlockable_items.cpp": {
+      "working_file_sha256": "35846bfda30cc7dae766087bfff84fe1ded0ae88f1eea13a2593fd0949ac2c8f",
+      "git_blob": "a165a6d5d788a4747d262338ea8ebc2c15073b79"
+    },
+    "src/bgame/bg_unlockable_items.h": {
+      "working_file_sha256": "633710d8950bcc8668bafcf8e24a29e7ba60f83a5f28a1e18904dc19aef772ed",
+      "git_blob": "1753a1c141b06917c60a58b75cec5788c2ff54a4"
+    },
+    "src/live/live_stats.cpp": {
+      "working_file_sha256": "44ce75167cff82f1b27674b015627b38dbbbab39deb8d14301ce8b70fdbdad0e",
+      "git_blob": "5cd59a2781a426d861523890bea9b7c6bc07f37a"
+    },
+    "src/live/live_storage_win.cpp": {
+      "working_file_sha256": "02e383af7d0ee31895390e7a255427cf7e9c233caf4757b066d9ed69157af9b2",
+      "git_blob": "db31d7e5bb09c6f82e835e6e767760624dad0211"
+    }
+  },
+  "build_profile": {
+    "compiler_version": "19.37.32825.0",
+    "toolset": "14.37.32822",
+    "sdk": "10.0.22000.0",
+    "configuration": "Release x86",
+    "fp": "MSVC default /fp:precise; no /fp override",
+    "definitions": [
+      "-DKISAK_MP -DNDEBUG -DWIN32 -D_CONSOLE -D_CRT_SECURE_NO_WARNINGS -D_WINSOCK_NO_DEPRECATED_NO_WARNINGS"
+    ],
+    "compile_flags": [
+      "/DWIN32 /D_WINDOWS /GR /EHsc /O2 /Ob2 /DNDEBUG /GS- /O2 /MP /W3  /permissive -MT",
+      "/DWIN32 /D_WINDOWS /GR /EHsc /O2 /Ob2 /DNDEBUG /GS- /O2 /MP /W3  /permissive -std:c++20 -MT",
+      "/DWIN32 /D_WINDOWS /GR /EHsc /O2 /Ob2 /DNDEBUG /GS- /O2 /MP /W3  /permissive -std:c++20 -MT /FID:/GitHub/KisakBlack/build-re/main-baseline/compiler-compat.h",
+      "/DWIN32 /D_WINDOWS /GR /EHsc /O2 /Ob2 /DNDEBUG /GS- /O2 /MP /W3  /permissive -std:c++20 -MT /arch:IA32",
+      "/DWIN32 /D_WINDOWS /O2 /Ob2 /DNDEBUG -MT"
+    ],
+    "link_flags": "/machine:X86 /INCREMENTAL:NO /subsystem:windows /machine:x86 /NODEFAULTLIB:MSVCRT /INCLUDE:__beginthreadex /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG",
+    "tool_sha256": {
+      "cl.exe": "125e238719659123e4fec4d76376d1bd479b4ea30eaede3c8946bb9d09b002bd",
+      "link.exe": "b002e297332da9a3d799c585fe5fbf38e7a8c925923a31a9cc88d363edc6ab8c",
+      "c1xx.dll": "729c23745cd9a1015bdf6e633b39efed8bb0c6660daac40f2fad683d512cbe0d",
+      "c2.dll": "fa72328bf8157009b42ff1e01a3a6d1b8f33a94710c51b4d0d483477b6e039f2"
+    },
+    "library_sha256": {
+      "steam_api.lib": "5a7e876ebf82e15b283c0be262108728a5795acc41d9d53b1c1a687c4b3dc4d1",
+      "binkw32.lib": "a301091df5d45ddffaa53bfab2d993dba703a4c06f221204b7d6c6ab01d97977",
+      "nvapi.lib": "8ddda3c0a23ef28779137647686f1ff0683739564f97e82e102eb992949cae67",
+      "d3d9.lib": "d56bc70d6e8ae71594262434a3c1dee2c6dfacbfea11bc43568b8ac4e1631fc1",
+      "ws2_32.lib": "40e05f6099ca04e984821f4bcb066b3615539116d8cbeb8e5e05568ad601e608",
+      "dxguid.lib": "2980caa0e1508434f235e508774cd04ba10c7307ac1ac6cd9882c27af3d5a905",
+      "dsound.lib": "14cfc17975a4fa6e4d556f54e428feddfaf18bed92de0d88ff5cec056b12a232",
+      "winmm.lib": "8571f3d25a7ab298c5c753405dcc75b17a58df42ac18eca42d4fcc73f5945e3b",
+      "xinput.lib": "468d0bd66b5a57027abb5b98ab2085d5a6464eb6d758f309acc92a3e199ec0f5",
+      "xapobase.lib": "f7d81a66d6bc0fdbed37f94d5715846c9fcd7552722088db591290ed166e0dc1",
+      "dxerr.lib": "f7bb9181f5e450285e00d2cf4581a51d96c9f287dfe71f1b2c5977ca3de2686c",
+      "libvpx.lib": "2698dfdcc6b0cfda48de593c44a1b6be6335860f3258bbe9e8f646f6aa0b8de0",
+      "legacy_stdio_definitions.lib": "283031ed005277039e0c6baf5aea1fb8f624f90fd4a0b7bf7c999a69bb418656",
+      "d3dx9.lib": "0b1cd009d5e5ed15080c4d7ad0245a273242da07e0747921e80ac3ccf9bc0fc2",
+      "kernel32.lib": "474f6e3ccc924edb1aa72784f148a78265197bc18e8fc04051dc9b443beb9205",
+      "user32.lib": "f84bdea01bf2afe15e21f3430ce3822158586b1736b80672b0ef66f6309a06bd",
+      "gdi32.lib": "18682a7b2f32fb50aa69af83e98912d58c2f4fa9689973b12523e8f98ef2c06f",
+      "winspool.lib": "6bb0a43f1b0e1c5bed2508daf4089269a675e89d05a314e92504f3e19bc92cb0",
+      "shell32.lib": "f2be8bbbdf3e0aebe890b40ab39ca2c422b90d6d9cbb276038879d8dc046d417",
+      "ole32.lib": "d0547c33285b247d1b445b5d8a9021cdb16c9beff927e98fd6253f2ecee42d45",
+      "oleaut32.lib": "0aa626a29d500ae463dda5ca709d9f14ea8ae5d927b81c8b5b67252c0197e37a",
+      "uuid.lib": "7da49e2cd8a2acc1b29a3ccb28443e36d65ea34ae22b9724c06896d30061a9ec",
+      "comdlg32.lib": "eabcf428c93b47addae435fd53d0a5018878aeddd0e6937b54b11939e8dfc3eb",
+      "advapi32.lib": "6b5abe9130b92c08f5c523dc582dd17b12bdc3cd7fc2e3b2327ea9d9b4103814",
+      "libcmt.lib": "7821df7fffc8c53a726c563d456159931b2bed4650ddf58945cd3a3155dc58d3",
+      "libcpmt.lib": "42ebc316854bcfe0107d2075b890418bd417d7e998d226996be10ad04211f1cf",
+      "libvcruntime.lib": "29a48c541d20b585e37c008fcc5b275c9af82a2dd9ad105e13c624d568b1822f",
+      "oldnames.lib": "12ceb16e35e7e54aa10cba02c58bb302cd463cbd08ee7a81293aaecc30f26608",
+      "libucrt.lib": "5abeb8b3b04f2bcf3b978e86dc86fd175d01248f23d2d293cdf59ec63e238b95"
+    },
+    "build_file_sha256": {
+      "CMakeCache.txt": "a2236d268901e3aab4d11b984130a22382ff118f501d135be7c612aa056ac19f",
+      "build.ninja": "8bf9f2aa350004f05f5dd8c78bda6e3ad227b0704abdeb24a9b40f8aa2816e35",
+      "CMakeFiles/rules.ninja": "304865ad85df6d61e4d2fb1b8ae7da6ad37304546fb123fd94378699fe0c619f"
+    }
+  },
+  "same_profile_sha256": "5fd003cb75149276da6113069c8a2a8ed2b6d0c916fe93978feb1ca7ec878ac8",
+  "base_binary": {
+    "exe_sha256": "9fbf53739e855b7901173b7a92800fe3e413c95a767e325de9e16145f9c7b6c3",
+    "pdb_sha256": "047d8a7bca93fdfb22e6a4e9e7c84c196e9a8d5fb3dda60967b875b19f288e99"
+  },
+  "candidate_binary": {
+    "exe_sha256": "8bfcbd6df113a8f33a3a4b790796b870ad1e5e514a167a41b461490dcab3ea44",
+    "pdb_sha256": "a33102c3f5e57dc44147d21ccca1b93c7bc47843b89795786aea98b00a351081"
+  },
+  "structural": {
+    "base_percent": 14.133471197947108,
+    "candidate_percent": 14.182762308191945,
+    "delta_percentage_points": 0.049291110244837455,
+    "minimum_confidence": 0.7,
+    "original_byte_denominator": 5506261,
+    "metric_unchanged": true,
+    "saved_main_profile_comparison_used": false
+  },
+  "independent_function_pairs": {
+    "count": 23,
+    "original_code_bytes": 7428,
+    "raw_byte_identical_functions": 0,
+    "highlow_normalized_identical_functions": 0,
+    "pe_highlow_operands_found": 0,
+    "pairs": [
+      ["BG_UnlockablesSetItemNew","0x12fd10",218,76,"0x136640",185,72,212,33,29,"0x1366c0",190,73,211,33,30],
+      ["SV_SetItemNewForClient","0x2b4260",190,64,"0x137a20",190,63,182,26,25,"0x137a90",195,64,191,26,26],
+      ["BG_UnlockablesIsItemNew","0x260460",235,87,"0x134af0",203,77,228,46,36,"0x134b30",212,78,225,46,37],
+      ["BG_UnlockablesSetItemPurchased","0x3b94b0",141,50,"0x1367b0",142,55,130,21,26,"0x136830",147,56,142,21,27],
+      ["BG_UnlockablesSellItem","0x4aee0",470,175,"0x136100",511,172,497,94,91,"0x136180",522,174,500,94,93],
+      ["BG_UnlockablesIsItemPurchasedFromBuffer","0x3b9540",189,63,"0x134d70",140,52,182,30,19,"0x134dd0",145,53,173,30,20],
+      ["BG_UnlockablesIsItemDualWieldPurchased","0x46a0",269,101,"0x134690",188,65,263,61,25,"0x1346c0",197,66,263,61,26],
+      ["BG_UnlockablesPurchaseItemAttachmentPoint","0x22c090",410,159,"0x135b20",650,225,629,82,148,"0x135b90",662,229,647,82,152],
+      ["BG_UnlockablesSetItemAttachmentPurchased","0x3b9670",158,57,"0x136590",163,65,158,24,32,"0x136610",175,72,172,23,38],
+      ["BG_UnlockablesIsItemAttachmentPointPurchased","0x2954d0",271,106,"0x134200",289,105,278,41,40,"0x134210",295,107,283,40,41],
+      ["BG_UnlockablesIsItemAttachmentPurchased","0x2984b0",273,107,"0x134330",288,105,272,42,40,"0x134340",307,108,291,42,43],
+      ["BG_UnlockablesIsItemOptionPurchased","0x82260",268,110,"0x134bc0",276,99,264,48,37,"0x134c10",295,102,281,48,40],
+      ["BG_UnlockablesClearItemNew","0x1fc4f0",221,75,"0x130ff0",155,57,207,32,14,"0x130ff0",164,58,210,32,15],
+      ["BG_UnlockablesSetItemOptionPurchased","0x3b97a0",158,57,"0x136700",163,65,158,24,32,"0x136780",175,72,172,23,38],
+      ["SV_CacValidate_IsItemPurchased","0x28c510",233,79,"0x1378a0",166,62,221,52,35,"0x137910",171,63,222,52,36],
+      ["SV_CACValidate_IsItemAttachmentPurchased","0x18fd10",281,111,"0x137450",213,77,267,73,39,"0x137440",227,82,268,73,44],
+      ["SV_CACValidate_IsItemOptionPurchased","0x2449d0",315,131,"0x137560",250,86,307,77,32,"0x137560",330,127,320,69,65],
+      ["SV_CACValidate_SetItemAttachmentPurchased","0x3bbb10",148,53,"0x137670",153,61,149,20,28,"0x1376c0",165,68,162,19,34],
+      ["SV_CACValidate_SetItemOptionPurchased","0x110380",164,63,"0x137710",153,61,161,26,24,"0x137770",165,68,149,24,29],
+      ["BG_UnlockablesClearWeaponInfo","0xae740",347,129,"0x1310f0",148,65,325,69,5,"0x131100",148,65,325,69,5],
+      ["SV_CACValidate_ClearWeaponInfo","0x237c50",212,83,"0x137190",390,145,363,22,84,"0x1371c0",325,122,307,10,49],
+      ["SV_CACValidate_CheckIfEquippedItemsArePurchased","0x1e7930",2158,711,"0x136cd0",1214,383,2114,542,214,"0x136d60",1111,346,2122,503,138],
+      ["LiveStats_MoveToProItemVersion","0x2b8070",99,37,"0x518a40",84,24,99,16,3,"0x518ab0",94,29,92,18,10]
+    ],
+    "blocked": [
+      {
+        "name": "SV_ValidateClientCAC",
+        "reason": "Ghidra native body stops after42bytes at an assertion call; real JZ reaches interior FUN at entry+0x32. Do not compare this fragment as the complete2118-byte original owner or call its interior automatic match a false function identity."
+      }
+    ],
+    "limits": "Exact original region hashes and native named-function bodies; inline-only source mapping excluded. Raw equality includes relative addresses. Normalized comparison zeroes only PE HIGHLOW relocation operands; no opcode/register/relative-call normalization. Byte differences count positions in concatenated decoded bodies including length differences. Mnemonic edit counts ignore all operands and are diagnostics, not semantic equivalence. Ghidra-discovered bodies may omit undiscovered code. No behavioral inference from either comparison.",
+    "columns": [
+      "name",
+      "original_rva",
+      "original_bytes",
+      "original_instructions",
+      "base_rva",
+      "base_bytes",
+      "base_instructions",
+      "base_raw_different_positions",
+      "base_mnemonic_affected_original",
+      "base_mnemonic_affected_candidate",
+      "candidate_rva",
+      "candidate_bytes",
+      "candidate_instructions",
+      "candidate_raw_different_positions",
+      "candidate_mnemonic_affected_original",
+      "candidate_mnemonic_affected_candidate"
+    ]
+  },
+  "automatic_false_pairings": {
+    "base": {
+      "count": 18,
+      "accepted_count": 0,
+      "accepted_examples": []
+    },
+    "candidate": {
+      "count": 20,
+      "accepted_count": 1,
+      "accepted_examples": [
+        {
+          "original_function": "BG_UnlockablesClearWeaponInfo",
+          "automatic_candidate": "SV_CACValidate_ClearWeaponInfo",
+          "confidence": 0.9547825265167125,
+          "accepted": true
+        }
+      ]
+    }
+  },
+  "automatic_body_fragments": {
+    "base": [
+      {
+        "original_function": "SV_ValidateClientCAC",
+        "automatic_candidate": "FUN_00927522",
+        "candidate_address": "0x927522",
+        "reason": "Interior +0x32 body fragment; excluded from whole-function comparison and false-function totals."
+      }
+    ],
+    "candidate": [
+      {
+        "original_function": "SV_ValidateClientCAC",
+        "automatic_candidate": "FUN_009275a2",
+        "candidate_address": "0x9275a2",
+        "reason": "Interior +0x32 body fragment; excluded from whole-function comparison and false-function totals."
+      }
+    ]
+  },
+  "behavioral": {
+    "native_catalog": {
+      "units": 56,
+      "cases": 224870,
+      "not_passed": []
+    },
+    "full_bot_weapon_selector": {
+      "status": "pass",
+      "cases": 1886,
+      "native_unicorn_mismatches": 0,
+      "production_mismatches": 0,
+      "original_outputs_sha256": "7249a885f5b8c2d0e697e18ae11da32e0608185066a63a434455e3f0884007c3",
+      "declared_closure_bytes": 939,
+      "executed_original_bytes": 925
+    },
+    "ddl_integer_io": {
+      "status": "pass",
+      "cases": 140,
+      "native_unicorn_mismatches": [],
+      "production_mismatches": [],
+      "original_bytes": 716,
+      "executed_original_code_bytes": 519,
+      "capture_sha256": "d7e5d9b9f167e32b53af8342f301ee00a228f23b58905ed23a75e63c7c9eb1ef"
+    },
+    "production_cac": "PASS: actual DDL lookup/serialization, indexed stock metadata, client/server ownership, 72-option and pro-flag clearing, option rank validation, class writes/readback and weapon-change resets. Private fixture inputs, not original CAC caller execution or external persistence.",
+    "selftest": {
+      "status": "pass",
+      "tests": 111,
+      "skipped": 0,
+      "mutation_detected": true,
+      "production_unchanged": true
+    },
+    "capture_continuity": {
+      "artifacts": 1886,
+      "changed": []
+    }
+  },
+  "final_native_smoke": {
+    "status": "failed",
+    "exe_sha256": "8bfcbd6df113a8f33a3a4b790796b870ad1e5e514a167a41b461490dcab3ea44",
+    "isolated_profile": "build-re/multiplayer/nov01/profile",
+    "observed": [
+      "stock Combat Training menu; Create-a-Class locked on fresh profile",
+      "Summit TDM map entry",
+      "SMG selection and MP5K/ASP stock loadout",
+      "bots moving, fighting and scoring; human movement/fire issued"
+    ],
+    "not_qualified": [
+      "custom class edit/save/spawn",
+      "human death/respawn agreement",
+      "appropriate human XP/rank UI changes",
+      "profile reload persistence"
+    ],
+    "failure": {
+      "windows_event_time_local": "2026-11-05 09:40:06 America/Los_Angeles",
+      "process_id": 12520,
+      "exception": "0xc0000005",
+      "fault_address": "0xc1f80000",
+      "module": "unknown",
+      "cause": "Not established. No original/candidate causal comparison."
+    },
+    "no_clean_success_claim": true
+  },
+  "wasm": {
+    "status": "blocked",
+    "reason": "Required src/web/compat/kisak_web_compat.h is absent on this branch."
+  },
+  "remaining_progression": {
+    "status": "incomplete",
+    "authority": "Stock _rank/_persistence/_globallogic scripts; no XP rules replaced.",
+    "known_native_gaps": [
+      "LiveStats_GetIntPlayerStatInternal RVA0x1d8440 omits permission2 global-bank routing",
+      "LiveStats_SetIntPlayerStatInternal RVA0x18dcd0 omits same routing and mod-directory guard",
+      "Non-KISAK_LIVE service/stat-update/storage gates prevent end-to-end local persistence. No success stub or fabricated awards introduced."
+    ]
+  },
+  "qualification": "Finite original execution agreement, instruction review, structural similarity and literal-byte comparisons are separate. No whole-game fidelity, live smoke pass or merge-readiness claim."
+}
