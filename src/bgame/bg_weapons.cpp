@@ -1176,6 +1176,50 @@ void __cdecl PM_Weapon_Idle(playerState_s *ps)
     PM_StartWeaponAnim(ps, 0, 1);
 }
 
+static void PM_UpdateQuickScope(pmove_t *pm, pml_t *pml, float previousAdsFraction)
+{
+    playerState_s *ps = pm->ps;
+    const WeaponDef *weapDef = BG_GetWeaponDef(BG_GetViewmodelWeaponIndex(ps));
+    (void)BG_GetWeaponVariantDef(ps->weapon);
+    const float durationMs = player_aqs_time->current.value * 1000.0f;
+    const int duration = (int)durationMs;
+    if ( duration > 0
+        && (weapDef->overlayReticle
+            || weapDef->playerAnimType == BG_GetPlayerAnimTypeIndex(2)
+            || weapDef->playerAnimType == BG_GetPlayerAnimTypeIndex(1)) )
+    {
+        const float ads = ps->fWeaponPosFrac;
+        if ( previousAdsFraction > ads || ads < 0.001f )
+            ps->quickScopeTimer = 0;
+        else if ( ads < 1.0f )
+            ps->quickScopeTimer = duration;
+        else
+            ps->quickScopeTimer = (int)((unsigned int)ps->quickScopeTimer - (unsigned int)pml->msec);
+        if ( ps->quickScopeTimer < 0 )
+            ps->quickScopeTimer = 0;
+
+        // The original retains these intermediates in x87 with 53-bit precision.
+        // Rounding the ratio or amplitude to float changes the final penalty.
+        const double ratio = (double)ps->quickScopeTimer / (double)duration;
+        const double amplitude = (double)player_aqs_scale->current.value - 1.0;
+        double target = amplitude * ratio;
+        target = target + 1.0;
+        target = target - 1.0;
+        target = target * (double)ads;
+        target = target + 1.0;
+        const double scale = DiffTrack((float)target, ps->quickScopeScale,
+            player_breath_gasp_lerp->current.value, pml->frametime);
+        ps->quickScopeScale = (float)scale;
+        if ( scale < 1.0 )
+            ps->quickScopeScale = 1.0f;
+    }
+    else
+    {
+        ps->quickScopeTimer = 0;
+        ps->quickScopeScale = 1.0f;
+    }
+}
+
 void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
 {
     const char *v2; // eax
@@ -1251,10 +1295,12 @@ void __cdecl PM_Weapon(pmove_t *pm, pml_t *pml)
                 ps->weaponstate = WEAPON_SWIM_OUT;
                 ps->weaponTime = 1000;
             }
+            const float previousAdsFraction = ps->fWeaponPosFrac;
             PM_UpdateAimDownSightLerp(pm, pml);
             PM_UpdateSpinLerp(pm, pml);
             PM_UpdateScopeZoom(pm);
             PM_UpdateHoldBreath(pm, pml);
+            PM_UpdateQuickScope(pm, pml, previousAdsFraction);
             if ( ps->bRunLeftGun && !BG_CheckForUniversalActionDW(ps) )
             {
                 ps->weaponstateLeft = ps->weaponstate;

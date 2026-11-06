@@ -1,0 +1,79 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "identity": "Instruction evidence: owner takes pmove and pml stack arguments; pmove->ps offset0, uint16 weapon+0x144, bRunLeftGun+0x61, raw state+0x158. Calls from PmoveSingle RVA3b74b0 and another retail caller RVA1178f0. Does not claim full-owner behavioral equivalence.",
+  "regions": [
+    {
+      "rva": "0x1cf0e0",
+      "size": 1460,
+      "sha256": "9d0a5baed2380c7343c295b0f1dee2cf242364ea2caa68084e4a8ad253f66cf9",
+      "purpose": "Complete original PM_Weapon owner"
+    },
+    {
+      "rva": "0x1cf23c",
+      "size": 57,
+      "sha256": "ac19146ca33812f3e1ad23f61e5473fe3f94f967bcedd57762d1f11d09b595be",
+      "purpose": "ADS snapshot and ordered update calls"
+    },
+    {
+      "rva": "0x3bf320",
+      "size": 350,
+      "sha256": "ecafbd2a655cd664571d09ba9ee593cec6ae8a3e852a029a95d942e7be2d0efb",
+      "purpose": "Complete original PM_UpdateQuickScope"
+    },
+    {
+      "rva": "0x269d9c",
+      "size": 87,
+      "sha256": "f731ebd180ec264460f83bc373f9da59620148388574c929cde03e809e04ea49",
+      "purpose": "player_aqs_scale parameter setup, registration, result binding"
+    },
+    {
+      "rva": "0x1cf694",
+      "size": 104,
+      "sha256": "7426fac9faab72d3b26d4b9829c197304af3110905b9e6c31c7c140c4b29ee7c",
+      "purpose": "26 original switch destinations"
+    },
+    {
+      "rva": "0x1cf6fc",
+      "size": 47,
+      "sha256": "a91fdb6776322a139a29d5e255b3c316e12a48fd65e4f41184731c2b1ee76e9f",
+      "purpose": "raw states1..47 compressed switch indices"
+    }
+  ],
+  "quickscope_abi": "EAX=pmove; stack+4=pml, stack+8=previous ADS fraction. Returns void; only PS quickScopeScale+0x4ec and quickScopeTimer+0x4f0 may change. x87 PC53 and MXCSR1f80.",
+  "ordered_caller_calls": [
+    {
+      "rva": "0x1cf24a",
+      "target_rva": "0x1f0770"
+    },
+    {
+      "rva": "0x1cf251",
+      "target_rva": "0xf5a50"
+    },
+    {
+      "rva": "0x1cf258",
+      "target_rva": "0x1eddc0"
+    },
+    {
+      "rva": "0x1cf25e",
+      "target_rva": "0x3bf130"
+    },
+    {
+      "rva": "0x1cf270",
+      "target_rva": "0x3bf320"
+    }
+  ],
+  "registration": {
+    "name": "player_aqs_scale",
+    "name_va": "0xa28114",
+    "default_va": "0xad8b24",
+    "default": 8.0,
+    "min": 0.0,
+    "max_va": "0xada584",
+    "max": 50.0,
+    "flags": 128,
+    "description": "",
+    "result_pointer_rva": "0x84f8ac"
+  },
+  "dispatch_switch": "All47 original raw-state routes already agree at MR base6d4eca0 after enum slot8 restoration. Historical misroute warning is stale. No switch migration is part of this change.",
+  "limits": "Replay covers full quick-scope updater and spread consumer through real original dependencies; caller snapshot/call order and registration are instruction audits. Does not execute full ADS lerp, PM_Weapon, RNG, event systems or live gameplay. No byte identity or similarity gain claim."
+}

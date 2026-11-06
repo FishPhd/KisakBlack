@@ -308,6 +308,7 @@ extern const dvar_s *player_breath_gasp_scale;
 extern const dvar_s *player_breath_hold_lerp;
 extern const dvar_s *player_breath_gasp_lerp;
 extern const dvar_s *player_aqs_time;
+extern const dvar_s *player_aqs_scale;
 extern const dvar_s *player_aqs_spread_multiplier;
 extern const dvar_s *player_aqs_spread_max;
 extern const dvar_s *bg_aqs;
