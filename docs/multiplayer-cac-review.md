@@ -9,13 +9,34 @@ server ownership chain.
 
 The branch is ready for **draft code review**, with gameplay qualification still
 blocked. It does not complete the requested persistent class/spawn/progression
-path. No MR was opened, pushed or merged.
+path. The branch is published for review; no MR has been opened or merged.
 
-Review against local `weapon-bytecode` at **a16c447**, using
-`git diff a16c447..mp-restoration-nov01`. The remote `origin/weapon-bytecode`
+Review against **a16c447**, using
+`git diff a16c447..mp-restoration`. The remote `origin/weapon-bytecode`
 was at `8aea211`, 24 commits behind that base. Those earlier weapon, movement,
 bot and layout dependencies are inherited, not new changes in this review.
 The implementation and reusable checks are committed in `62597dd`.
+
+Local branch consolidation on 2026-11-05 preserves the restoration tree at
+`e409439` on `mp-restoration`. The previous non-Wasm branch tips were already
+ancestors of that commit: effects `c3a7fd4`, guns `ccb6c13`, movement `4b673e6`,
+multiplayer `36fbc15`, master `306bb14`, and weapon-bytecode `a16c447`.
+Their changes require no additional merge or cherry-pick. The redundant local
+branch names were removed; all their commits and remote branches are retained.
+
+`wasm` (`bdb00cd`), `wasm-decomp` (`305a694`), and `wasm-zombies` (`6c1bc52`)
+remain separate at their existing tips. The uncommitted `wasm-zombies` merge was
+aborted at the user's request; none of its incoming changes are included.
+The original branch tips and histories are backed up in the ignored local bundle
+`build-re/consolidation/nov05/branches-before.bundle`.
+
+After aborting that merge, all tracked files matched `e409439` before restoring
+the user's uncommitted README edit. The three focused checks below were rerun
+with `build-re/venv/Scripts/python.exe`: production CAC integration passed,
+all 140 DDL transitions agreed, and all 1,886 bot-selector cases agreed.
+The original DDL and bot output hashes remained unchanged. No gameplay source
+changed during consolidation, so the build/smoke results below remain historical
+results for the same source; no new gameplay qualification is claimed.
 
 The connected repair includes:
 
