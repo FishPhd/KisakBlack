@@ -18,6 +18,7 @@
 #include <server_mp/sv_main_mp.h>
 #include "live_storage_win.h"
 #include <ddl/ddl_cmd.h>
+#include <universal/com_files.h>
 #include <ddl/ddl_buffer.h>
 #include <database/db_registry.h>
 
@@ -383,8 +384,14 @@ char __cdecl LiveStats_GetIntPlayerStatInternal(int *outInt, int pathDepth, cons
         DDL_PrintError("DDL:Error getting player stat value for %s.\n", (const char *)statName);
         return 0;
     }
-    if ( !xblive_basictraining || !xblive_basictraining->current.enabled )
-        LiveStats_GetBasicTrainingState((unsigned __int8 *)buffer);
+    // Original integer-stat routing: global permission is bypassed for training
+    // buffers and dedicated servers. Forced-base readers deliberately skip this.
+    if ( !(xblive_basictraining && xblive_basictraining->current.enabled
+            || LiveStats_GetBasicTrainingState((unsigned __int8 *)buffer))
+        && !IsDedicatedServer() && searchState.member->permission == 2 )
+    {
+        buffer = (char *)LiveStorage_GetStatsBuffer(0, STATS_LOCATION_GLOBAL, 1);
+    }
     if ( DDL_GetValue(&searchState, &result, buffer) )
     {
         *outInt = result.intValue;
@@ -578,6 +585,9 @@ char __cdecl LiveStats_SetIntPlayerStatInternal(
 {
     ddlState_t searchState; // [esp+8h] [ebp-10h] BYREF
 
+    if ( fs_gameDirVar && *fs_gameDirVar->current.string )
+        return 0;
+
     if ( !path && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\live\\live_stats.cpp", 765, 0, "%s", "path") )
         __debugbreak();
     if ( !*path && !Assert_MyHandler("C:\\projects_pc\\cod\\codsrc\\src\\live\\live_stats.cpp", 766, 0, "%s", "path[ 0 ]") )
@@ -596,8 +606,12 @@ char __cdecl LiveStats_SetIntPlayerStatInternal(
     }
     if ( path && *path && pathDepth <= 8 && DDL_MoveToPath(&g_statsRootState, &searchState, pathDepth, path) )
     {
-        if ( !xblive_basictraining || !xblive_basictraining->current.enabled )
-            LiveStats_GetBasicTrainingState((unsigned __int8 *)buffer);
+        if ( !(xblive_basictraining && xblive_basictraining->current.enabled
+                || LiveStats_GetBasicTrainingState((unsigned __int8 *)buffer))
+            && !IsDedicatedServer() && searchState.member->permission == 2 )
+        {
+            buffer = (char *)LiveStorage_GetStatsBuffer(0, STATS_LOCATION_GLOBAL, 1);
+        }
         if ( DDL_SetInt(&searchState, statValue, buffer) )
             return 1;
     }
