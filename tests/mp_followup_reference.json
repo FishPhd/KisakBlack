@@ -1,0 +1,25 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "identity_evidence": "Stats arguments, callers, diagnostics, member permission offset and bank-selector instructions are documented in docs/multiplayer-stat-routing-review.md and checked by test_stats_bank_routing.py. PM_Weapon caller ABI and compressed switch/ordered ADS update evidence are pinned in quickscope_update_reference.json. Automatic function pairing is not used to assign these original identities.",
+  "functions": [
+    {
+      "name": "LiveStats_GetIntPlayerStatInternal",
+      "entry_rva": "0x1d8440",
+      "scope": "complete original owner; instruction review and controlled production regression; original-native owner replay unqualified",
+      "code": [{"rva": 1934400, "size": 180, "sha256": "366407c1193eef3261eae2ce9104b8e22b5ae9b30b9ee2fbb34a6ad7c39509f2"}]
+    },
+    {
+      "name": "LiveStats_SetIntPlayerStatInternal",
+      "entry_rva": "0x18dcd0",
+      "scope": "complete original owner; instruction review and controlled production regression; original-native owner replay unqualified",
+      "code": [{"rva": 1629392, "size": 192, "sha256": "87cf131a586482460ab5c3a83b7c979f84ff4c53441380c49f17213f078a0035"}]
+    },
+    {
+      "name": "PM_Weapon",
+      "entry_rva": "0x1cf0e0",
+      "scope": "complete original owner; caller ordering and dispatch audited; full dependency closure replay unqualified",
+      "code": [{"rva": 1896672, "size": 1460, "sha256": "9d0a5baed2380c7343c295b0f1dee2cf242364ea2caa68084e4a8ad253f66cf9"}]
+    }
+  ],
+  "limits": "These named native bodies permit instruction and raw/relocation-normalized byte diagnostics. They do not establish gameplay, semantic equivalence, complete dependency replay, or byte identity. Quick-scope updater replay is recorded separately; do not count its inline candidate region as another complete native function pair without independently establishing its boundary."
+}

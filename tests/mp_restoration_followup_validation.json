@@ -1,0 +1,238 @@
+{
+  "source_commit": "5c5309353cc062614e8a46706ae4ff292ec28926",
+  "source_tree": "a6f7a41683ed884ca240083f88e9172c28450681",
+  "review_base": "a16c447d27ac00246e1f34e7932fcfcd81f3f173",
+  "followup_parent": "6d4eca0c0e40445410b79950b2b9c371ee565d0d",
+  "source_identities": {
+    "src/bgame/bg_misc.cpp": {
+      "working_file_sha256": "5d75cc2d67a42ca493d5a3c044875993aa0dced61013343baa9ab074d903bae8",
+      "git_blob": "8479124df168e229c0fab6979ac3e28b38763b87"
+    },
+    "src/bgame/bg_misc.h": {
+      "working_file_sha256": "68c0ea73a5c5a5bc3598915bd4a1093dd736f6e2ae4f8361a4ddd40829a2a424",
+      "git_blob": "04515cebd1bade79bd74f52a5ebe7dab90580a76"
+    },
+    "src/bgame/bg_weapons.cpp": {
+      "working_file_sha256": "b75ae59241667619d454900f278ff4573e174468b9783a3503947c9f206001ab",
+      "git_blob": "74225a657c80c917c2d2446cccc070c16105bd3a"
+    },
+    "src/live/live_stats.cpp": {
+      "working_file_sha256": "ed3c2fc4a409ec566739938fd5482cf15d7cc31d014038ff902bf19488b49148",
+      "git_blob": "07a82d4eb26525aa50c4c0992c282710f3c38b12"
+    }
+  },
+  "original_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "same_profile_sha256": "5fd003cb75149276da6113069c8a2a8ed2b6d0c916fe93978feb1ca7ec878ac8",
+  "build_profile_reference": "tests/mp_restoration_validation.json:build_profile; all tool/library/build-file/settings identities verified equal to this candidate",
+  "base_binary": {
+    "exe_sha256": "9fbf53739e855b7901173b7a92800fe3e413c95a767e325de9e16145f9c7b6c3",
+    "pdb_sha256": "047d8a7bca93fdfb22e6a4e9e7c84c196e9a8d5fb3dda60967b875b19f288e99"
+  },
+  "candidate_binary": {
+    "exe_sha256": "bbc107fc779dde1e9a661f122288f8dd22d5d084ad79f1af7219f47171eeb9e5",
+    "pdb_sha256": "420920b6f0041a79b01bdbe2f08589e664e9a11ab8b8ecded9659a80b2fa0ec5"
+  },
+  "build_source_basis": {
+    "head_at_build": "6d4eca0c0e40445410b79950b2b9c371ee565d0d",
+    "working_diff_sha256_at_build": "9f0834f7c5db07850db1c1a7271a973a725ac1fbb6450ecfa5a6c9fa68000f1d",
+    "validated_committed_source": "5c5309353cc062614e8a46706ae4ff292ec28926",
+    "notes": "Build preceded source commits; these four compiled source files remained unchanged through commit. Preserved user README edit is outside compiler inputs. No source edit after the final native build."
+  },
+  "structural": {
+    "base_percent": 14.133471197947108,
+    "previous_candidate_percent": 14.182762308191945,
+    "candidate_percent": 14.249256718000435,
+    "delta_percentage_points": 0.11578552005332732,
+    "minimum_confidence": 0.7,
+    "original_byte_denominator": 5506261,
+    "metric_unchanged": true,
+    "saved_main_profile_used": false
+  },
+  "independent_function_pairs": {
+    "count": 26,
+    "original_code_bytes": 9260,
+    "raw_byte_identical_functions": 0,
+    "highlow_normalized_identical_functions": 0,
+    "pe_highlow_operands_found": 0,
+    "limits": "Exact original region hashes and native named-function bodies; inline-only source mapping excluded. Raw equality includes relative addresses. Normalized comparison zeroes only PE HIGHLOW relocation operands; no opcode/register/relative-call normalization. Byte differences count positions in concatenated decoded bodies including length differences. Mnemonic edit counts ignore all operands and are diagnostics, not semantic equivalence. Ghidra-discovered bodies may omit undiscovered code. No behavioral inference from either comparison.",
+    "blocked": [
+      {
+        "name": "SV_ValidateClientCAC",
+        "reason": "Ghidra native body stops after42bytes at an assertion call; real JZ reaches interior FUN at entry+0x32. Do not compare this fragment as the complete2118-byte original owner or call its interior automatic match a false function identity."
+      }
+    ],
+    "columns": [
+      "name",
+      "original_rva",
+      "original_bytes",
+      "original_instructions",
+      "base_rva",
+      "base_bytes",
+      "base_instructions",
+      "base_raw_different_positions",
+      "base_mnemonic_affected_original",
+      "base_mnemonic_affected_candidate",
+      "candidate_rva",
+      "candidate_bytes",
+      "candidate_instructions",
+      "candidate_raw_different_positions",
+      "candidate_mnemonic_affected_original",
+      "candidate_mnemonic_affected_candidate"
+    ],
+    "pairs": [
+      ["BG_UnlockablesSetItemNew","0x12fd10",218,76,"0x136640",185,72,212,33,29,"0x1366f0",190,73,211,33,30],
+      ["SV_SetItemNewForClient","0x2b4260",190,64,"0x137a20",190,63,182,26,25,"0x137ac0",195,64,191,26,26],
+      ["BG_UnlockablesIsItemNew","0x260460",235,87,"0x134af0",203,77,228,46,36,"0x134b60",212,78,225,46,37],
+      ["BG_UnlockablesSetItemPurchased","0x3b94b0",141,50,"0x1367b0",142,55,130,21,26,"0x136860",147,56,143,21,27],
+      ["BG_UnlockablesSellItem","0x4aee0",470,175,"0x136100",511,172,497,94,91,"0x1361b0",522,174,500,94,93],
+      ["BG_UnlockablesIsItemPurchasedFromBuffer","0x3b9540",189,63,"0x134d70",140,52,182,30,19,"0x134e00",145,53,173,30,20],
+      ["BG_UnlockablesIsItemDualWieldPurchased","0x46a0",269,101,"0x134690",188,65,263,61,25,"0x1346f0",197,66,263,61,26],
+      ["BG_UnlockablesPurchaseItemAttachmentPoint","0x22c090",410,159,"0x135b20",650,225,629,82,148,"0x135bc0",662,229,646,82,152],
+      ["BG_UnlockablesSetItemAttachmentPurchased","0x3b9670",158,57,"0x136590",163,65,158,24,32,"0x136640",175,72,172,23,38],
+      ["BG_UnlockablesIsItemAttachmentPointPurchased","0x2954d0",271,106,"0x134200",289,105,278,41,40,"0x134240",295,107,283,40,41],
+      ["BG_UnlockablesIsItemAttachmentPurchased","0x2984b0",273,107,"0x134330",288,105,272,42,40,"0x134370",307,108,292,42,43],
+      ["BG_UnlockablesIsItemOptionPurchased","0x82260",268,110,"0x134bc0",276,99,264,48,37,"0x134c40",295,102,281,48,40],
+      ["BG_UnlockablesClearItemNew","0x1fc4f0",221,75,"0x130ff0",155,57,207,32,14,"0x131020",164,58,210,32,15],
+      ["BG_UnlockablesSetItemOptionPurchased","0x3b97a0",158,57,"0x136700",163,65,158,24,32,"0x1367b0",175,72,172,23,38],
+      ["SV_CacValidate_IsItemPurchased","0x28c510",233,79,"0x1378a0",166,62,221,52,35,"0x137940",171,63,222,52,36],
+      ["SV_CACValidate_IsItemAttachmentPurchased","0x18fd10",281,111,"0x137450",213,77,267,73,39,"0x137470",227,82,267,73,44],
+      ["SV_CACValidate_IsItemOptionPurchased","0x2449d0",315,131,"0x137560",250,86,307,77,32,"0x137590",330,127,320,69,65],
+      ["SV_CACValidate_SetItemAttachmentPurchased","0x3bbb10",148,53,"0x137670",153,61,149,20,28,"0x1376f0",165,68,162,19,34],
+      ["SV_CACValidate_SetItemOptionPurchased","0x110380",164,63,"0x137710",153,61,161,26,24,"0x1377a0",165,68,149,24,29],
+      ["BG_UnlockablesClearWeaponInfo","0xae740",347,129,"0x1310f0",148,65,325,69,5,"0x131130",148,65,325,69,5],
+      ["SV_CACValidate_ClearWeaponInfo","0x237c50",212,83,"0x137190",390,145,363,22,84,"0x1371f0",325,122,307,10,49],
+      ["SV_CACValidate_CheckIfEquippedItemsArePurchased","0x1e7930",2158,711,"0x136cd0",1214,383,2114,542,214,"0x136d90",1111,346,2122,503,138],
+      ["LiveStats_MoveToProItemVersion","0x2b8070",99,37,"0x518a40",84,24,99,16,3,"0x518e90",94,29,92,18,10],
+      ["LiveStats_GetIntPlayerStatInternal","0x1d8440",180,68,"0x5177e0",304,102,298,17,51,"0x517c60",355,116,345,5,53],
+      ["LiveStats_SetIntPlayerStatInternal","0x18dcd0",192,76,"0x519ed0",259,85,255,29,38,"0x51a270",321,108,296,9,41],
+      ["PM_Weapon","0x1cf0e0",1460,501,"0x13cb80",2010,664,1930,202,365,"0x13cdc0",2497,782,2434,204,485]
+    ]
+  },
+  "automatic_false_pairings": {
+    "base": {
+      "count": 21,
+      "accepted_count": 0,
+      "accepted_examples": []
+    },
+    "candidate": {
+      "count": 21,
+      "accepted_count": 2,
+      "accepted_examples": [
+        {
+          "original": "BG_UnlockablesClearWeaponInfo",
+          "automatic_candidate": "SV_CACValidate_ClearWeaponInfo",
+          "confidence": 0.9547825265167125,
+          "accepted": true
+        },
+        {
+          "original": "LiveStats_GetIntPlayerStatInternal",
+          "automatic_candidate": "LiveStats_GetIntPlayerStatFromBase",
+          "confidence": 0.954585880105624,
+          "accepted": true
+        }
+      ]
+    }
+  },
+  "automatic_body_fragments": {
+    "base": {
+      "name": "SV_ValidateClientCAC",
+      "automatic_candidate": "FUN_00927522",
+      "reason": "Native discovery splits after assertion; full original owner excluded from byte comparison and false-function totals."
+    },
+    "candidate": {
+      "name": "SV_ValidateClientCAC",
+      "automatic_candidate": "FUN_00927432",
+      "reason": "Native discovery splits after assertion; full original owner excluded from byte comparison and false-function totals."
+    }
+  },
+  "behavioral": {
+    "quickscope_update": {
+      "status": "pass",
+      "cases": 3536,
+      "production_mismatches": 0,
+      "native_unicorn_mismatches": 0,
+      "original_outputs_sha256": "c3d60c705c02c32801d85c44671e52f9a2718e341991722b8ed000aaa942e874",
+      "input_sha256": "5979ecc37be3559325cb1784ff6296a9967a0eaff29139c73d237bdddc4e997a",
+      "original_function_bytes": 350,
+      "declared_closure_bytes": 715,
+      "executed_instruction_bytes": 699,
+      "caller_order_instruction_audit": "pass; five original call targets and production pre-ADS snapshot order checked",
+      "scope": "Complete quick-scope updater and spread consumer with original viewmodel selector, getters, animation-type switch and DiffTrack. Finite fixtures; all PS bytes except timer/scale and all assets/settings/pmove/pml/table bytes guarded. Does not execute full PM_Weapon or ADS lerp. Dispatcher snapshot and call order require separate instruction audit. No candidate byte-identity or instruction-similarity claim."
+    },
+    "stat_routing": {
+      "status": "pass",
+      "production_checks": 585,
+      "before_failed_checks": 33,
+      "after_failed_checks": 0,
+      "instruction_reviewed_original_bytes": 372,
+      "original_native_owner_replay": "unqualified: original lookup/storage closure unsupported; fixture bindings are not original dependency outputs",
+      "scope": "Extracted production owners and real DDL lookup/integer IO, pinned stock PC stat schema projection; controlled storage/service context; excludes live awards, persistence and gameplay"
+    },
+    "native_catalog": {
+      "units": 56,
+      "cases": 224870,
+      "not_passed": []
+    },
+    "production_cac": "pass; stock DDL ownership/class roundtrip/reset fixture; no disk/service/gameplay qualification",
+    "bot_selector": {
+      "status": "pass",
+      "cases": 1886,
+      "production_mismatches": 0,
+      "native_unicorn_mismatches": 0,
+      "original_outputs_sha256": "7249a885f5b8c2d0e697e18ae11da32e0608185066a63a434455e3f0884007c3",
+      "declared_closure_bytes": 939,
+      "executed_original_bytes": 925
+    },
+    "ddl_integer_io": {
+      "status": "pass",
+      "cases": 140,
+      "native_unicorn_mismatches": [],
+      "production_mismatches": [],
+      "original_bytes": 716,
+      "executed_original_code_bytes": 519,
+      "capture_sha256": "d7e5d9b9f167e32b53af8342f301ee00a228f23b58905ed23a75e63c7c9eb1ef"
+    },
+    "selftest": {
+      "status": "pass",
+      "tests": 111,
+      "skipped": 0,
+      "mutation_detected": true,
+      "production_unchanged": true
+    }
+  },
+  "final_native_smoke": {
+    "status": "failed",
+    "isolated_profile": "build-re/multiplayer/nov06/profile",
+    "process_id": 2180,
+    "observed": [
+      "Candidate reached multiplayer main menu",
+      "Computer Use captured the menu but activation/input failed",
+      "Engine Cbuf_AddText echo verified command submission; then xblive_basictraining 1; g_gametype tdm; map mp_mountain reached stock Summit Game Initialization"
+    ],
+    "failure": {
+      "time_local": "2026-11-06 11:30:17 America/Los_Angeles",
+      "exception": "0x80000003",
+      "module": "KisakBlack.exe",
+      "fault_offset": "0x65db20",
+      "fault_bytes": "cc b0 01 c3",
+      "cause": "Breakpoint at reconstructed assertion handler; caller/root cause not established. Observer filtered breakpoint events, so no diagnostic stack was captured. Command-driven startup does not qualify the stock UI flow or establish a regression."
+    },
+    "not_qualified": [
+      "class edit/save/spawn",
+      "sustained bot combat",
+      "human death/respawn",
+      "human XP/rank UI updates",
+      "profile reload persistence"
+    ],
+    "prior_smoke": "Nov05 e409439 smoke reached bot combat but ended with unresolved c0000005; retained in historical validation JSON"
+  },
+  "remaining_gaps": [
+    "Service/fetched/validated-stat prerequisites remain explicit; no fabricated sign-in/session readiness",
+    "SpendCurrency remains gated without KISAK_LIVE; no purchase/save completion claim",
+    "Stock XP award/mode gates unchanged; no forced XP or unlock-all",
+    "Full PM_Weapon/ADS lerp/AI combat closure and final gameplay unqualified",
+    "External storage unavailable; persistent CAC/XP flow incomplete",
+    "Wasm secondary replay blocked by absent src/web/compat/kisak_web_compat.h; all three Wasm branches stay separate"
+  ],
+  "qualification": "Behavioral agreement over declared finite scopes, instruction review, structural similarity and raw byte identity are separate. No whole-game fidelity or merge-readiness claim."
+}
