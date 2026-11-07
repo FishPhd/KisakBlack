@@ -105,22 +105,26 @@ def verify_reference(reference):
 
 def schema_cpp(schema):
     code = []
+    def name(value):
+        return "nullptr" if value is None else json.dumps(value)
     for index, record in schema["structs"].items():
         members = []
         for member in record["members"]:
             # Unsigned schema limits retain the original 32-bit words.
-            values = [json.dumps(member[0])] + [str(v) if n not in (5, 6, 7, 8) else f"{v & 0xffffffff}u" for n, v in enumerate(member[1:], 1)]
+            values = [name(member[0])] + [str(v) if n not in (5, 6, 7, 8) else f"{v & 0xffffffff}u" for n, v in enumerate(member[1:], 1)]
             members.append("{" + ",".join(values) + "}")
         code.append(f"ddlMemberDef_t members{index}[]={{" + ",\n".join(members) + "};")
-    code.append("ddlStructDef_t structures[17]{}; ddlEnumDef_t enums[11]{};")
+    struct_count = max(map(int, schema["structs"])) + 1
+    enum_count = max(map(int, schema["enums"])) + 1
+    code.append(f"ddlStructDef_t structures[{struct_count}]{{}}; ddlEnumDef_t enums[{enum_count}]{{}};")
     for index, record in schema["enums"].items():
-        code.append(f"const char *enumNames{index}[]={{" + ",".join(json.dumps(x) for x in record["members"]) + "};")
+        code.append(f"const char *enumNames{index}[]={{" + ",".join(name(x) for x in record["members"]) + "};")
     code.append("void initSchema(){")
     for index, record in schema["structs"].items():
-        code.append(f"structures[{index}]={{{json.dumps(record['name'])},{record['size']},{len(record['members'])},members{index}}};")
+        code.append(f"structures[{index}]={{{name(record['name'])},{record['size']},{len(record['members'])},members{index}}};")
     for index, record in schema["enums"].items():
-        code.append(f"enums[{index}]={{{json.dumps(record['name'])},{len(record['members'])},enumNames{index}}};")
-    code.append(f"ddl={{{schema['version']},{schema['size']},structures,17,enums,11,nullptr}}; DDL_Reset(&root,&ddl);")
+        code.append(f"enums[{index}]={{{name(record['name'])},{len(record['members'])},enumNames{index}}};")
+    code.append(f"ddl={{{schema['version']},{schema['size']},structures,{struct_count},enums,{enum_count},nullptr}}; DDL_Reset(&root,&ddl);")
     code.append('assert(DDL_MoveTo(&root,&cac,1,"cacloadouts"));}')
     return "\n".join(code)
 

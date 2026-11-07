@@ -19,7 +19,7 @@ from mp_fidelity_common import ROOT, definition, reference
 from test_cac_ownership import schema_cpp
 
 
-def stock_schema():
+def stock_schema(progression=False):
     """Decode a stat projection from the actual hash-pinned asset."""
     saved = json.loads((ROOT / "tests/cac_ownership_reference.json").read_text())["stock_schema"]
     origin = saved["origin"]
@@ -75,6 +75,8 @@ def stock_schema():
 
     def resolve(value):
         if isinstance(value, tuple):
+            if value[1] == 0:
+                return None
             return strings[((value[1] - 1) & 0x1fffffff) - delta + 1]
         if isinstance(value, list):
             return [resolve(v) for v in value]
@@ -83,6 +85,17 @@ def stock_schema():
         return value
 
     assert (version, bits, struct_count, enum_count) == (saved["version"], saved["size"], 26, 13)
+    assert pos == origin["serialized_rva"] + origin["serialized_size"]
+    if progression:
+        # The progression fixture retains the native owner paths. Unrelated
+        # purchased-attachment/clan-color enum strings refer outside this DDL
+        # asset and are deliberately excluded rather than supplied invented names.
+        projected = resolve(structs)
+        projected["0"]["members"] = [m for m in projected["0"]["members"] if m[0] in {
+            "cacloadouts", "playerstatslist", "personalbests", "higheststats",
+            "itemstats", "playerbeststatsbygamemode", "playerstatsbygamemode"}]
+        return dict(version=version, size=bits, structs=projected,
+                    enums=resolve({k: v for k, v in enums.items() if int(k) <= 10}), origin=origin)
     root = resolve(structs["0"])
     root["members"] = [m for m in root["members"] if m[0] in {"playerstatslist", "cg_subtitles"}]
     return dict(version=version, size=bits, structs={"0": root}, enums={"0": resolve(enums["0"])}, origin=origin)

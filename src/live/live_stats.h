@@ -277,11 +277,12 @@ char __cdecl LiveStats_UpdateAttachmentStatsMilestones(
                 ddlState_t *searchStateStats,
                 eAttachment attachmentIndex);
 char __cdecl LiveStats_UpdatePersonalBest(
-                int __formal,
+                int controllerIndex,
                 char *liveStatsBuffer,
                 char *oldStatsBuffer,
                 ddlState_t *searchStateStats,
-                ddlState_t *searchStateBests);
+                ddlState_t *searchStateBests,
+                const char *prefix);
 char __cdecl LiveStats_UpdateStatsMilestones(
                 int controllerIndex,
                 char *liveStatsBuffer,

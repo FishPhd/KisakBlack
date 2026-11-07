@@ -1768,7 +1768,8 @@ void __cdecl LiveStats_CompareStatsVsStableBuffer(int controllerIndex)
                 liveStatsBuffer,
                 oldStatsBuffer,
                 &searchStateStats,
-                &searchStateBests);
+                &searchStateBests,
+                "");
         while ( DDL_IterateNext(&searchStateStats, &searchStateStats)
                  && DDL_IterateNext(&searchStateBests, &searchStateBests) );
     }
@@ -1807,7 +1808,8 @@ void __cdecl LiveStats_CompareStatsVsStableBuffer(int controllerIndex)
                             liveStatsBuffer,
                             oldStatsBuffer,
                             &searchStateGameModeCurrentStats,
-                            &searchStateGameModeBests);
+                            &searchStateGameModeBests,
+                            gameModeName);
                 }
                 while ( DDL_IterateNext(&searchStateGameModeBests, &searchStateGameModeBests) );
             }
@@ -2078,16 +2080,18 @@ char __cdecl LiveStats_UpdateAttachmentStatsMilestones(
 }
 
 char __cdecl LiveStats_UpdatePersonalBest(
-                int __formal,
+                int controllerIndex,
                 char *liveStatsBuffer,
                 char *oldStatsBuffer,
                 ddlState_t *searchStateStats,
-                ddlState_t *searchStateBests)
+                ddlState_t *searchStateBests,
+                const char *prefix)
 {
-    unsigned int currentValue; // [esp+0h] [ebp-10h]
-    signed int currentBest; // [esp+4h] [ebp-Ch]
-    signed int matchDelta; // [esp+8h] [ebp-8h]
-    unsigned int lastValue; // [esp+Ch] [ebp-4h]
+    if ( s_currentPersonalBest[controllerIndex] >= 1000 )
+    {
+        Com_PrintError(16, "Tried to add too many personal bests to list - only %d are supported.\n", 1000);
+        return 0;
+    }
 
     if ( (!liveStatsBuffer || !oldStatsBuffer || !searchStateStats || !searchStateBests)
         && !Assert_MyHandler(
@@ -2101,21 +2105,19 @@ char __cdecl LiveStats_UpdatePersonalBest(
     }
     if ( !liveStatsBuffer || !oldStatsBuffer || !searchStateStats || !searchStateBests )
         return 0;
-    currentValue = DDL_GetInt(searchStateStats, liveStatsBuffer);
-    lastValue = DDL_GetInt(searchStateStats, oldStatsBuffer);
-    currentBest = DDL_GetInt(searchStateBests, liveStatsBuffer);
-    matchDelta = currentValue - lastValue;
-    if ( (int)(currentValue - lastValue) < 0 )
-    {
-        Com_PrintWarning(
-            15,
-            "Negative delta, %u currentvalue, %u lastvalue, stat %s %i\n",
-            currentValue,
-            lastValue,
-            searchStateStats->member->name,
-            searchStateStats->member->offset);
+    const unsigned int currentValue = DDL_GetInt(searchStateStats, liveStatsBuffer);
+    const unsigned int lastValue = DDL_GetInt(searchStateStats, oldStatsBuffer);
+    const unsigned int currentBest = DDL_GetInt(searchStateBests, liveStatsBuffer);
+    const unsigned int matchDelta = currentValue - lastValue;
+    if ( !matchDelta )
         return 0;
-    }
+
+    personalBest_t *best = &s_personalBests[controllerIndex][s_currentPersonalBest[controllerIndex]];
+    best->value = (int)matchDelta;
+    best->delta = (int)(matchDelta - currentBest);
+    best->name = searchStateBests->ddl->enumList[searchStateBests->member->enumIndex].members[searchStateBests->arrayIndex];
+    best->prefix = prefix;
+    ++s_currentPersonalBest[controllerIndex];
     if ( matchDelta > currentBest )
         DDL_SetInt(searchStateBests, matchDelta, liveStatsBuffer);
     return 1;
@@ -2334,9 +2336,13 @@ char __cdecl LiveStats_UpdatetBestMatchAccuracy(char *liveStatsBuffer, char *old
     matchHits = LiveStats_GetPlayerStat("PlayerStatsList", "HITS", liveStatsBuffer) - oldHits;
     if ( currentShots == oldShots )
         return 0;
-    if ( 10000 * matchHits / matchShots <= LiveStats_GetPlayerStat("HighestStats", "HIGHEST_ACCURACY", oldStatsBuffer) )
+    // Original x87 arithmetic widens before multiplication and truncates to a
+    // signed 64-bit integer before retaining its low DWORD.
+    const double numerator = (double)matchHits * 10000.0;
+    const unsigned int accuracy = (unsigned int)(__int64)(numerator / (double)matchShots);
+    if ( accuracy <= LiveStats_GetPlayerStat("HighestStats", "HIGHEST_ACCURACY", oldStatsBuffer) )
         return 0;
-    LiveStats_SetPlayerStat("HighestStats", "HIGHEST_ACCURACY", liveStatsBuffer, 10000 * matchHits / matchShots);
+    LiveStats_SetPlayerStat("HighestStats", "HIGHEST_ACCURACY", liveStatsBuffer, accuracy);
     return 1;
 }
 
@@ -4641,7 +4647,6 @@ void __cdecl LiveStats_PresetigeStatsResetCmd()
 
 void __cdecl SV_UpdatePersonalBestsForClient(int clientnum)
 {
-#ifdef KISAK_LIVE
     char *v1; // eax
     ddlState_t searchStateGameModeBests; // [esp+4h] [ebp-94h] BYREF
     const char *gameModeName; // [esp+14h] [ebp-84h]
@@ -4708,7 +4713,7 @@ void __cdecl SV_UpdatePersonalBestsForClient(int clientnum)
                     SV_SetItemNewForClient(liveStatsBuffer, itemNumber, newRank, newPrestige);
                 }
                 v1 = va("%d", itemNumber);
-                if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v1)
+                if ( DDL_MoveTo(&g_statsRootState, &searchStateStats, 3, "ItemStats", v1, "stats")
                     && DDL_IterateFirst(&searchStateStats, &searchStateStats) )
                 {
                     do
@@ -4742,7 +4747,7 @@ void __cdecl SV_UpdatePersonalBestsForClient(int clientnum)
             && DDL_IterateFirst(&searchStateBests, &searchStateBests) )
         {
             do
-                LiveStats_UpdatePersonalBest(0, liveStatsBuffer, oldStatsBuffer, &searchStateStats, &searchStateBests);
+                LiveStats_UpdatePersonalBest(0, liveStatsBuffer, oldStatsBuffer, &searchStateStats, &searchStateBests, "");
             while ( DDL_IterateNext(&searchStateStats, &searchStateStats)
                      && DDL_IterateNext(&searchStateBests, &searchStateBests) );
         }
@@ -4772,7 +4777,8 @@ void __cdecl SV_UpdatePersonalBestsForClient(int clientnum)
                                 liveStatsBuffer,
                                 oldStatsBuffer,
                                 &searchStateGameModeCurrentStats,
-                                &searchStateGameModeBests);
+                                &searchStateGameModeBests,
+                                gameModeName);
                         }
                     }
                     while ( DDL_IterateNext(&searchStateGameModeBests, &searchStateGameModeBests) );
@@ -4780,7 +4786,6 @@ void __cdecl SV_UpdatePersonalBestsForClient(int clientnum)
             }
         }
     }
-#endif
 }
 
 cmd_function_s LiveStats_StatSetByNameCmd_VAR;

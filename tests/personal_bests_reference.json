@@ -1,0 +1,59 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "identity_evidence": "Original instructions, caller register/stack operands, client bank offsets, DDL operands, global list strides and constants; see docs/multiplayer-personal-bests-review.md. Automatic pairing does not establish identities.",
+  "functions": [
+    {
+      "name": "SV_UpdatePersonalBestsForClient",
+      "entry_rva": "0x222960",
+      "scope": "complete original owner; instruction review; replay scope recorded separately",
+      "code": [
+        {
+          "rva": 2238816,
+          "size": 1036,
+          "sha256": "2bbc8160c95fe3c45337061de11f439943aa953e53309219cc8be939adb0da7b"
+        }
+      ]
+    },
+    {
+      "name": "LiveStats_UpdatePersonalBest",
+      "entry_rva": "0x509580",
+      "scope": "complete original owner; instruction review; replay scope recorded separately",
+      "code": [
+        {
+          "rva": 5281152,
+          "size": 256,
+          "sha256": "2933abeb84909d510ec9fd5d856b52d8925d21aa950a3653b73daebbf680a90b"
+        }
+      ]
+    },
+    {
+      "name": "LiveStats_UpdatetBestMatchAccuracy",
+      "entry_rva": "0x50b010",
+      "scope": "complete original owner; instruction review; replay scope recorded separately",
+      "code": [
+        {
+          "rva": 5287952,
+          "size": 242,
+          "sha256": "705fa747e9b607cb59b5c4fa57209bdfb1c19a8424c4449bbf8b32a8b5ccd614"
+        }
+      ]
+    }
+  ],
+  "immutable_replay": {
+    "personal_best": {
+      "cases": 224,
+      "inputs_sha256": "59c6d74c6f48acef565d42bd0043d4938996ddb76518ba2979b1b8000a58a51b",
+      "original_outputs_sha256": "eb984de98aed22e16cdb1bf9049e04b19e1d80eab5d0f41ac6d711b5eba1d0d5"
+    },
+    "accuracy_inline": {
+      "cases": 201,
+      "original_outputs_sha256": "4c3e3fc90c693c2d1860fcb97e005bbfd1c21f949f9688b8b4714f850e4e6324",
+      "region": {
+        "rva": 5288061,
+        "size": 90,
+        "sha256": "222388ee6a8d28cbf7183c1742f82a720bf27e1ca7ceaa0a2959fe8762d7d24c"
+      }
+    }
+  },
+  "limits": "Full server and accuracy owners are instruction-reviewed, not original-native replay qualified. Helper valid-state replay uses real original integer DDL closure; accuracy replay covers only the declared arithmetic inline. Unsupported diagnostics, services, original lookup/catalogue closure, gameplay and persistence remain unqualified. No byte identity claim."
+}
