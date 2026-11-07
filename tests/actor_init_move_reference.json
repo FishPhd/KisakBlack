@@ -1,0 +1,17 @@
+{
+  "reference_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "identity_evidence": "Actor physics clear at self+0x234 size0x7d0; initialized-static guard/dummy; explicit derived visitor vtable store at self+0x34c; reset, entity number, 50ms, alive, mask0x2820011, hit1023, ground1022 and entity bounds. ECX self and caller at original RVA0x69233. See docs/multiplayer-actor-physics-review.md.",
+  "functions": [{
+    "name": "Actor_InitMove",
+    "entry_rva": "0x1dd8c0",
+    "scope": "complete original owner; warm-static behavioral replay excludes first-use CRT registration",
+    "code": [{"rva":1956032,"size":543,"sha256":"3d9416e7a7e0973bef96d9b6de61bcad9f0de0ce4a40ece3955610603685e726"}]
+  }],
+  "immutable_replay": {
+    "cases": 112,
+    "inputs_sha256": "c024f034e6c74b58f677e53b74590b8accfd98e3de2726a5ca6a4faca6991635",
+    "original_outputs_sha256": "c99428c2d6a3c96eba14aa6acd9a5bb93223638475aad99ee824976fc6939c81"
+  },
+  "original_layout": {"actor_size":10112,"physics_offset":564,"physics_size":2000,"visitor_offset_in_physics":280,"visitor_size":1720,"vtable_va":"0xac2c00","update_slot":20},
+  "limits": "Field-state comparison projects current 16-byte vector alignment to original offsets; virtual pointer is normalized by exact derived type identity. Actor bytes outside physics and entity data are guarded. No raw layout identity, cold-static/atexit, full GJK/world collision or gameplay qualification follows from this replay. Both original scalar and SSE memset implementations execute without dependency result stubs."
+}

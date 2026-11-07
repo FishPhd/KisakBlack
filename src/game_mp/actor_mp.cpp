@@ -1,4 +1,5 @@
 #include "actor_mp.h"
+#include <new>
 #include "g_main_mp.h"
 #include "g_utils_mp.h"
 #include <game/actor_spawner.h>
@@ -2680,18 +2681,9 @@ void __fastcall Actor_InitMove(actor_s *self)
     memset(&self->Physics, 0, sizeof(self->Physics));
 
     static colgeom_visitor_inlined_t<200> dummy_3;
-    //if ( (_S2_8 & 1) == 0 )
-    //{
-    //    _S2_8 |= 1u;
-    //    colgeom_visitor_t::colgeom_visitor_t(&dummy_3);
-    //    dummy_3.__vftable = (colgeom_visitor_inlined_t<200>_vtbl *)&colgeom_visitor_inlined_t<200>::`vftable';
-    //    colgeom_visitor_inlined_t<500>::reset(&dummy_3);
-    //    atexit(Actor_InitMove_::_2_::_dynamic_atexit_destructor_for__dummy__);
-    //}
-
-    //self->Physics.proximity_data.__vftable = dummy_3.__vftable;
-    self->Physics.proximity_data = dummy_3;
-    //colgeom_visitor_inlined_t<500>::reset(&self->Physics.proximity_data);
+    // The original restores the visitor vtable after clearing Physics.
+    // Assignment copies fields but cannot restore the erased vtable pointer.
+    new (&self->Physics.proximity_data) colgeom_visitor_inlined_t<200>(dummy_3);
     self->Physics.proximity_data.reset();
     self->Physics.vOrigin[0] = 0.0f;
     self->Physics.vOrigin[1] = 0.0f;
