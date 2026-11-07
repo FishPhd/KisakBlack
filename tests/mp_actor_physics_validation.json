@@ -1,0 +1,363 @@
+{
+  "source_commit": "922c2c7e95292eb55fbcf48c7f4cf0f17c7595a4",
+  "source_tree": "5b9c1f5faced26f38ba9899fd788506c2f0273b0",
+  "parent": "926ba12a6ea207fe42398d5a69ae5b4f541cdc83",
+  "review_base": "a16c447d27ac00246e1f34e7932fcfcd81f3f173",
+  "source_identity": {
+    "path": "src/game_mp/actor_mp.cpp",
+    "working_file_sha256": "83b098277c99ff7c6d4cefcb534b3988cbead6191cbce3402ab624c6bbb8f496",
+    "git_blob": "04863192f8c2c7b86637a4ae2ceedf23920d63df"
+  },
+  "original_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+  "same_profile_sha256": "5fd003cb75149276da6113069c8a2a8ed2b6d0c916fe93978feb1ca7ec878ac8",
+  "build_profile_reference": "tests/mp_restoration_validation.json:build_profile; every recorded tool/library/build-file hash revalidated equal before snapshot",
+  "base_binary": {
+    "exe_sha256": "9fbf53739e855b7901173b7a92800fe3e413c95a767e325de9e16145f9c7b6c3",
+    "pdb_sha256": "047d8a7bca93fdfb22e6a4e9e7c84c196e9a8d5fb3dda60967b875b19f288e99"
+  },
+  "previous_binary": {
+    "exe_sha256": "9aad404cc3a5875b89d1b92dc0e0f5661ec4f37c0f21719facd3c76c77ecbe53",
+    "pdb_sha256": "04957dfc40938f4f879f0ccd6781bd6cb33006722afc85f8be3a8740701cd96f"
+  },
+  "candidate_binary": {
+    "exe_sha256": "2f68cd3370d9308f4dd95a580a587fa29dcfa46750f64de4d58c7f719bae8767",
+    "pdb_sha256": "6071309d023736d18db31ec314f82e68dc8c8bb1bba19170aa23e8c5705fe035"
+  },
+  "build_source_basis": {
+    "head_at_build": "926ba12a6ea207fe42398d5a69ae5b4f541cdc83",
+    "working_diff_sha256": "c192093c409e8e9a5fb414d0544a75893f509beda402cb876318768f4254f3c3",
+    "compiled_source_sha256": "83b098277c99ff7c6d4cefcb534b3988cbead6191cbce3402ab624c6bbb8f496",
+    "notes": "One pinned final native build; production source unchanged through commit. Preserved user README edit outside compiler inputs."
+  },
+  "structural": {
+    "base_percent": 14.133471197947108,
+    "previous_percent": 14.189507144623192,
+    "candidate_percent": 14.110600181646035,
+    "delta_from_base_percentage_points": -0.0228710163010728,
+    "delta_from_previous_percentage_points": -0.07890696297715749,
+    "minimum_confidence": 0.7,
+    "original_byte_denominator": 5506261,
+    "metric_unchanged": true,
+    "saved_main_profile_used": false,
+    "actor_owner_automatic_credit": {
+      "before": 0,
+      "after": 0,
+      "before_candidate": "CG_SetUnionType",
+      "after_candidate": "CG_SetUnionType"
+    },
+    "largest_automatic_pairing_losses": [
+      {
+        "original_va": "0x6a4290",
+        "delta_percentage_points": -0.03009010584684146,
+        "before": "WeaponOptions::SetupWeaponOptionsRender",
+        "after": "DDL_LoadAssetWithVersion",
+        "before_status": "matched",
+        "after_status": "low_confidence"
+      },
+      {
+        "original_va": "0x8d8d80",
+        "delta_percentage_points": -0.0139330872828163,
+        "before": "UI_LoadArenas",
+        "after": "Demo_WriteServerCommands",
+        "before_status": "matched",
+        "after_status": "low_confidence"
+      },
+      {
+        "original_va": "0x864920",
+        "delta_percentage_points": -0.008448971353454938,
+        "before": "CM_TraceThroughAabbTree_work",
+        "after": "trace_point_through_partition",
+        "before_status": "matched",
+        "after_status": "low_confidence"
+      }
+    ],
+    "pairing_change_limit": "These are matcher changes, not independently established identities; only verified cohort false pairings are labelled false. No semantic inference from score."
+  },
+  "independent_function_pairs": {
+    "count": 30,
+    "original_code_bytes": 11337,
+    "raw_byte_identical_functions": 0,
+    "highlow_normalized_identical_functions": 0,
+    "pe_highlow_operands_found": 0,
+    "limits": "Exact original region hashes and native named-function bodies; inline-only source mapping excluded. Raw equality includes relative addresses. Normalized comparison zeroes only PE HIGHLOW relocation operands; no opcode/register/relative-call normalization. Byte differences count positions in concatenated decoded bodies including length differences. Mnemonic edit counts ignore all operands and are diagnostics, not semantic equivalence. Ghidra-discovered bodies may omit undiscovered code. No behavioral inference from either comparison.",
+    "blocked": [
+      {
+        "name": "SV_ValidateClientCAC",
+        "reason": "Ghidra native body stops after42bytes at an assertion call; real JZ reaches interior FUN at entry+0x32. Do not compare this fragment as the complete2118-byte original owner or call its interior automatic match a false function identity."
+      }
+    ],
+    "actor_comparison_with_previous": {
+      "name": "Actor_InitMove",
+      "original_entry_rva": "0x1dd8c0",
+      "original_bytes": 543,
+      "original_instructions": 91,
+      "original_sha256": "3d9416e7a7e0973bef96d9b6de61bcad9f0de0ce4a40ece3955610603685e726",
+      "original_highlow_offsets": [],
+      "base": {
+        "entry_rva": "0x359b20",
+        "bytes": 806,
+        "instructions": 144,
+        "sha256": "a4d906a250951adbf032095a5f8b239699c79c9810f364ac0c5c14ecc211e625",
+        "raw": {
+          "equal": false,
+          "different_positions": 764
+        },
+        "highlow_normalized": {
+          "equal": false,
+          "different_positions": 764
+        },
+        "highlow_offsets": [],
+        "mnemonic_affected_original": 60,
+        "mnemonic_affected_candidate": 113
+      },
+      "candidate": {
+        "entry_rva": "0x359c60",
+        "bytes": 803,
+        "instructions": 142,
+        "sha256": "63949c8b1f63616e18629fc87393dcf2135ecfc5984993304478d9c42e8e490e",
+        "raw": {
+          "equal": false,
+          "different_positions": 766
+        },
+        "highlow_normalized": {
+          "equal": false,
+          "different_positions": 766
+        },
+        "highlow_offsets": [],
+        "mnemonic_affected_original": 60,
+        "mnemonic_affected_candidate": 111
+      }
+    },
+    "columns": [
+      "name",
+      "original_rva",
+      "original_bytes",
+      "original_instructions",
+      "base_rva",
+      "base_bytes",
+      "base_instructions",
+      "base_raw_different_positions",
+      "base_mnemonic_affected_original",
+      "base_mnemonic_affected_candidate",
+      "candidate_rva",
+      "candidate_bytes",
+      "candidate_instructions",
+      "candidate_raw_different_positions",
+      "candidate_mnemonic_affected_original",
+      "candidate_mnemonic_affected_candidate"
+    ],
+    "pairs": [
+      ["BG_UnlockablesSetItemNew","0x12fd10",218,76,"0x136640",185,72,212,33,29,"0x1366f0",190,73,211,33,30],
+      ["SV_SetItemNewForClient","0x2b4260",190,64,"0x137a20",190,63,182,26,25,"0x137ac0",195,64,191,26,26],
+      ["BG_UnlockablesIsItemNew","0x260460",235,87,"0x134af0",203,77,228,46,36,"0x134b60",212,78,225,46,37],
+      ["BG_UnlockablesSetItemPurchased","0x3b94b0",141,50,"0x1367b0",142,55,130,21,26,"0x136860",147,56,143,21,27],
+      ["BG_UnlockablesSellItem","0x4aee0",470,175,"0x136100",511,172,497,94,91,"0x1361b0",522,174,500,94,93],
+      ["BG_UnlockablesIsItemPurchasedFromBuffer","0x3b9540",189,63,"0x134d70",140,52,182,30,19,"0x134e00",145,53,173,30,20],
+      ["BG_UnlockablesIsItemDualWieldPurchased","0x46a0",269,101,"0x134690",188,65,263,61,25,"0x1346f0",197,66,263,61,26],
+      ["BG_UnlockablesPurchaseItemAttachmentPoint","0x22c090",410,159,"0x135b20",650,225,629,82,148,"0x135bc0",662,229,646,82,152],
+      ["BG_UnlockablesSetItemAttachmentPurchased","0x3b9670",158,57,"0x136590",163,65,158,24,32,"0x136640",175,72,172,23,38],
+      ["BG_UnlockablesIsItemAttachmentPointPurchased","0x2954d0",271,106,"0x134200",289,105,278,41,40,"0x134240",295,107,283,40,41],
+      ["BG_UnlockablesIsItemAttachmentPurchased","0x2984b0",273,107,"0x134330",288,105,272,42,40,"0x134370",307,108,292,42,43],
+      ["BG_UnlockablesIsItemOptionPurchased","0x82260",268,110,"0x134bc0",276,99,264,48,37,"0x134c40",295,102,281,48,40],
+      ["BG_UnlockablesClearItemNew","0x1fc4f0",221,75,"0x130ff0",155,57,207,32,14,"0x131020",164,58,210,32,15],
+      ["BG_UnlockablesSetItemOptionPurchased","0x3b97a0",158,57,"0x136700",163,65,158,24,32,"0x1367b0",175,72,172,23,38],
+      ["SV_CacValidate_IsItemPurchased","0x28c510",233,79,"0x1378a0",166,62,221,52,35,"0x137940",171,63,222,52,36],
+      ["SV_CACValidate_IsItemAttachmentPurchased","0x18fd10",281,111,"0x137450",213,77,267,73,39,"0x137470",227,82,267,73,44],
+      ["SV_CACValidate_IsItemOptionPurchased","0x2449d0",315,131,"0x137560",250,86,307,77,32,"0x137590",330,127,320,69,65],
+      ["SV_CACValidate_SetItemAttachmentPurchased","0x3bbb10",148,53,"0x137670",153,61,149,20,28,"0x1376f0",165,68,162,19,34],
+      ["SV_CACValidate_SetItemOptionPurchased","0x110380",164,63,"0x137710",153,61,161,26,24,"0x1377a0",165,68,149,24,29],
+      ["BG_UnlockablesClearWeaponInfo","0xae740",347,129,"0x1310f0",148,65,325,69,5,"0x131130",148,65,325,69,5],
+      ["SV_CACValidate_ClearWeaponInfo","0x237c50",212,83,"0x137190",390,145,363,22,84,"0x1371f0",325,122,307,10,49],
+      ["SV_CACValidate_CheckIfEquippedItemsArePurchased","0x1e7930",2158,711,"0x136cd0",1214,383,2114,542,214,"0x136d90",1111,346,2121,503,138],
+      ["LiveStats_MoveToProItemVersion","0x2b8070",99,37,"0x518a40",84,24,99,16,3,"0x5190b0",94,29,92,18,10],
+      ["LiveStats_GetIntPlayerStatInternal","0x1d8440",180,68,"0x5177e0",304,102,298,17,51,"0x517e80",355,116,345,5,53],
+      ["LiveStats_SetIntPlayerStatInternal","0x18dcd0",192,76,"0x519ed0",259,85,255,29,38,"0x51a490",321,108,296,9,41],
+      ["PM_Weapon","0x1cf0e0",1460,501,"0x13cb80",2010,664,1930,202,365,"0x13cdc0",2497,782,2435,204,485],
+      ["SV_UpdatePersonalBestsForClient","0x222960",1036,351,"0x51ce70",3,1,1036,350,0,"0x51d050",1550,466,1524,85,200],
+      ["LiveStats_UpdatePersonalBest","0x509580",256,88,"0x51bdb0",157,66,250,49,27,"0x51c1e0",293,96,288,19,27],
+      ["LiveStats_UpdatetBestMatchAccuracy","0x50b010",242,76,"0x51c0c0",703,231,692,37,192,"0x51c580",738,236,730,35,195],
+      ["Actor_InitMove","0x1dd8c0",543,91,"0x3596f0",806,144,765,60,113,"0x359c60",803,142,766,60,111]
+    ]
+  },
+  "automatic_false_pairings": {
+    "base": {
+      "count": 24,
+      "accepted_count": 0,
+      "accepted_examples": []
+    },
+    "candidate": {
+      "count": 25,
+      "accepted_count": 3,
+      "accepted_examples": [
+        {
+          "original": "BG_UnlockablesClearWeaponInfo",
+          "automatic_candidate": "SV_CACValidate_ClearWeaponInfo",
+          "confidence": 0.9547825265167125,
+          "accepted": true
+        },
+        {
+          "original": "LiveStats_GetIntPlayerStatInternal",
+          "automatic_candidate": "LiveStats_GetIntPlayerStatFromBase",
+          "confidence": 0.954585880105624,
+          "accepted": true
+        },
+        {
+          "original": "LiveStats_SetIntPlayerStatInternal",
+          "automatic_candidate": "SV_CACValidate_IsItemAttachmentPurchased",
+          "confidence": 0.7652745601971696,
+          "accepted": true
+        }
+      ]
+    }
+  },
+  "behavioral": {
+    "actor_initializer": {
+      "status": "pass",
+      "cases": 112,
+      "production_mismatches": [],
+      "native_unicorn_mismatches": [],
+      "original_sha256": "17304fa6bf0eac57ac8da34c3d30b9106e6cc0d0263b0ce189b9bcd8c34675cc",
+      "original_owner_bytes": 543,
+      "declared_closure_bytes": 895,
+      "executed_original_bytes": 607,
+      "original_outputs_sha256": "c99428c2d6a3c96eba14aa6acd9a5bb93223638475aad99ee824976fc6939c81",
+      "inputs_sha256": "c024f034e6c74b58f677e53b74590b8accfd98e3de2726a5ca6a4faca6991635",
+      "regions": [
+        {
+          "rva": "0x1dd8c0",
+          "size": 543,
+          "sha256": "3d9416e7a7e0973bef96d9b6de61bcad9f0de0ce4a40ece3955610603685e726"
+        },
+        {
+          "rva": "0x5ca590",
+          "size": 122,
+          "sha256": "7df7f577713d410dc77f2d3ff2b5c317268b87475bc947c4d7985019eee2b42b"
+        },
+        {
+          "rva": "0x5d8588",
+          "size": 143,
+          "sha256": "2c6ec9692bbbf045d50cf27b5f58068d75ca3b1556c0c2b0d022637af2beee0d"
+        },
+        {
+          "rva": "0x5d8531",
+          "size": 87,
+          "sha256": "38b144566672d63b2e444be8c0520f9a9182e6029d33320c977a51f6b67a4637"
+        }
+      ],
+      "source_sha256": "83b098277c99ff7c6d4cefcb534b3988cbead6191cbce3402ab624c6bbb8f496",
+      "runner_sha256": "318b0988bfec071b560bb0a1822e84a357859378d2f3679f5eeebec646aff6b5",
+      "production_layout": "layout actor=10160 physics=2032 actor_physics=576 proximity=288 visitor=1744",
+      "production_virtual_visit_and_reinitialization": "pass",
+      "scope": "Whole Actor_InitMove with already-initialized static visitor; real original scalar/SSE memset closure; all physics fields projected across header layout differences, actor bytes outside physics and entity data guarded. Production virtual visit and repeated initialization regression are separate from original replay.",
+      "exclusions": "First-use static initialization/CRT atexit, diagnostics, full GJK/world collision, lifetime root cause of earlier cluster-link crash, gameplay and persistence unqualified. No raw struct layout/byte identity claim. Unsupported code/memory or world traversal terminates."
+    },
+    "before": {
+      "cases": 112,
+      "production_mismatches": 112,
+      "native_unicorn_mismatches": 0,
+      "original_outputs_sha256": "c99428c2d6a3c96eba14aa6acd9a5bb93223638475aad99ee824976fc6939c81"
+    },
+    "native_catalog": {
+      "units": 56,
+      "cases": 224870,
+      "not_passed": []
+    },
+    "selftest": {
+      "status": "pass",
+      "tests": 111,
+      "skipped": 0,
+      "mutation_detected": true,
+      "production_unchanged": true
+    }
+  },
+  "gameplay": {
+    "status": "failed partial smoke",
+    "date": "2026-11-07",
+    "candidate_pid": 21192,
+    "isolated_profile": "build-re/multiplayer/actor-followup/nov07-profile",
+    "isolation_verified": "Startup search path and console log point to isolated profile after using actual registered fs_h setting.",
+    "observed": [
+      "Stock CT lobby reached using original mode configuration and native Cbuf command API",
+      "START MATCH and stock SMG selection through UI",
+      "Spawned MP5K with stock displayed perks while bots fought and scored"
+    ],
+    "actor_observation_count": 0,
+    "actor_events": [],
+    "exceptions": [
+      {
+        "time_utc": "2026-11-07T19:08:52.901932+00:00",
+        "kind": "access-violation",
+        "at": {
+          "address": "0xc2740000",
+          "module": null,
+          "rva": null,
+          "symbol": "0xc2740000"
+        },
+        "context": {
+          "pc": "0xc2740000",
+          "sp": "0x41abe944",
+          "eax": "0x0",
+          "ebx": "0x42c2302",
+          "ecx": "0xc4486ff2",
+          "edx": "0x41abd590",
+          "esi": "0x4264274",
+          "edi": "0x435f610",
+          "ebp": "0x0",
+          "eip": "0xc2740000",
+          "esp": "0x41abe944"
+        },
+        "memory": {
+          "operation": "execute",
+          "address": "0xc2740000"
+        },
+        "accurate_stack": [
+          {
+            "address": "0x42740000",
+            "module": null,
+            "rva": null,
+            "symbol": "0x42740000"
+          },
+          {
+            "address": "0xc2740000",
+            "module": null,
+            "rva": null,
+            "symbol": "0xc2740000"
+          },
+          {
+            "address": "0x42740000",
+            "module": null,
+            "rva": null,
+            "symbol": "0x42740000"
+          }
+        ],
+        "fuzzy_stack": [
+          "0x42740000",
+          "0x63ee62",
+          "0x676f1b",
+          "0x676f7d",
+          "0x9c8778",
+          "0x999572",
+          "0x7631fe",
+          "0xbfcefa",
+          "0xbfb8ee",
+          "0xbfcefa",
+          "0xbfb8ee",
+          "0xbfcefa",
+          "0xbfb8ee",
+          "0x98a3dc",
+          "0x95d8df",
+          "0x95d8df"
+        ]
+      }
+    ],
+    "limit": "No Actor_InitMove or corresponding actor-world-query events captured before a separate invalid execute-address crash. The replay fix is not live-gameplay qualified. Fuzzy stack is diagnostic only; root cause unproven. Human death/respawn, custom-class save and appropriate XP/rank UI/persistence unqualified."
+  },
+  "remaining_gaps": [
+    "First-use original static/CRT atexit branch, full GJK/world dependency replay remain unsupported",
+    "Separate invalid execution and earlier cluster-link failure unresolved; no collision bypass or assertion suppression",
+    "Custom-class purchase/save and appropriate XP/rank persistence remain incomplete; external storage prerequisites explicit",
+    "Current actor/vector header layout differs from original; projection is field agreement, not raw ABI/layout identity",
+    "Wasm branches remain separate"
+  ],
+  "qualification": "Finite-scope behavioral agreement, independently mapped instruction/byte diagnostics and automatic whole-EXE structural similarity are separate. No complete multiplayer or byte-identity claim."
+}

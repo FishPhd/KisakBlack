@@ -4,8 +4,9 @@ Class equipment ownership calls supplied fewer DDL operands than their declared
 path depth, so lookup could read unrelated stack values or fail. The weapon frame
 also omitted the original quick-scope updater, and integer stat access ignored
 the original GLOBAL-bank routing rule. Server stat completion was also compiled
-out, and its personal-best helper omitted result rows. This branch restores
-those connected native paths using the pinned original executable and assets.
+out, and its personal-best helper omitted result rows. Actor physics reset also
+erased the collision visitor table without reconstructing it. This branch
+restores those native paths using the pinned original executable and assets.
 
 The branch is ready for draft code review. The persistent custom-class/spawn/XP
 path remains incomplete, and the final gameplay smoke failed. No MR has been
@@ -15,8 +16,9 @@ movement, bot and layout repairs are inherited dependencies.
 
 The implementation commits are `62597dd` (class ownership), `c779e67`
 (quick-scope chain), `5c53093` (integer stat routing), and `13416d8` (server
-stat completion/personal-best chain). All non-Wasm local branch
-tips were already ancestors of the restoration history; redundant local names
+stat completion/personal-best chain). The actor collision construction repair
+is `922c2c7`. All non-Wasm local branch tips were already ancestors of the
+restoration history; redundant local names
 were removed after verification. Their histories are retained, remote branches
 were not deleted, and an ignored recovery bundle is at
 `build-re/consolidation/nov05/branches-before.bundle`.
@@ -45,6 +47,9 @@ were not deleted, and an ignored recovery bundle is at
   the original prefix, unsigned deltas and 1,000-row bound. Accuracy widens
   before multiplication. This owner uses GLOBAL/GLOBALSTABLE even in Combat
   Training; stock script XP/mode rules remain unchanged.
+- Actor movement initialization reconstructs its collision visitor after clearing
+  physics, restoring the original derived virtual table and reset state. This
+  fixes a demonstrated invalid object state; later collision failures remain open.
 
 All three requested areas were investigated. Prior bot weapon-selection,
 rechamber, reaction, movement-freeze and vehicle-classification fixes are
@@ -74,6 +79,9 @@ and strings rather than automatic function pairing:
 - [Personal-best review](multiplayer-personal-bests-review.md) establishes the
   server owner `0x222960` (1,036 bytes), result helper `0x509580` (256 bytes),
   accuracy owner `0x50b010` (242 bytes), caller ABI, bank offsets and stock paths.
+- [Actor physics review](multiplayer-actor-physics-review.md) establishes the
+  complete initializer at `0x1dd8c0` (543 bytes), its explicit visitor table
+  restoration, real memset closure, replay contract and current layout limits.
 
 Player Create-a-Class follows the stock menu's `equipclasscurrentitem`, native
 ownership/purchase checks, `BG_UnlockablesEquipClassToSlot`, `cacLoadouts` DDL,
@@ -88,10 +96,10 @@ mode gates remain intact; no fabricated XP or unlock-all was added.
 
 ## Verification
 
-The current [validation record](../tests/mp_personal_bests_validation.json)
+The current [validation record](../tests/mp_actor_physics_validation.json)
 contains source/EXE/PDB/profile identities, per-function instruction/byte
 differences, false pairings and smoke limitations. The
-[previous record](../tests/mp_restoration_followup_validation.json) retains the
+[previous record](../tests/mp_personal_bests_validation.json) retains the
 previous candidate; the [initial record](../tests/mp_restoration_validation.json)
 contains detailed pinned compiler/linker/library identities.
 
@@ -116,6 +124,12 @@ contains detailed pinned compiler/linker/library identities.
   **90 declared/executed bytes**. Full server/accuracy owner replay remains
   unqualified. Server production integration with real stock DDL improves from
   **7 failures / 15 checks to 0 / 18**; catalogue context is an explicit fixture.
+- Actor initializer: **112 cases**, zero original-native/Unicorn/production
+  differences after **112 mismatches before**. Closure **895 declared / 607
+  executed original bytes** includes real scalar/SSE memset. Field projection
+  accommodates current header layout differences; no raw ABI identity is claimed.
+  Production virtual visits and repeated initialization pass. Original first-use
+  static/CRT registration and full world collision remain unqualified.
 - Production class ownership/serialization tests pass. Full bot selector:
   **1,886 cases**, zero differences, **939 declared / 925 executed original
   bytes**. DDL integer IO: **140 transitions / 35 paths**, zero differences,
@@ -124,23 +138,34 @@ contains detailed pinned compiler/linker/library identities.
 - Existing native catalog: **56 units / 224,870 cases** pass. All **111** contract
   checks pass, and the deliberate mutation is detected. Original expected
   outputs remain immutable. Case totals are not whole-game coverage.
-- Whole-EXE structural score: **14.133471% → 14.189507%**, **+0.056036 percentage
+- Whole-EXE structural score: **14.133471% → 14.110600%**, **-0.022871 percentage
   points**, at unchanged confidence `0.7` and denominator 5,506,261 original
-  decoded function bytes. The previous candidate scored 14.249257%; this chunk
-  regresses that structural score by 0.059750 points. The metric is unchanged.
-- Independent comparisons cover **29 pairs / 10,794 original bytes**. **Zero
+  decoded function bytes. The previous candidate scored 14.189507%; this chunk
+  regresses that structural score by 0.078907 points. The metric is unchanged.
+- Independent comparisons cover **30 pairs / 11,337 original bytes**. **Zero
   pairs are byte-identical**. PE HIGHLOW normalization finds no operands here,
   so it changes none of the raw comparisons. Relative calls, registers and other
   address operands are not normalized; mnemonic edits are diagnostics only.
 - Automatic false whole-function pairings are separate from the unchanged
-  metric. Two accepted examples confuse client/server clear owners and the
-  integer-stat owner with a native wrapper containing inlined logic. The large
+  metric. Three accepted examples confuse client/server clear owners, the
+  integer getter with an inlined wrapper, and the integer setter with an
+  attachment validator. The restored actor initializer receives zero metric
+  credit before and after because its automatic pairing is wrong. The large
   CAC caller remains excluded because Ghidra splits its native body at an
   assertion. The quick-scope inline candidate region is not counted as another
   complete native function pair.
 
 ## Gameplay and remaining gaps
 
+The Nov07 final smoke uses the actual registered `fs_h` home-directory setting;
+search paths and logs confirm isolation. The player entered Summit through the
+stock START MATCH action and selected/spawned the stock SMG class while bots
+fought and scored. The run later failed executing **0xc2740000**, outside the
+EXE. The captured accurate stack is unusable; the root cause is unproven. No
+actor-init/world-query events occurred before that failure, so the initializer
+repair remains unqualified in live gameplay. No clean combined smoke is claimed.
+
+Previous Nov06 observations follow; their captures are retained unchanged.
 The corrected stock Combat Training setup sets `onlinegame 1` in addition to
 the training flag and stock menu/config setup. This passes the earlier
 initialization blocker; the old Nov06 startup omitted that prerequisite.
@@ -157,7 +182,7 @@ invalid cluster-link read in `process_cluster_environment_collision` (RVA
 `0x53e300`, EDI `0xffffffff`, read `0x2f`). Lifetime/shape root causes are not
 proven. No collision bypass or assertion suppression was added.
 
-The final launch did not honor the requested isolated home directory; it wrote
+The Nov06 launch did not honor the requested isolated home directory; it wrote
 logs to `build-release/main`. Destructive persistence checks were therefore
 not performed. Custom-class editing/saving, sustained human combat,
 death/respawn, human XP/rank UI updates and reload persistence remain
@@ -188,13 +213,14 @@ python tests/replay_quickscope_update.py
 python tests/replay_personal_bests.py
 python tests/replay_match_accuracy.py
 python tests/test_server_personal_bests.py
+python tests/replay_actor_init_move.py
 ```
 
 For each exact saved native EXE/PDB, export named bodies with
 `tests/ExportMultiplayerFunctions.java` from its Ghidra project, then run
 `tests/compare_mp_functions.py` with `--mapping` pointing to
 `tests/cac_ownership_reference.json`, `tests/mp_followup_reference.json` and
-`tests/personal_bests_reference.json`
+`tests/personal_bests_reference.json`, and `tests/actor_init_move_reference.json`
 separately. Undecodable or missing boundaries block comparison.
 The existing local `tools/re/` workflow reproduces the catalog and whole-EXE
 scan. Generated EXEs/PDBs, profiles, captures, fastfiles and bulky reports remain
