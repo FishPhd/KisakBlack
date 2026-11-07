@@ -1,10 +1,11 @@
-# Draft: Restore multiplayer ownership, quick-scope updates and stat routing
+# Draft: Restore multiplayer ownership, weapon updates and stat completion
 
 Class equipment ownership calls supplied fewer DDL operands than their declared
 path depth, so lookup could read unrelated stack values or fail. The weapon frame
 also omitted the original quick-scope updater, and integer stat access ignored
-the original GLOBAL-bank routing rule. This branch restores those connected
-native paths using the pinned original executable and stock assets.
+the original GLOBAL-bank routing rule. Server stat completion was also compiled
+out, and its personal-best helper omitted result rows. This branch restores
+those connected native paths using the pinned original executable and assets.
 
 The branch is ready for draft code review. The persistent custom-class/spawn/XP
 path remains incomplete, and the final gameplay smoke failed. No MR has been
@@ -13,7 +14,8 @@ opened or merged. Review `git diff a16c447..mp-restoration`; the remote
 movement, bot and layout repairs are inherited dependencies.
 
 The implementation commits are `62597dd` (class ownership), `c779e67`
-(quick-scope chain) and `5c53093` (integer stat routing). All non-Wasm local branch
+(quick-scope chain), `5c53093` (integer stat routing), and `13416d8` (server
+stat completion/personal-best chain). All non-Wasm local branch
 tips were already ancestors of the restoration history; redundant local names
 were removed after verification. Their histories are retained, remote branches
 were not deleted, and an ignored recovery bundle is at
@@ -38,6 +40,11 @@ were not deleted, and an ignored recovery bundle is at
   training dvar, supplied-buffer training flag or dedicated mode excludes that
   routing. The setter rejects a nonempty mod directory before mutation. Explicit
   forced-buffer readers and direct-buffer writers retain their own semantics.
+- Validated server stat completion again updates item/pro NEW flags, item and
+  global/mode personal bests, and highest accuracy/KD. Personal-best rows retain
+  the original prefix, unsigned deltas and 1,000-row bound. Accuracy widens
+  before multiplication. This owner uses GLOBAL/GLOBALSTABLE even in Combat
+  Training; stock script XP/mode rules remain unchanged.
 
 All three requested areas were investigated. Prior bot weapon-selection,
 rechamber, reaction, movement-freeze and vehicle-classification fixes are
@@ -64,6 +71,9 @@ and strings rather than automatic function pairing:
 - [Stat-routing review](multiplayer-stat-routing-review.md) establishes complete
   getter/setter identities at `0x1d8440` / `0x18dcd0` (180 / 192 bytes), field
   permissions, training/dedicated/storage callees and the mod-directory guard.
+- [Personal-best review](multiplayer-personal-bests-review.md) establishes the
+  server owner `0x222960` (1,036 bytes), result helper `0x509580` (256 bytes),
+  accuracy owner `0x50b010` (242 bytes), caller ABI, bank offsets and stock paths.
 
 Player Create-a-Class follows the stock menu's `equipclasscurrentitem`, native
 ownership/purchase checks, `BG_UnlockablesEquipClassToSlot`, `cacLoadouts` DDL,
@@ -78,11 +88,12 @@ mode gates remain intact; no fabricated XP or unlock-all was added.
 
 ## Verification
 
-The current [validation record](../tests/mp_restoration_followup_validation.json)
+The current [validation record](../tests/mp_personal_bests_validation.json)
 contains source/EXE/PDB/profile identities, per-function instruction/byte
 differences, false pairings and smoke limitations. The
-[earlier record](../tests/mp_restoration_validation.json) retains the previous
-candidate and detailed pinned compiler/linker/library identities.
+[previous record](../tests/mp_restoration_followup_validation.json) retains the
+previous candidate; the [initial record](../tests/mp_restoration_validation.json)
+contains detailed pinned compiler/linker/library identities.
 
 - Final native x86 Release build passes. The intended base and candidate use
   identical MSVC 14.37, SDK 10.0.22000, libraries, definitions, optimization and
@@ -99,6 +110,12 @@ candidate and detailed pinned compiler/linker/library identities.
   **33 failed checks before, zero after, out of 585**. This uses explicit fixture
   storage/service context. Its **372 reviewed original owner bytes** are not
   qualified original-native owner replay; unsupported dependencies block it.
+- Personal-best helper: **224 cases**, zero original-native/Unicorn/production
+  differences, **972 declared / 713 executed original bytes** with real integer
+  DDL dependencies. Accuracy arithmetic inline: **201 cases**, zero differences,
+  **90 declared/executed bytes**. Full server/accuracy owner replay remains
+  unqualified. Server production integration with real stock DDL improves from
+  **7 failures / 15 checks to 0 / 18**; catalogue context is an explicit fixture.
 - Production class ownership/serialization tests pass. Full bot selector:
   **1,886 cases**, zero differences, **939 declared / 925 executed original
   bytes**. DDL integer IO: **140 transitions / 35 paths**, zero differences,
@@ -107,10 +124,11 @@ candidate and detailed pinned compiler/linker/library identities.
 - Existing native catalog: **56 units / 224,870 cases** pass. All **111** contract
   checks pass, and the deliberate mutation is detected. Original expected
   outputs remain immutable. Case totals are not whole-game coverage.
-- Whole-EXE structural score: **14.133471% → 14.249257%**, **+0.115786 percentage
+- Whole-EXE structural score: **14.133471% → 14.189507%**, **+0.056036 percentage
   points**, at unchanged confidence `0.7` and denominator 5,506,261 original
-  decoded function bytes. The previous candidate scored 14.182762%.
-- Independent comparisons cover **26 pairs / 9,260 original bytes**. **Zero
+  decoded function bytes. The previous candidate scored 14.249257%; this chunk
+  regresses that structural score by 0.059750 points. The metric is unchanged.
+- Independent comparisons cover **29 pairs / 10,794 original bytes**. **Zero
   pairs are byte-identical**. PE HIGHLOW normalization finds no operands here,
   so it changes none of the raw comparisons. Relative calls, registers and other
   address operands are not normalized; mnemonic edits are diagnostics only.
@@ -123,20 +141,29 @@ candidate and detailed pinned compiler/linker/library identities.
 
 ## Gameplay and remaining gaps
 
-The final Nov06 smoke used `build-re/multiplayer/nov06/profile`. The candidate
-reached the multiplayer menu, but Computer Use could not activate its window.
-The engine's own command API accepted an echo, then
-`xblive_basictraining 1; g_gametype tdm; map mp_mountain` reached Summit Game
-Initialization. The process failed at 11:30:17 Pacific with **0x80000003** at
-EXE offset **0x65db20**, the reconstructed assertion handler. Its caller and root
-cause were not captured; the observer filtered breakpoint exceptions. This
-command-driven startup does not qualify the stock UI flow or prove a regression
-in these changes. Assertions were not removed or made successful.
+The corrected stock Combat Training setup sets `onlinegame 1` in addition to
+the training flag and stock menu/config setup. This passes the earlier
+initialization blocker; the old Nov06 startup omitted that prerequisite.
+The final candidate reached the CT lobby with CREATE A CLASS correctly locked,
+started via the stock START MATCH action, selected stock SMG through the UI and
+spawned with MP5K/ASP, grenades and the displayed stock perks. Bots fought and
+ran script stat updates. Ordinary movement/firing commands were enqueued.
 
-The earlier Nov05 candidate reached bot combat and scoring before an unresolved
-**0xc0000005** at address **0xc1f80000**. Neither run qualifies custom-class
-edit/save/spawn, sustained combat, human death/respawn, appropriate human XP/rank
-UI changes or profile-reload persistence. No clean gameplay pass is claimed.
+At 18:19:35 Pacific the final process crashed with an access violation at
+native RVA **0x55ffd8**, reading **0x14** in `gjk_query`. Its captured stack
+reaches `gjk_query_cached`, `gjk_trace`, `PM_gjk_ground_trace`,
+`AIPhys_GroundTrace` and `Actor_Physics_1`. The earlier diagnostic captured an
+invalid cluster-link read in `process_cluster_environment_collision` (RVA
+`0x53e300`, EDI `0xffffffff`, read `0x2f`). Lifetime/shape root causes are not
+proven. No collision bypass or assertion suppression was added.
+
+The final launch did not honor the requested isolated home directory; it wrote
+logs to `build-release/main`. Destructive persistence checks were therefore
+not performed. Custom-class editing/saving, sustained human combat,
+death/respawn, human XP/rank UI updates and reload persistence remain
+unqualified. Initial CT setup used the native Cbuf API, so the complete stock
+frontend navigation is also unqualified. No clean combined gameplay pass is
+claimed. Earlier failed captures remain in their historical validation records.
 
 Sign-in, fetched-stat and DDL-validation requirements remain explicit.
 `LiveStats_SpendCurrency` is still gated without `KISAK_LIVE`; counter/record
@@ -158,12 +185,16 @@ python tests/replay_cac_ddl.py
 python tests/replay_bot_weapon_selection.py
 python tests/test_stats_bank_routing.py
 python tests/replay_quickscope_update.py
+python tests/replay_personal_bests.py
+python tests/replay_match_accuracy.py
+python tests/test_server_personal_bests.py
 ```
 
 For each exact saved native EXE/PDB, export named bodies with
 `tests/ExportMultiplayerFunctions.java` from its Ghidra project, then run
 `tests/compare_mp_functions.py` with `--mapping` pointing to
-`tests/cac_ownership_reference.json` and `tests/mp_followup_reference.json`
+`tests/cac_ownership_reference.json`, `tests/mp_followup_reference.json` and
+`tests/personal_bests_reference.json`
 separately. Undecodable or missing boundaries block comparison.
 The existing local `tools/re/` workflow reproduces the catalog and whole-EXE
 scan. Generated EXEs/PDBs, profiles, captures, fastfiles and bulky reports remain
