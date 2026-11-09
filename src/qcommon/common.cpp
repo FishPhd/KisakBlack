@@ -3068,9 +3068,102 @@ void __cdecl Com_AdjustMaxFPS(int *maxFPS)
     }
 }
 
+#if defined(KISAK_MP) && !defined(KISAK_DEDICATED) && !defined(__EMSCRIPTEN__)
+static bool s_combatTrainingBootPending = true;
+
+static bool Com_HasExplicitFrontendStartup()
+{
+    for (int i = 0; i < com_numConsoleLines; ++i)
+    {
+        // A startup line may contain more than one command. Leave an explicit
+        // command buffer in control; quoted semicolons remain dvar text.
+        bool quoted = false;
+        for (const char *text = com_consoleLines[i]; *text; ++text)
+        {
+            if (*text == '"')
+                quoted = !quoted;
+            if ((!quoted && *text == ';') || *text == '\n' || *text == '\r')
+                return true;
+        }
+        Cmd_TokenizeString(com_consoleLines[i]);
+        bool explicitFlow = false;
+        if (Cmd_Argc())
+        {
+            const char *command = Cmd_Argv(0);
+            if (I_stricmp(command, "set") && I_stricmp(command, "seta"))
+            {
+                explicitFlow = true;
+            }
+            else if (Cmd_Argc() > 1)
+            {
+                const char *name = Cmd_Argv(1);
+                static const char *modeDvars[] = {
+                    "onlinegame", "systemlink", "splitscreen", "xblive_basictraining",
+                    "xblive_privatematch", "xblive_rankedmatch", "xblive_wagermatch",
+                    "xblive_clanmatch", "xblive_theater", "ui_mapname", "ui_gametype",
+                    "g_gametype", "sv_mapname", "mapname", "sv_mapRotation", "fs_game"
+                };
+                for (const char *modeDvar : modeDvars)
+                    if (!I_stricmp(name, modeDvar))
+                        explicitFlow = true;
+            }
+        }
+        Cmd_EndTokenizedString();
+        if (explicitFlow)
+            return true;
+    }
+    return false;
+}
+
+static void Com_OpenCombatTrainingOnBoot()
+{
+    if (!s_combatTrainingBootPending)
+        return;
+
+    const connstate_t state = CL_GetLocalClientConnectionState(0);
+    const bool startupVideo = state == CA_LOGO || state == CA_CINEMATIC;
+    if (IsDedicatedServer() || com_sv_running->current.enabled || Demo_IsPlaying()
+        || (!startupVideo && state != CA_DISCONNECTED && state != CA_UICINEMATIC)
+        || *Dvar_GetString("com_errorMessage") || *Dvar_GetString("fs_game")
+        || Com_HasExplicitFrontendStartup())
+    {
+        s_combatTrainingBootPending = false;
+        return;
+    }
+    if (startupVideo)
+        return;
+
+    const UiContext *dc = &UI_GetInfo(0)->uiDC;
+    if (!Menus_FindByName(dc, "menu_xboxlive_basictraining")
+        || !Menus_FindByName(dc, "basictraining_difficulty")
+        || !Menus_FindByName(dc, "basictraining_msg"))
+        return;
+
+    s_combatTrainingBootPending = false;
+    // Native launch policy: enter the stock Combat Training frontend after
+    // startup/readStats commands. Mode setup follows the original menu action.
+    // The stock first-use message opens the original difficulty selector itself.
+    const bool acknowledged = Dvar_GetBool("xblive_basictraining_popup");
+    Cbuf_AddText(0,
+        "systemlink 0\nsplitscreen 0\nonlinegame 1\n"
+        "xblive_privatematch 0\nxblive_rankedmatch 0\nxblive_wagermatch 0\n"
+        "xblive_clanmatch 0\nxblive_theater 0\nxblive_basictraining 0\n"
+        "onlinegame 1\nxblive_basictraining 1\n"
+        "exec default_xboxlive.cfg\nexec dvar_defaults.cfg\n"
+        "set ui_mapname mp_mountain\nset ui_gametype tdm\n"
+        "openmenu menu_xboxlive_basictraining\n");
+    if (acknowledged)
+        Cbuf_AddText(0, "openmenu basictraining_difficulty\n");
+}
+#endif
+
 char Com_UpdateMenu()
 {
     PROF_SCOPED("Com_UpdateMenu"); // LWSS ADD
+
+#if defined(KISAK_MP) && !defined(KISAK_DEDICATED) && !defined(__EMSCRIPTEN__)
+    Com_OpenCombatTrainingOnBoot();
+#endif
 
     int IsFullscreen; // eax
     uiMenuCommand_t MenuScreen; // eax
